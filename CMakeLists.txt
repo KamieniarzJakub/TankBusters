@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.11) # FetchContent is available in 3.11+
-project(example)
+project(TankBusters C CXX)
+
+set(CMAKE_CXX_STANDARD 17)
 
 # Generate compile_commands.json
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -24,19 +26,23 @@ endif()
 
 # Our Project
 
-add_executable(${PROJECT_NAME} core_basic_window.c)
-#set(raylib_VERBOSE 1)
+file(GLOB_RECURSE PROJECT_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/src/*.cpp") # Define PROJECT_SOURCES as a list of all source files
+set(PROJECT_INCLUDE "${CMAKE_CURRENT_LIST_DIR}/src/") # Define PROJECT_INCLUDE to be the path to the include directory of the project
+
+add_executable(${PROJECT_NAME})
+target_sources(${PROJECT_NAME} PRIVATE ${PROJECT_SOURCES})
+target_include_directories(${PROJECT_NAME} PRIVATE ${PROJECT_INCLUDE})
 target_link_libraries(${PROJECT_NAME} raylib)
 
 # Web Configurations
 if (${PLATFORM} STREQUAL "Web")
-    set_target_properties(${PROJECT_NAME} PROPERTIES SUFFIX ".html") # Tell Emscripten to build an example.html file.
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s USE_GLFW=3 -s ASSERTIONS=1 -s WASM=1 -s ASYNCIFY -s GL_ENABLE_GET_PROC_ADDRESS=1")
+  set_target_properties(${PROJECT_NAME} PROPERTIES SUFFIX ".html") # Tell Emscripten to build an example.html file.
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s USE_GLFW=3 -s ASSERTIONS=1 -s WASM=1 -s ASYNCIFY -s GL_ENABLE_GET_PROC_ADDRESS=1")
 endif()
 
 # Checks if OSX and links appropriate frameworks (Only required on MacOS)
 if (APPLE)
-    target_link_libraries(${PROJECT_NAME} "-framework IOKit")
-    target_link_libraries(${PROJECT_NAME} "-framework Cocoa")
-    target_link_libraries(${PROJECT_NAME} "-framework OpenGL")
+  target_link_libraries(${PROJECT_NAME} "-framework IOKit")
+  target_link_libraries(${PROJECT_NAME} "-framework Cocoa")
+  target_link_libraries(${PROJECT_NAME} "-framework OpenGL")
 endif()
