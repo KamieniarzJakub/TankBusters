@@ -1,0 +1,7 @@
+#!/bin/env bash
+set -o pipefail
+set -ea
+
+pushd build
+cmake --build .
+./TankBusters
