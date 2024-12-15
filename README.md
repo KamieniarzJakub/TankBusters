@@ -1,10 +1,10 @@
 # TankBusters
 Online multiplayer game
 
-#### Allegro tutorial
-https://github.com/liballeg/allegro_wiki/wiki/Quickstart
-#### Allegro compilation
-``gcc -Wall hello.c -o hello $(pkg-config allegro-5 allegro_font-5 --libs --cflags)``
+#### Raylib Asteroids tutorial
+https://www.youtube.com/watch?v=abIlGCx_Yq8
+#### Dokumentacja
+https://github.com/raysan5/raylib
 
 ## Opis gry
 Gra Tank Busters (nasza własna przeróbka gry asteroids PvPvE dla 2-4 graczy)
