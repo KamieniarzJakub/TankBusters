@@ -16,7 +16,7 @@ int main() {
   std::unique_ptr<Game> game = std::make_unique<Game>();
 
 #if defined(PLATFORM_WEB)
-  emscripten_set_main_loop(UpdateDrawFrame, 0, 1);
+  emscripten_set_main_loop(game->updateDrawFrame, 0, 1);
 #else
   // Main game loop
   while (!WindowShouldClose()) // Detect window close button or ESC key

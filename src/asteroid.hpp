@@ -2,10 +2,15 @@
 #include "raylib.h"
 
 struct Asteroid {
+  bool active;
   Vector2 position;
   Vector2 velocity;
-  double rotation;
-  double rotation_speed;
-  int size;
-  bool active;
+  int rotation;
+  int rotation_speed;
 };
+
+Asteroid CreateAsteroid(Vector2 position, Vector2 velocity);
+
+void UpdateAsteroid(Asteroid *asteroid, float frametime);
+
+void DrawAsteroid(Asteroid asteroid);

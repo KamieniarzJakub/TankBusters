@@ -1,8 +1,10 @@
 #include "asteroid.hpp"
+#include "constants.hpp"
 #include "player.hpp"
 #include "raylib.h"
 #include "resource_dir.hpp" // utility header for SearchAndSetResourceDir
 #include <vector>
+
 struct Game {
   Texture asteroid_texture;
   Texture player_texture;
@@ -28,18 +30,19 @@ struct Game {
   }
 
   void updateDrawFrame(void) {
+    float frametime = GetFrameTime();
+
+    for (int i = 0; i < asteroids.size(); i++) {
+      UpdateAsteroid(&asteroids[i], frametime);
+    }
+
     BeginDrawing();
 
-    ClearBackground(BLACK);
+    ClearBackground(Constants::BACKGROUND_COLOR);
 
-    DrawText("Congrats! You created your first window!", 190, 140, 20,
-             LIGHTGRAY);
-
-    // draw some text using the default font
-    DrawText("Hello Raylib", 200, 600, 20, WHITE);
-
-    // draw our texture to the screen
-    DrawTexture(player_texture, 400, 200, WHITE);
+    for (int i = 0; i < asteroids.size(); i++) {
+      DrawAsteroid(asteroids[i]);
+    }
 
     EndDrawing();
   }
