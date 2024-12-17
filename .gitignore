@@ -33,7 +33,7 @@
 
 #Folders
 build/
-# .vscode
+.vscode
 /cpm_modules
 .DS_Store
 .cache

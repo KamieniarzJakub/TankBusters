@@ -7,7 +7,6 @@
 #include <emscripten/emscripten.h>
 #endif
 
-void UpdateDrawFrame(void);
 
 int main() {
   SetConfigFlags(FLAG_VSYNC_HINT | FLAG_WINDOW_HIGHDPI);
