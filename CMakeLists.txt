@@ -1,5 +1,5 @@
-cmake_minimum_required(VERSION 3.11) # FetchContent is available in 3.11+
-project(TankBusters C CXX)
+cmake_minimum_required(VERSION 3.20) # FetchContent is available in 3.11+
+project(TankBusters CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -24,25 +24,48 @@ if (NOT raylib_FOUND) # If there's none, fetch and build raylib
   endif()
 endif()
 
-# Our Project
+# Project definition
 
-file(GLOB_RECURSE PROJECT_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/src/*.cpp") # Define PROJECT_SOURCES as a list of all source files
-set(PROJECT_INCLUDE "${CMAKE_CURRENT_LIST_DIR}/src/") # Define PROJECT_INCLUDE to be the path to the include directory of the project
+ # Define PROJECT_SOURCES as a list of all source files
+file(GLOB_RECURSE PROJECT_COMMON_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/src/common/*.cpp")
+file(GLOB_RECURSE PROJECT_CLIENT_ONLY_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/src/client/*.cpp")
+file(GLOB_RECURSE PROJECT_SERVER_ONLY_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/src/server/*.cpp")
 
-add_executable(${PROJECT_NAME})
-target_sources(${PROJECT_NAME} PRIVATE ${PROJECT_SOURCES})
-target_include_directories(${PROJECT_NAME} PRIVATE ${PROJECT_INCLUDE})
-target_link_libraries(${PROJECT_NAME} raylib)
+# Define PROJECT_INCLUDE to be the path to the include directory of the project
+set(PROJECT_COMMON_INCLUDE "${CMAKE_CURRENT_LIST_DIR}/src/common/")
+set(PROJECT_CLIENT_ONLY_INCLUDE "${CMAKE_CURRENT_LIST_DIR}/src/client/")
+set(PROJECT_SERVER_ONLY_INCLUDE "${CMAKE_CURRENT_LIST_DIR}/src/server/") 
+
+# Define Client and Server executables
+set(CLIENT "${PROJECT_NAME}Client")
+set(SERVER "${PROJECT_NAME}Server")
+
+# Client config
+add_executable(${CLIENT})
+target_sources(${CLIENT} PRIVATE ${PROJECT_COMMON_SOURCES})
+target_sources(${CLIENT} PRIVATE ${PROJECT_CLIENT_ONLY_SOURCES})
+target_include_directories(${CLIENT} PRIVATE ${PROJECT_COMMON_INCLUDE})
+target_include_directories(${CLIENT} PRIVATE ${PROJECT_CLIENT_ONLY_INCLUDE})
+target_link_libraries(${CLIENT} raylib)
+
+# Server config
+add_executable(${SERVER})
+target_sources(${SERVER} PRIVATE ${PROJECT_COMMON_SOURCES})
+target_sources(${SERVER} PRIVATE ${PROJECT_SERVER_ONLY_SOURCES})
+target_include_directories(${SERVER} PRIVATE ${PROJECT_COMMON_INCLUDE})
+target_include_directories(${SERVER} PRIVATE ${PROJECT_SERVER_ONLY_INCLUDE})
+target_link_libraries(${SERVER} raylib)
+
 
 # Web Configurations
 if (${PLATFORM} STREQUAL "Web")
-  set_target_properties(${PROJECT_NAME} PROPERTIES SUFFIX ".html") # Tell Emscripten to build an example.html file.
+  set_target_properties(${CLIENT} PROPERTIES SUFFIX ".html") # Tell Emscripten to build an example.html file.
   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -s USE_GLFW=3 -s ASSERTIONS=1 -s WASM=1 -s ASYNCIFY -s GL_ENABLE_GET_PROC_ADDRESS=1")
 endif()
 
 # Checks if OSX and links appropriate frameworks (Only required on MacOS)
 if (APPLE)
-  target_link_libraries(${PROJECT_NAME} "-framework IOKit")
-  target_link_libraries(${PROJECT_NAME} "-framework Cocoa")
-  target_link_libraries(${PROJECT_NAME} "-framework OpenGL")
+  target_link_libraries(${CLIENT} "-framework IOKit")
+  target_link_libraries(${CLIENT} "-framework Cocoa")
+  target_link_libraries(${CLIENT} "-framework OpenGL")
 endif()

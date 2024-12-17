@@ -4,4 +4,4 @@ set -ea
 
 pushd build
 cmake --build .
-./TankBusters
+./TankBustersClient
