@@ -11,6 +11,10 @@ enum PlayerConnection {
 struct Player {
   Vector2 position;
   Vector2 velocity;
-  double rifle_rotation;
+  float rotation;
   PlayerConnection connection_state;
 };
+
+void UpdatePlayer(Player* player);
+
+void DrawPlayer(Player player);
