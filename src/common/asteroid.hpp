@@ -5,12 +5,20 @@ struct Asteroid {
   bool active;
   Vector2 position;
   Vector2 velocity;
-  int rotation;
-  int rotation_speed;
+  float rotation;
+  float rotation_speed;
+  int size;
+  int polygon;
 };
 
-Asteroid CreateAsteroid(Vector2 position, Vector2 velocity);
+Asteroid CreateAsteroid();
 
 void UpdateAsteroid(Asteroid *asteroid, float frametime);
 
 void DrawAsteroid(Asteroid asteroid);
+
+Vector2 GetRandomPosition();
+
+Vector2 GetRandomVelocity(Vector2 position);
+
+bool SpaceJunkCollector(Vector2 position);
