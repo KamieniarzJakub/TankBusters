@@ -21,4 +21,3 @@ Vector2 GetRandomPosition();
 
 Vector2 GetRandomVelocity(Vector2 position);
 
-bool SpaceJunkCollector(Vector2 position);
