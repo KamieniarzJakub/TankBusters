@@ -7,7 +7,8 @@ Player AddPlayer(int i) {
   return (Player){  .alive = true,
                     .position = GetPlayerSpawnPosition(i),
                     .velocity = {0,0},
-                    .rotation = (float)GetRandomValue(0, 360)};
+                    .rotation = (float)GetRandomValue(0, 360),
+                    .player_color = Constants::PLAYER_COLORS[i]};
 }
 
 void UpdatePlayer(Player* player)
@@ -40,11 +41,17 @@ void UpdatePlayer(Player* player)
 
 void DrawPlayer(Player player, Texture texture)
 {
-  DrawPoly(player.position, 3, 16, player.rotation, RED);
+  //DrawPoly(player.position, 3, 16, player.rotation, RED);
   Rectangle source = {0, 0, float(texture.width), float(texture.height)};
   Rectangle dest = {player.position.x, player.position.y, source.width*Constants::PLAYER_TEXTURE_SCALE, source.height*Constants::PLAYER_TEXTURE_SCALE};
   Vector2 origin = {dest.width/2.0f, dest.height/2.0f};
-  DrawTexturePro(texture, source, dest, origin, player.rotation, WHITE);
+  DrawTexturePro(texture, source, dest, origin, player.rotation, player.player_color);
+}
+
+bool Shoot()
+{
+  if (IsKeyPressed(KEY_SPACE)) return true;
+  return false;
 }
 
 Vector2 GetPlayerSpawnPosition(int i)
