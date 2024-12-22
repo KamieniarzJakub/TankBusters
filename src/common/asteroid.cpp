@@ -8,7 +8,7 @@ Asteroid CreateAsteroid() {
                     .position = position,
                     .velocity = GetRandomVelocity(position),
                     .rotation = (float)GetRandomValue(0, 360),
-                    .rotation_speed = (float)GetRandomValue(Constants::ASTEROID_ROTATION_SPEED_MIN, Constants::ASTEROID_ROTATION_SPEED_MAX),
+                    .rotation_speed = (float)GetRandomValue(-Constants::ASTEROID_ROTATION_SPEED_MAX, Constants::ASTEROID_ROTATION_SPEED_MAX),
                     .size = GetRandomValue(Constants::ASTEROID_SIZE_MIN, Constants::ASTEROID_SIZE_MAX),
                     .polygon = GetRandomValue(Constants::ASTEROID_POLYGON_MIN, Constants::ASTEROID_POLYGON_MAX)};
 }

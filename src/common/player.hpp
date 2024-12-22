@@ -9,12 +9,17 @@ enum PlayerConnection {
 };
 
 struct Player {
+  bool alive;
   Vector2 position;
   Vector2 velocity;
   float rotation;
   PlayerConnection connection_state;
 };
 
+Player AddPlayer(int i);
+
 void UpdatePlayer(Player* player);
 
-void DrawPlayer(Player player);
+void DrawPlayer(Player player, Texture texture);
+
+Vector2 GetPlayerSpawnPosition(int i);

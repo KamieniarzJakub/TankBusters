@@ -7,11 +7,9 @@
 #include <vector>
 
 struct Game {
-  Texture asteroid_texture;
-  Texture player_texture;
-
   std::vector<Asteroid> asteroids;
   std::vector<Player> players;
+  Texture players_textures[Constants::PLAYERS_MAX];
 
   float _spawnerTime;
 
@@ -21,16 +19,19 @@ struct Game {
     SearchAndSetResourceDir("resources");
 
     // Load a texture from the resources directory
-    player_texture = LoadTexture("wabbit_alpha.png");
-    asteroid_texture = LoadTexture("wabbit_alpha.png");
     asteroids = std::vector<Asteroid>(Constants::ASTEROIDS_MAX, Asteroid());
     players = std::vector<Player>(Constants::PLAYERS_MAX, Player());
     _spawnerTime = 0;
+    for (int i=0; i<Constants::PLAYERS_MAX; i++)
+    {
+      players[i] = AddPlayer(i);
+      players_textures[i] = LoadTexture("wabbit_alpha.png");
+    }
   }
 
-  ~Game() {
-    UnloadTexture(asteroid_texture);
-    UnloadTexture(player_texture);
+  ~Game() 
+  {
+    for(int i=0; i<Constants::PLAYERS_MAX; i++) UnloadTexture(players_textures[i]);
   }
 
   void updateDrawFrame(void) {
@@ -58,7 +59,7 @@ struct Game {
       DrawAsteroid(asteroids[i]);
     }
     for (int i = 0; i < Constants::PLAYERS_MAX; i++) {
-      DrawPlayer(players[i]);
+      DrawPlayer(players[i], players_textures[i]);
     }
 
     EndDrawing();
