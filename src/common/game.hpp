@@ -7,7 +7,9 @@ struct Game {
 
   void updateDrawFrame(void) 
   {
-    if (gameManager.GetGameStatus()==Status::GAME)
+    gameManager.UpdateGameStatus();
+    //TraceLog(LOG_DEBUG, "Game status: %d", gameManager.status);
+    if (gameManager.status==Status::GAME)
     {
       float frametime = GetFrameTime();
 
@@ -20,18 +22,21 @@ struct Game {
       gameManager.AsteroidSpawner(GetTime());
     }
     
-    
     BeginDrawing();
 
     ClearBackground(Constants::BACKGROUND_COLOR);
 
-    gameManager.DrawAsteroids();
-    gameManager.DrawPlayers();
-    gameManager.DrawBullets();
-    gameManager.DrawTime(GetTime());
-    if(gameManager.status)
+    if(gameManager.status==Status::GAME || gameManager.status==Status::END_OF_ROUND)
     {
-      
+      gameManager.DrawAsteroids();
+      gameManager.DrawPlayers();
+      gameManager.DrawBullets();
+      if (gameManager.status==Status::END_OF_ROUND)
+      {
+        gameManager.DrawWinnerText();
+        gameManager.DrawNewRoundCountdown();
+      }
+      gameManager.DrawTime(GetTime());
     }
 
     EndDrawing();
