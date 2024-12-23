@@ -21,6 +21,9 @@ struct Game {
     SearchAndSetResourceDir("resources");
 
     // Load a texture from the resources directory
+
+    //Zakładam, że liczba asteroid, graczy i pocisków jest ograniczona, każdy obiekt (struktura) posiada właściwość 'active'
+    //Jeżeli chodzi o dane, które chcemy przesyłać, to można wysyłać cały vector
     asteroids = std::vector<Asteroid>(Constants::ASTEROIDS_MAX, Asteroid());
     players = std::vector<Player>(Constants::PLAYERS_MAX, Player());
     bullets = std::vector<Bullet>( Constants::BULLETS_PER_PLAYER*Constants::PLAYERS_MAX, Bullet());
@@ -40,9 +43,45 @@ struct Game {
   void updateDrawFrame(void) {
     float frametime = GetFrameTime();
 
-    for (int i=0; i< Constants::PLAYERS_MAX; i++) {
-      UpdatePlayer(&players[i]);
-      if (Shoot())
+    //Wyszło mega spaghetti - działa, ale do przepisania
+    //Colision Asteroids-Players-Bullets
+    for (int i=0; i< Constants::ASTEROIDS_MAX; i++) 
+    {
+      if (!asteroids[i].active) continue;
+      for (int j=0; j<Constants::PLAYERS_MAX; j++)
+      {
+        for (int k=j*Constants::BULLETS_PER_PLAYER; k<(j+1)*Constants::BULLETS_PER_PLAYER; k++)
+        {
+          if(!bullets[k].active) continue;
+          if(CheckCollisionCircles(bullets[k].position, Constants::BULLET_SIZE, asteroids[i].position, asteroids[i].size))
+          {
+            bullets[k].active = false;
+            asteroids[i].active = false;
+            SplitAsteroid(asteroids[i].position, asteroids[i].velocity, float(asteroids[i].size)/Constants::ASTEROID_SPLIT_LOSS);
+            break;
+          }
+          for (int l=0; l<Constants::PLAYERS_MAX; l++)
+          {
+            if(j==l || !players[l].active) continue;
+            if (CheckCollisionCircles(bullets[k].position, Constants::BULLET_SIZE, players[l].position, float(player_texture.width)*Constants::PLAYER_TEXTURE_SCALE/2.0f))
+            {
+              players[l].active = false;
+              bullets[k].active = false;
+              break;
+            }
+          }
+        }
+        if (!players[j].active) continue;
+        if(CheckCollisionCircles(players[j].position, float(player_texture.width)*Constants::PLAYER_TEXTURE_SCALE/2.0f, asteroids[i].position, asteroids[i].size))
+        {
+          players[j].active = false;
+          asteroids[i].active = false;
+        }
+      }
+    }
+    for (int i =0; i<Constants::PLAYERS_MAX; i++){
+      UpdatePlayer(&players[i], frametime);
+      if (players[i].active && Shoot())
       {
         AddBullet(players[i], i);
       }
@@ -67,14 +106,23 @@ struct Game {
     ClearBackground(Constants::BACKGROUND_COLOR);
 
     for (int i = 0; i < Constants::ASTEROIDS_MAX; i++) {
-      DrawAsteroid(asteroids[i]);
+      if (asteroids[i].active)
+      {
+        //DrawCircle(asteroids[i].position.x, asteroids[i].position.y, asteroids[i].size, PINK);
+        DrawAsteroid(asteroids[i]);
+      }
+      
     }
     for (int i = 0; i < Constants::PLAYERS_MAX; i++) {
+      //DrawCircle(players[i].position.x, players[i].position.y, float(player_texture.width)*Constants::PLAYER_TEXTURE_SCALE/2.0f, PURPLE);
       DrawPlayer(players[i], player_texture);
     }
 
     for (int i = 0; i < Constants::PLAYERS_MAX*Constants::BULLETS_PER_PLAYER; i++) {
-      DrawBullet(bullets[i]);
+      if (bullets[i].active)
+      {
+        DrawBullet(bullets[i]);
+      }
     }
 
     EndDrawing();
@@ -91,6 +139,21 @@ struct Game {
       TraceLog(LOG_ERROR, "Failed to create an asteroid - no empty slots left");
   }
 
+  void SplitAsteroid(Vector2 position, Vector2 velocity, int size)
+  {
+    if (size<Constants::ASTEROID_SIZE_MIN) return;
+    int toSpawn = 2;
+    for (int i=0; i<Constants::ASTEROIDS_MAX; i++)
+    {
+      if (!toSpawn) return;
+      if (asteroids[i].active) continue;
+      Vector2 new_velocity = Vector2Rotate(velocity, toSpawn%2 ? GetRandomValue(60,120) : GetRandomValue(-120, -60));
+      asteroids[i] = CreateAsteroid(position, new_velocity, size);
+      toSpawn--;
+    }
+      TraceLog(LOG_ERROR, "Failed to split an asteroid - no empty slots left");
+  }
+
   void AddBullet(Player player, int player_number)
   {
     for (int i=player_number * Constants::BULLETS_PER_PLAYER; i<(player_number+1) * Constants::BULLETS_PER_PLAYER; i++)
@@ -100,6 +163,6 @@ struct Game {
       bullets[i] = CreateBullet(Vector2Add(player.position, offset), player.rotation);
       return;
     }
-    TraceLog(LOG_INFO, "Faild to create a bullet for player[%d] - no bullets left", player_number);
+    TraceLog(LOG_INFO, "Faild to shoot a bullet - player[%d]: no bullets left", player_number);
   }
 };

@@ -9,7 +9,7 @@ enum PlayerConnection {
 };
 
 struct Player {
-  bool alive;
+  bool active;
   Vector2 position;
   Vector2 velocity;
   float rotation;
@@ -19,7 +19,7 @@ struct Player {
 
 Player AddPlayer(int i);
 
-void UpdatePlayer(Player* player);
+void UpdatePlayer(Player* player, float frametime);
 
 void DrawPlayer(Player player, Texture texture);
 
