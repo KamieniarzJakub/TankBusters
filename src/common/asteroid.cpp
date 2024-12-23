@@ -3,14 +3,14 @@
 #include "raymath.h"
 #include "spaceJunkCollector.hpp"
 
-Asteroid CreateAsteroid() {
-  Vector2 position = GetRandomPosition();
+Asteroid CreateAsteroid(Vector2 position, Vector2 velocity, int size) {
+  velocity = Vector2Length(velocity)==0 ? GetRandomVelocity(position) : velocity; 
   return (Asteroid){.active = true,
                     .position = position,
-                    .velocity = GetRandomVelocity(position),
+                    .velocity = velocity,
                     .rotation = (float)GetRandomValue(0, 360),
                     .rotation_speed = (float)GetRandomValue(-Constants::ASTEROID_ROTATION_SPEED_MAX, Constants::ASTEROID_ROTATION_SPEED_MAX),
-                    .size = GetRandomValue(Constants::ASTEROID_SIZE_MIN, Constants::ASTEROID_SIZE_MAX),
+                    .size = size,
                     .polygon = GetRandomValue(Constants::ASTEROID_POLYGON_MIN, Constants::ASTEROID_POLYGON_MAX)};
 }
 
