@@ -3,8 +3,9 @@
 #include "raymath.h"
 #include "constants.hpp"
 
-Player AddPlayer(int i) {
+Player AddPlayer(int i, Texture texture) {
   return (Player){  .active = true,
+                    .texture = texture,
                     .position = GetPlayerSpawnPosition(i),
                     .velocity = {0,0},
                     .rotation = (float)GetRandomValue(0, 360),
@@ -37,15 +38,15 @@ void UpdatePlayer(Player* player, float frametime)
 }
 
 
-void DrawPlayer(Player player, Texture texture)
+void DrawPlayer(Player player)
 {
   //DrawPoly(player.position, 3, 16, player.rotation, RED);
   //https://tradam.itch.io/raylib-drawtexturepro-interactive-demo
-  Rectangle source = {0, 0, float(texture.width), float(texture.height)};
+  Rectangle source = {0, 0, float(player.texture.width), float(player.texture.height)};
   Rectangle dest = {player.position.x, player.position.y, source.width*Constants::PLAYER_TEXTURE_SCALE, source.height*Constants::PLAYER_TEXTURE_SCALE};
   Vector2 origin = {dest.width/2.0f, dest.height/2.0f};
   if (!player.active) player.player_color.a = 25;
-  DrawTexturePro(texture, source, dest, origin, player.rotation, player.player_color);
+  DrawTexturePro(player.texture, source, dest, origin, player.rotation, player.player_color);
 }
 
 bool Shoot()
