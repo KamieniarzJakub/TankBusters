@@ -1,4 +1,3 @@
-// GameManager.cpp
 #include "gameManager.hpp"
 
 GameManager::GameManager()
@@ -9,22 +8,34 @@ GameManager::GameManager()
 
     // Load a texture from the resources directory
     player_texture = LoadTexture("Player.png");
+    font = LoadFont("Roboto-Regular.ttf");
+    // Optionally, set texture filtering for smooth font scaling
+    SetTextureFilter(font.texture, TEXTURE_FILTER_ANISOTROPIC_16X);
 
-    asteroids = std::vector<Asteroid>(Constants::ASTEROIDS_MAX, Asteroid());
-    players = std::vector<Player>(Constants::PLAYERS_MAX, Player());
-    bullets = std::vector<Bullet>(Constants::BULLETS_PER_PLAYER * Constants::PLAYERS_MAX, Bullet());
-    _spawnerTime = 0;
-
-    for (int i = 0; i < Constants::PLAYERS_MAX; i++)
-    {
-        players[i] = AddPlayer(i, player_texture);
-    }
+    NewGame();
 }
 
 GameManager::~GameManager()
 {
     UnloadTexture(player_texture);
 }
+
+void GameManager::NewGame()
+{
+    asteroids = std::vector<Asteroid>(Constants::ASTEROIDS_MAX, Asteroid());
+    players = std::vector<Player>(Constants::PLAYERS_MAX, Player());
+    bullets = std::vector<Bullet>(Constants::BULLETS_PER_PLAYER * Constants::PLAYERS_MAX, Bullet());
+    status = Status::GAME;
+    _spawnerTime = 0;
+    _alive_players = 0;
+    
+    for (int i = 0; i < Constants::PLAYERS_MAX; i++)
+    {
+        players[i] = AddPlayer(i, player_texture);
+        _alive_players++;
+    }
+}
+
 
 void GameManager::UpdatePlayers(float frametime)
 {
@@ -77,7 +88,7 @@ void GameManager::DrawPlayers()
 {
     for (int i = 0; i < Constants::PLAYERS_MAX; i++)
     {
-        DrawPlayer(players[i]);
+        DrawPlayer(players[i], font);
     }
 }
 
@@ -88,6 +99,12 @@ void GameManager::DrawBullets()
         if (!bullets[i].active) continue;
         DrawBullet(bullets[i]);
     }
+}
+
+void GameManager::DrawTime(double time)
+{
+    const char* text = TextFormat("%00.2f", time);
+    DrawTextPro(font, text, Vector2{Constants::TEXT_OFFSET, Constants::TEXT_OFFSET}, Vector2{0, 0}, 0.0f, Constants::TEXT_SIZE, Constants::TEXT_SPACING, RAYWHITE);
 }
 
 void GameManager::ManageCollisions()
@@ -114,9 +131,10 @@ void GameManager::ManageCollisions()
                 {
                     if (j == l || !players[l].active) continue;
 
-                    if (CheckCollisionCircles(bullets[k].position, Constants::BULLET_SIZE, players[l].position, float(player_texture.width) * Constants::PLAYER_TEXTURE_SCALE / 2.0f))
+                    if (CheckCollisionCircles(bullets[k].position, Constants::BULLET_SIZE, players[l].position, float(player_texture.width) * Constants::PLAYER_SIZE / 2.0f))
                     {
                         players[l].active = false;
+                        _alive_players--;
                         bullets[k].active = false;
                         break;
                     }
@@ -125,14 +143,17 @@ void GameManager::ManageCollisions()
 
             if (!players[j].active) continue;
 
-            if (CheckCollisionCircles(players[j].position, float(player_texture.width) * Constants::PLAYER_TEXTURE_SCALE / 2.0f, asteroids[i].position, asteroids[i].size))
+            if (CheckCollisionCircles(players[j].position, float(player_texture.width) * Constants::PLAYER_SIZE / 2.0f, asteroids[i].position, asteroids[i].size))
             {
                 players[j].active = false;
+                _alive_players--;
                 asteroids[i].active = false;
             }
         }
     }
+    TraceLog(LOG_DEBUG, "Alive players: %d", _alive_players);
 }
+
 
 void GameManager::AddAsteroid()
 {
@@ -169,10 +190,16 @@ void GameManager::AddBullet(Player player, int player_number)
     {
         if (bullets[i].active) continue;
 
-        Vector2 offset = Vector2Rotate(Vector2{float(player_texture.width) / 2.0f * Constants::PLAYER_TEXTURE_SCALE, 0.0f}, player.rotation * DEG2RAD);
+        Vector2 offset = Vector2Rotate(Vector2{float(player_texture.width) / 2.0f * Constants::PLAYER_SIZE, 0.0f}, player.rotation * DEG2RAD);
         bullets[i] = CreateBullet(Vector2Add(player.position, offset), player.rotation);
         return;
     }
 
     TraceLog(LOG_INFO, "Failed to shoot a bullet - player[%d]: no bullets left", player_number);
+}
+
+int GameManager::GetGameStatus()
+{
+    if (_alive_players>1) return Status::GAME;
+    return Status::END_OF_ROUND;
 }

@@ -38,16 +38,19 @@ void UpdatePlayer(Player* player, float frametime)
 }
 
 
-void DrawPlayer(Player player)
+void DrawPlayer(Player player, Font player_font)
 {
   //DrawPoly(player.position, 3, 16, player.rotation, RED);
   //https://tradam.itch.io/raylib-drawtexturepro-interactive-demo
   Rectangle source = {0, 0, float(player.texture.width), float(player.texture.height)};
-  Rectangle dest = {player.position.x, player.position.y, source.width*Constants::PLAYER_TEXTURE_SCALE, source.height*Constants::PLAYER_TEXTURE_SCALE};
+  Rectangle dest = {player.position.x, player.position.y, source.width*Constants::PLAYER_SIZE, source.height*Constants::PLAYER_SIZE};
   Vector2 origin = {dest.width/2.0f, dest.height/2.0f};
   if (!player.active) player.player_color.a = 25;
+  //DrawCircle(player.position.x, player.position.y, 25, PINK);
   DrawTexturePro(player.texture, source, dest, origin, player.rotation, player.player_color);
-}
+  //DrawTextPro(player_font, "A", player.position, {27, 51}, player.rotation+90.0f, 100, 0, player.player_color);
+  }
+  
 
 bool Shoot()
 {

@@ -22,7 +22,7 @@ Player AddPlayer(int i, Texture texture);
 
 void UpdatePlayer(Player* player, float frametime);
 
-void DrawPlayer(Player player);
+void DrawPlayer(Player player, Font player_font);
 
 bool Shoot();
 

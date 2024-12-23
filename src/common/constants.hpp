@@ -23,12 +23,18 @@ const static int PLAYERS_MAX = 4;
 const static float PLAYER_ROTATION_SPEED = 150.0f;
 const static float PLAYER_ACCELERATION = 650.0f;
 const static float PLAYER_DRAG = 3.0f;
-const static float PLAYER_TEXTURE_SCALE = 1.0f;
+const static float PLAYER_SIZE = 1.0f;
 const static Color PLAYER_COLORS[4] = {{66, 133, 244, 255}, {255, 0, 51, 255}, {52, 168, 83, 255}, {251,188,4,255}};
 
 const static int BULLETS_PER_PLAYER = 3;
 const static float BULLET_SPEED = 350.0f;
 const static float BULLET_SIZE = 5.0f;
 
+const static int TEXT_OFFSET = 30;
+const static float TEXT_SIZE = 30.0f;
+const static float TEXT_SPACING = 1.0f;
+
 const static Color BACKGROUND_COLOR = {15, 15, 15, 255};
+
+const static int NEW_ROUND_WAIT_TIME = 10;
 } // namespace Constants
