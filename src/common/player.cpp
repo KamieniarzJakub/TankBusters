@@ -3,11 +3,12 @@
 #include "raymath.h"
 #include "constants.hpp"
 
-Player AddPlayer(int i, Texture texture) {
+Player AddPlayer(int i, Font font) {
   return (Player){  .active = true,
-                    .texture = texture,
+                    .font = font,
                     .position = GetPlayerSpawnPosition(i),
                     .velocity = {0,0},
+                    .draw_offset = Vector2Scale(MeasureTextEx(font, Constants::PLAYER_AVATAR, Constants::PLAYER_SIZE, 0), 0.5),
                     .rotation = (float)GetRandomValue(0, 360),
                     .player_color = Constants::PLAYER_COLORS[i]};
 }
@@ -38,20 +39,19 @@ void UpdatePlayer(Player* player, float frametime)
 }
 
 
-void DrawPlayer(Player player, Font player_font)
+void DrawPlayer(Player player)
 {
   //DrawPoly(player.position, 3, 16, player.rotation, RED);
   //https://tradam.itch.io/raylib-drawtexturepro-interactive-demo
-  Rectangle source = {0, 0, float(player.texture.width), float(player.texture.height)};
-  Rectangle dest = {player.position.x, player.position.y, source.width*Constants::PLAYER_SIZE, source.height*Constants::PLAYER_SIZE};
-  Vector2 origin = {dest.width/2.0f, dest.height/2.0f};
+  //Rectangle source = {0, 0, float(player.texture.width), float(player.texture.height)};
+  //Rectangle dest = {player.position.x, player.position.y, source.width, source.height};
+  //Vector2 origin = {dest.width/2.0f, dest.height/2.0f};
+  //DrawCircle(player.position.x, player.position.y, player.size/3, PINK);
+  //DrawTexturePro(player.texture, source, dest, origin, player.rotation, player.player_color);
   if (!player.active) player.player_color.a = 25;
-  //DrawCircle(player.position.x, player.position.y, 25, PINK);
-  DrawTexturePro(player.texture, source, dest, origin, player.rotation, player.player_color);
-  //DrawTextPro(player_font, "A", player.position, {27, 51}, player.rotation+90.0f, 100, 0, player.player_color);
-  }
+  DrawTextPro(player.font, Constants::PLAYER_AVATAR, player.position, player.draw_offset, player.rotation+90.0f, Constants::PLAYER_SIZE, 0, player.player_color);
+}
   
-
 bool Shoot()
 {
   if (IsKeyPressed(KEY_SPACE)) return true;

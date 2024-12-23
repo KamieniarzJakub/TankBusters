@@ -25,14 +25,19 @@ struct GameManager
     int status;
     int _alive_players;
     float _spawnerTime;
+    float startRoundTime;
+    float endRoundTime;
     Texture player_texture;
     Font font;
+    Font win_font;
+    Font player_font;
 
     GameManager();
     ~GameManager();
 
     void NewGame();
 
+    void UpdateGameStatus();
     void UpdatePlayers(float frametime);
     void UpdateBullets(float frametime);
     void UpdateAsteroids(float frametime);
@@ -43,12 +48,12 @@ struct GameManager
     void DrawPlayers();
     void DrawBullets();
     void DrawTime(double time);
+    void DrawWinnerText();
+    void DrawNewRoundCountdown();
 
     void ManageCollisions();
 
     void AddAsteroid();
     void SplitAsteroid(Vector2 position, Vector2 velocity, int size);
     void AddBullet(Player player, int player_number);
-
-    int GetGameStatus();
 };

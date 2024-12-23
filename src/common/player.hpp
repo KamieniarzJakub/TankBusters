@@ -10,19 +10,21 @@ enum PlayerConnection {
 
 struct Player {
   bool active;
-  Texture texture;
+  Font font;
+  const char* avatar;
   Vector2 position;
   Vector2 velocity;
+  Vector2 draw_offset;
   float rotation;
   Color player_color;
   PlayerConnection connection_state;
 };
 
-Player AddPlayer(int i, Texture texture);
+Player AddPlayer(int i, Font font);
 
 void UpdatePlayer(Player* player, float frametime);
 
-void DrawPlayer(Player player, Font player_font);
+void DrawPlayer(Player player);
 
 bool Shoot();
 
