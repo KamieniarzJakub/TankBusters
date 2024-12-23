@@ -5,24 +5,34 @@
 struct Game {
   GameManager gameManager;
 
-  void updateDrawFrame(void) {
-    float frametime = GetFrameTime();
+  void updateDrawFrame(void) 
+  {
+    if (gameManager.GetGameStatus()==Status::GAME)
+    {
+      float frametime = GetFrameTime();
 
-    gameManager.ManageCollisions();
+      gameManager.ManageCollisions();
 
-    gameManager.UpdatePlayers(frametime);
-    gameManager.UpdateBullets(frametime);
-    gameManager.UpdateAsteroids(frametime);
+      gameManager.UpdatePlayers(frametime);
+      gameManager.UpdateBullets(frametime);
+      gameManager.UpdateAsteroids(frametime);
     
-    gameManager.AsteroidSpawner(GetTime());
-
+      gameManager.AsteroidSpawner(GetTime());
+    }
+    
+    
     BeginDrawing();
 
     ClearBackground(Constants::BACKGROUND_COLOR);
 
     gameManager.DrawAsteroids();
     gameManager.DrawPlayers();
-    gameManager.DrawBullets();    
+    gameManager.DrawBullets();
+    gameManager.DrawTime(GetTime());
+    if(gameManager.status)
+    {
+      
+    }
 
     EndDrawing();
   }
