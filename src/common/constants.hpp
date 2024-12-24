@@ -39,6 +39,8 @@ const static float TEXT_SPACING = 1.0f;
 
 const static Color BACKGROUND_COLOR = {15, 15, 15, 255};
 const static Color BACKGROUND_COLOR_HALF_ALFA = {15, 15, 15, 150};
+const static Color NOT_CONNECTED_GRAY = {200, 200, 200, 150};
 
-const static int NEW_ROUND_WAIT_TIME = 10;
+const static int NEW_ROUND_WAIT_TIME = 3;
+const static int LOBBY_READY_TIME = 5;
 } // namespace Constants

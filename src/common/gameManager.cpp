@@ -26,17 +26,16 @@ GameManager::~GameManager()
     UnloadFont(player_font);
 }
 
-void GameManager::NewGame()
+void GameManager::NewGame(int players_in_game)
 {
     asteroids = std::vector<Asteroid>(Constants::ASTEROIDS_MAX, Asteroid());
     players = std::vector<Player>(Constants::PLAYERS_MAX, Player());
     bullets = std::vector<Bullet>(Constants::BULLETS_PER_PLAYER * Constants::PLAYERS_MAX, Bullet());
-    status = Status::GAME;
+    status = Status::LOBBY;
     _spawnerTime = 0;
-    _alive_players = Constants::PLAYERS_MAX;
+    _alive_players = players_in_game;
     startRoundTime = GetTime();
     endRoundTime = -1;
-    
     for (int i = 0; i < Constants::PLAYERS_MAX; i++)
     {
         players[i] = AddPlayer(i, player_font);
@@ -94,7 +93,7 @@ void GameManager::AsteroidSpawner(double time)
 {
     if (time > _spawnerTime + Constants::ASTEROID_SPAWN_DELAY)
     {
-        TraceLog(LOG_INFO, "ASTEROID SPAWNER");
+        TraceLog(LOG_DEBUG, "ASTEROID SPAWNER");
         _spawnerTime = time;
         AddAsteroid();
     }
@@ -200,7 +199,7 @@ void GameManager::ManageCollisions()
             }
         }
     }
-    TraceLog(LOG_DEBUG, "Alive players: %d", _alive_players);
+    //TraceLog(LOG_DEBUG, "Alive players: %d", _alive_players);
 }
 
 

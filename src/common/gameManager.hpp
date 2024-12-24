@@ -35,7 +35,7 @@ struct GameManager
     GameManager();
     ~GameManager();
 
-    void NewGame();
+    void NewGame(int players_in_game = 0);
 
     void UpdateGameStatus();
     void UpdatePlayers(float frametime);

@@ -4,7 +4,7 @@
 #include "constants.hpp"
 
 Player AddPlayer(int i, Font font) {
-  return (Player){  .active = true,
+  return (Player){  .active = false,
                     .font = font,
                     .position = GetPlayerSpawnPosition(i),
                     .velocity = {0,0},
@@ -48,7 +48,7 @@ void DrawPlayer(Player player)
   //Vector2 origin = {dest.width/2.0f, dest.height/2.0f};
   //DrawCircle(player.position.x, player.position.y, player.size/3, PINK);
   //DrawTexturePro(player.texture, source, dest, origin, player.rotation, player.player_color);
-  if (!player.active) player.player_color.a = 25;
+  player.player_color.a = player.active ? 255 : 25;
   DrawTextPro(player.font, Constants::PLAYER_AVATAR, player.position, player.draw_offset, player.rotation+90.0f, Constants::PLAYER_SIZE, 0, player.player_color);
 }
   
