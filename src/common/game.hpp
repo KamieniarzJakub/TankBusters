@@ -1,9 +1,11 @@
 #include "raylib.h"
 #include "raymath.h"
 #include "gameManager.hpp"
+#include "lobbyManager.hpp"
 
 struct Game {
   GameManager gameManager;
+  LobbyManager lobbyManager;
 
   void updateDrawFrame(void) 
   {
@@ -21,6 +23,19 @@ struct Game {
     
       gameManager.AsteroidSpawner(GetTime());
     }
+    else
+    {
+      if (lobbyManager.UpdateLobbyStatus())
+      {
+        gameManager.NewGame(lobbyManager.ready_players);
+        for (int i=0; i<Constants::PLAYERS_MAX; i++)
+        {
+          gameManager.players[i].active = (lobbyManager.players[i]==PlayerInfo::READY);
+        }
+        lobbyManager.RestartLobby();
+      }
+      lobbyManager.UpdatePlayers();
+    }
     
     BeginDrawing();
 
@@ -37,6 +52,13 @@ struct Game {
         gameManager.DrawNewRoundCountdown();
       }
       gameManager.DrawTime(GetTime());
+    }
+    else
+    {
+      lobbyManager.DrawTitle(gameManager.win_font);
+      lobbyManager.DrawLobbyPlayers(gameManager.font);
+      lobbyManager.DrawReadyMessage(gameManager.font);
+      lobbyManager.DrawTimer(gameManager.font);
     }
 
     EndDrawing();
