@@ -1,16 +1,16 @@
 #include "player.hpp"
-#include "raylib.h"
-#include "raymath.h"
-#include "constants.hpp"
+
 
 Player AddPlayer(int i, Font font) {
-  return (Player){  .active = false,
-                    .font = font,
-                    .position = GetPlayerSpawnPosition(i),
-                    .velocity = {0,0},
-                    .draw_offset = Vector2Scale(MeasureTextEx(font, Constants::PLAYER_AVATAR, Constants::PLAYER_SIZE, 0), 0.5),
-                    .rotation = (float)GetRandomValue(0, 360),
-                    .player_color = Constants::PLAYER_COLORS[i]};
+  Player player;
+  player.active = false;
+  player.font = font;
+  player.position = GetPlayerSpawnPosition(i);
+  player.velocity = {0, 0};  // Direct initialization of the velocity vector
+  player.draw_offset = Vector2Scale(MeasureTextEx(font, Constants::PLAYER_AVATAR, Constants::PLAYER_SIZE, 0), 0.5);
+  player.rotation = (float)GetRandomValue(0, 360);
+  player.player_color = Constants::PLAYER_COLORS[i];
+  return player;
 }
 
 void UpdatePlayer(Player* player, float frametime)

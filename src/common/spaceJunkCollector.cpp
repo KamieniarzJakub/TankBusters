@@ -1,5 +1,4 @@
 #include "spaceJunkCollector.hpp"
-#include "constants.hpp"
 
 bool SpaceJunkCollector(Vector2 position)
 {

@@ -1,5 +1,7 @@
 #pragma once
 #include "raylib.h"
+#include "raymath.h"
+#include "spaceJunkCollector.hpp"
 #include "constants.hpp"
 
 struct Asteroid {

@@ -1,16 +1,13 @@
 #include "bullet.hpp"
-#include "raylib.h"
-#include "raymath.h"
-#include "constants.hpp"
-#include "spaceJunkCollector.hpp"
+
 
 Bullet CreateBullet(Vector2 position, float rotation)
 {
-    return (Bullet){
-        .active = true,
-        .position = position,
-        .rotation = rotation
-    };
+    Bullet bullet;
+    bullet.active = true;
+    bullet.position = position;
+    bullet.rotation = rotation;
+    return bullet;
 }
 
 void UpdateBullet(Bullet *bullet, float frametime) {

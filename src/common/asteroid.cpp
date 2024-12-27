@@ -1,17 +1,16 @@
 #include "asteroid.hpp"
-#include "constants.hpp"
-#include "raymath.h"
-#include "spaceJunkCollector.hpp"
 
 Asteroid CreateAsteroid(Vector2 position, Vector2 velocity, int size) {
-  velocity = Vector2Length(velocity)==0 ? GetRandomVelocity(position) : velocity; 
-  return (Asteroid){.active = true,
-                    .position = position,
-                    .velocity = velocity,
-                    .rotation = (float)GetRandomValue(0, 360),
-                    .rotation_speed = (float)GetRandomValue(-Constants::ASTEROID_ROTATION_SPEED_MAX, Constants::ASTEROID_ROTATION_SPEED_MAX),
-                    .size = size,
-                    .polygon = GetRandomValue(Constants::ASTEROID_POLYGON_MIN, Constants::ASTEROID_POLYGON_MAX)};
+  velocity = Vector2Length(velocity) == 0 ? GetRandomVelocity(position) : velocity; 
+  Asteroid asteroid;
+  asteroid.active = true;
+  asteroid.position = position;
+  asteroid.velocity = velocity;
+  asteroid.rotation = (float)GetRandomValue(0, 360);
+  asteroid.rotation_speed = (float)GetRandomValue(-Constants::ASTEROID_ROTATION_SPEED_MAX, Constants::ASTEROID_ROTATION_SPEED_MAX);
+  asteroid.size = size;
+  asteroid.polygon = GetRandomValue(Constants::ASTEROID_POLYGON_MIN, Constants::ASTEROID_POLYGON_MAX);
+  return asteroid;
 }
 
 void UpdateAsteroid(Asteroid *asteroid, float frametime) {

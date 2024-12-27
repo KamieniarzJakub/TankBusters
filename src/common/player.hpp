@@ -1,5 +1,7 @@
 #pragma once
 #include "raylib.h"
+#include "raymath.h"
+#include "constants.hpp"
 
 enum PlayerConnection {
   None = 0,
