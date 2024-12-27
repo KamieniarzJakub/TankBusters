@@ -196,6 +196,7 @@ void GameManager::ManageCollisions()
                 players[j].active = false;
                 _alive_players--;
                 asteroids[i].active = false;
+                SplitAsteroid(asteroids[i].position, asteroids[i].velocity, float(asteroids[i].size) / Constants::ASTEROID_SPLIT_LOSS);
             }
         }
     }
