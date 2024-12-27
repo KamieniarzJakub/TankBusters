@@ -60,7 +60,7 @@ struct Game {
       lobbyManager.DrawReadyMessage(gameManager.font);
       lobbyManager.DrawTimer(gameManager.font);
     }
-
+    
     EndDrawing();
   }
 };
