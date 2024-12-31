@@ -1,12 +1,11 @@
 #include "constants.hpp"
 #include "game.hpp"
-#include "raylib.h"
 #include <memory>
+#include <raylib.h>
 
 #if defined(PLATFORM_WEB)
 #include <emscripten/emscripten.h>
 #endif
-
 
 int main() {
   SetConfigFlags(FLAG_VSYNC_HINT | FLAG_WINDOW_HIGHDPI);
