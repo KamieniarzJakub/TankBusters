@@ -1,7 +1,6 @@
 #pragma once
-#include "raylib.h"
-#include "raymath.h"
-#include "constants.hpp"
+#include <raylib.h>
+#include <raymath.h>
 
 enum PlayerConnection {
   None = 0,
@@ -13,7 +12,7 @@ enum PlayerConnection {
 struct Player {
   bool active;
   Font font;
-  const char* avatar;
+  const char *avatar;
   Vector2 position;
   Vector2 velocity;
   Vector2 draw_offset;
@@ -24,7 +23,7 @@ struct Player {
 
 Player AddPlayer(int i, Font font);
 
-void UpdatePlayer(Player* player, float frametime);
+void UpdatePlayer(Player *player, float frametime);
 
 void DrawPlayer(Player player);
 

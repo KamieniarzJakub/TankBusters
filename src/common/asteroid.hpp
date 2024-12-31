@@ -1,8 +1,6 @@
 #pragma once
-#include "raylib.h"
-#include "raymath.h"
-#include "spaceJunkCollector.hpp"
 #include "constants.hpp"
+#include <raylib.h>
 
 struct Asteroid {
   bool active;
@@ -18,11 +16,12 @@ Vector2 GetRandomPosition();
 
 Vector2 GetRandomVelocity(Vector2 position);
 
-Asteroid CreateAsteroid(Vector2 position=GetRandomPosition(), Vector2 velocity={0,0}, int size=GetRandomValue(Constants::ASTEROID_SIZE_MIN, Constants::ASTEROID_SIZE_MAX));
+Asteroid
+CreateAsteroid(Vector2 position = GetRandomPosition(),
+               Vector2 velocity = {0, 0},
+               int size = GetRandomValue(Constants::ASTEROID_SIZE_MIN,
+                                         Constants::ASTEROID_SIZE_MAX));
 
 void UpdateAsteroid(Asteroid *asteroid, float frametime);
 
 void DrawAsteroid(Asteroid asteroid);
-
-
-

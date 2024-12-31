@@ -24,9 +24,12 @@ const static float PLAYER_ROTATION_SPEED = 150.0f;
 const static float PLAYER_ACCELERATION = 650.0f;
 const static float PLAYER_DRAG = 3.0f;
 const static int PLAYER_SIZE = 100.0f;
-const static char* PLAYER_AVATAR = "A";
-const static char* PLAYER_NAMES[4] = {"BLUE", "RED", "GREEN", "YELLOW"};
-const static Color PLAYER_COLORS[4] = {{66, 133, 244, 255}, {255, 0, 51, 255}, {52, 168, 83, 255}, {251,188,4,255}};
+const static std::string PLAYER_AVATAR = "A";
+const static std::string PLAYER_NAMES[4] = {"BLUE", "RED", "GREEN", "YELLOW"};
+const static Color PLAYER_COLORS[4] = {{66, 133, 244, 255},
+                                       {255, 0, 51, 255},
+                                       {52, 168, 83, 255},
+                                       {251, 188, 4, 255}};
 
 const static int BULLETS_PER_PLAYER = 3;
 const static float BULLET_SPEED = 350.0f;
