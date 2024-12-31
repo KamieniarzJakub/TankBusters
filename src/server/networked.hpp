@@ -2,6 +2,7 @@
 #include <cstdint>
 
 struct Networked {
-  virtual ~Networked() {}
+  int fd;
+  virtual ~Networked() = 0;
   virtual void handleNetworkEvent(uint32_t events) = 0;
 };
