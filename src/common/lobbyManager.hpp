@@ -1,5 +1,4 @@
 #pragma once
-#include <raylib.h>
 #include <vector>
 
 enum PlayerInfo { NONE = 0, NOT_READY = 1, READY = 2 };
@@ -18,12 +17,4 @@ struct LobbyManager {
   void UpdatePlayers();
 
   bool UpdateLobbyStatus();
-
-  void DrawTimer(Font font);
-
-  void DrawTitle(Font font);
-
-  void DrawLobbyPlayers(Font font);
-
-  void DrawReadyMessage(Font font);
 };

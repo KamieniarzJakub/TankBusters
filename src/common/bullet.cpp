@@ -25,8 +25,3 @@ void UpdateBullet(Bullet *bullet, float frametime) {
   bullet->position.y +=
       Constants::BULLET_SPEED * frametime * sin(bullet->rotation * DEG2RAD);
 }
-
-void DrawBullet(Bullet bullet) {
-  DrawCircle(bullet.position.x, bullet.position.y, Constants::BULLET_SIZE,
-             WHITE);
-}

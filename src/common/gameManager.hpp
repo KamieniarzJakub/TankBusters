@@ -19,10 +19,6 @@ struct GameManager {
   float _spawnerTime;
   float startRoundTime;
   float endRoundTime;
-  Texture player_texture;
-  Font font;
-  Font win_font;
-  Font player_font;
 
   GameManager();
   ~GameManager();
@@ -35,13 +31,6 @@ struct GameManager {
   void UpdateAsteroids(float frametime);
 
   void AsteroidSpawner(double time);
-
-  void DrawAsteroids();
-  void DrawPlayers();
-  void DrawBullets();
-  void DrawTime(double time);
-  void DrawWinnerText();
-  void DrawNewRoundCountdown();
 
   void ManageCollisions();
 

@@ -35,6 +35,7 @@ const static int BULLETS_PER_PLAYER = 3;
 const static float BULLET_SPEED = 350.0f;
 const static float BULLET_SIZE = 5.0f;
 
+const static std::string ROBOTO_REGULAR = "Roboto-Regular.ttf";
 const static int TEXT_OFFSET = 30;
 const static float TEXT_SIZE = 50.0f;
 const static float TEXT_WIN_SIZE = 100.0f;

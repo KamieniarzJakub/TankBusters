@@ -1,32 +1,10 @@
 #include "gameManager.hpp"
 #include "constants.hpp"
-#include "resource_dir.hpp"
+#include "player.hpp"
 
-GameManager::GameManager() {
-  // Utility function from resource_dir.h to find the resources folder and set
-  // it as the current working directory so we can load from it
-  SearchAndSetResourceDir("resources");
+GameManager::GameManager() { NewGame(); }
 
-  // Load a texture from the resources directory
-  player_texture = LoadTexture("Player.png");
-  // font = LoadFont("Roboto-Regular.ttf");
-  font = LoadFontEx("Roboto-Regular.ttf", Constants::TEXT_SIZE, nullptr, 0);
-  win_font =
-      LoadFontEx("Roboto-Regular.ttf", Constants::TEXT_WIN_SIZE, nullptr, 0);
-  player_font =
-      LoadFontEx("Roboto-Regular.ttf", Constants::PLAYER_SIZE, nullptr, 0);
-  // Optionally, set texture filtering for smooth font scaling
-  // SetTextureFilter(font.texture, TEXTURE_FILTER_ANISOTROPIC_16X);
-
-  NewGame();
-}
-
-GameManager::~GameManager() {
-  UnloadTexture(player_texture);
-  UnloadFont(font);
-  UnloadFont(win_font);
-  UnloadFont(player_font);
-}
+GameManager::~GameManager() {}
 
 void GameManager::NewGame(int players_in_game) {
   asteroids = std::vector<Asteroid>(Constants::ASTEROIDS_MAX, Asteroid());
@@ -39,7 +17,7 @@ void GameManager::NewGame(int players_in_game) {
   startRoundTime = GetTime();
   endRoundTime = -1;
   for (int i = 0; i < Constants::PLAYERS_MAX; i++) {
-    players[i] = AddPlayer(i, player_font);
+    players[i] = AddPlayer(i);
   }
 }
 
@@ -84,70 +62,6 @@ void GameManager::AsteroidSpawner(double time) {
     _spawnerTime = time;
     AddAsteroid();
   }
-}
-
-void GameManager::DrawAsteroids() {
-  for (int i = 0; i < Constants::ASTEROIDS_MAX; i++) {
-    if (!asteroids[i].active)
-      continue;
-    DrawAsteroid(asteroids[i]);
-  }
-}
-
-void GameManager::DrawPlayers() {
-  for (int i = 0; i < Constants::PLAYERS_MAX; i++) {
-    DrawPlayer(players[i]);
-  }
-}
-
-void GameManager::DrawBullets() {
-  for (int i = 0; i < Constants::PLAYERS_MAX * Constants::BULLETS_PER_PLAYER;
-       i++) {
-    if (!bullets[i].active)
-      continue;
-    DrawBullet(bullets[i]);
-  }
-}
-
-void GameManager::DrawTime(double time) {
-  time = status == Status::END_OF_ROUND ? endRoundTime : time;
-  const char *text = TextFormat("%00.2f", time - startRoundTime);
-  DrawTextPro(font, text,
-              Vector2{Constants::TEXT_OFFSET, Constants::TEXT_OFFSET},
-              Vector2{0, 0}, 0.0f, Constants::TEXT_SIZE,
-              Constants::TEXT_SPACING, RAYWHITE);
-}
-
-void GameManager::DrawWinnerText() {
-  for (int i = 0; i < Constants::PLAYERS_MAX; i++) {
-    if (players[i].active) {
-      const char *text =
-          TextFormat("%s PLAYER WIN", Constants::PLAYER_NAMES[i].c_str());
-      Vector2 text_length = MeasureTextEx(font, text, Constants::TEXT_WIN_SIZE,
-                                          Constants::TEXT_SPACING);
-      DrawRectangle(0, 0, Constants::screenWidth, Constants::screenHeight,
-                    Constants::BACKGROUND_COLOR_HALF_ALFA);
-      DrawTextPro(win_font, text,
-                  Vector2{(float)Constants::screenWidth / 2,
-                          (float)Constants::screenHeight / 2},
-                  Vector2{text_length.x / 2, text_length.y / 2}, 0,
-                  Constants::TEXT_WIN_SIZE, Constants::TEXT_SPACING,
-                  Constants::PLAYER_COLORS[i]);
-      return;
-    }
-  }
-}
-
-void GameManager::DrawNewRoundCountdown() {
-  int time = Constants::NEW_ROUND_WAIT_TIME - int(GetTime() - endRoundTime);
-  const char *text = TextFormat("New round in %d", time);
-  Vector2 origin =
-      MeasureTextEx(font, text, Constants::TEXT_SIZE, Constants::TEXT_SPACING);
-  DrawTextPro(
-      font, text,
-      Vector2{(float)Constants::screenWidth / 2, Constants::screenHeight},
-      Vector2{origin.x / 2, origin.y + Constants::TEXT_OFFSET}, 0,
-      Constants::TEXT_SIZE, Constants::TEXT_SPACING, RAYWHITE);
 }
 
 void GameManager::ManageCollisions() {

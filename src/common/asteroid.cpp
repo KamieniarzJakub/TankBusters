@@ -33,11 +33,6 @@ void UpdateAsteroid(Asteroid *asteroid, float frametime) {
   asteroid->rotation += asteroid->rotation_speed * frametime;
 }
 
-void DrawAsteroid(Asteroid asteroid) {
-  DrawPolyLines(asteroid.position, asteroid.polygon, asteroid.size,
-                asteroid.rotation, WHITE);
-}
-
 Vector2 GetRandomPosition() {
   int side = GetRandomValue(-1, 2);
   if (side % 2)

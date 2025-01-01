@@ -23,5 +23,3 @@ CreateAsteroid(Vector2 position = GetRandomPosition(),
                                          Constants::ASTEROID_SIZE_MAX));
 
 void UpdateAsteroid(Asteroid *asteroid, float frametime);
-
-void DrawAsteroid(Asteroid asteroid);

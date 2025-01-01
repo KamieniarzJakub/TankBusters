@@ -1,4 +1,5 @@
 #include "gameManager.hpp"
+#include "graphicsManager.hpp"
 #include "lobbyManager.hpp"
 #include <raylib.h>
 #include <raymath.h>
@@ -6,6 +7,7 @@
 struct Game {
   GameManager gameManager;
   LobbyManager lobbyManager;
+  GraphicsManager graphicsManager;
 
   void updateDrawFrame(void) {
     gameManager.UpdateGameStatus();
@@ -38,19 +40,19 @@ struct Game {
 
     if (gameManager.status == Status::GAME ||
         gameManager.status == Status::END_OF_ROUND) {
-      gameManager.DrawAsteroids();
-      gameManager.DrawPlayers();
-      gameManager.DrawBullets();
+      graphicsManager.DrawAsteroids(gameManager);
+      graphicsManager.DrawPlayers(gameManager);
+      graphicsManager.DrawBullets(gameManager);
       if (gameManager.status == Status::END_OF_ROUND) {
-        gameManager.DrawWinnerText();
-        gameManager.DrawNewRoundCountdown();
+        graphicsManager.DrawWinnerText(gameManager);
+        graphicsManager.DrawNewRoundCountdown(gameManager);
       }
-      gameManager.DrawTime(GetTime());
+      graphicsManager.DrawTime(gameManager, GetTime());
     } else {
-      lobbyManager.DrawTitle(gameManager.win_font);
-      lobbyManager.DrawLobbyPlayers(gameManager.font);
-      lobbyManager.DrawReadyMessage(gameManager.font);
-      lobbyManager.DrawTimer(gameManager.font);
+      graphicsManager.DrawTitle(lobbyManager);
+      graphicsManager.DrawLobbyPlayers(lobbyManager);
+      graphicsManager.DrawReadyMessage();
+      graphicsManager.DrawTimer(lobbyManager);
     }
 
     EndDrawing();
