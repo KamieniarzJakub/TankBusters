@@ -23,8 +23,8 @@ GraphicsManager::GraphicsManager() {
 GraphicsManager::~GraphicsManager() {
   UnloadTexture(player_texture);
   UnloadFont(font);
-  UnloadFont(win_font);
-  UnloadFont(player_font);
+  // UnloadFont(win_font);
+  // UnloadFont(player_font);
 }
 
 void GraphicsManager::DrawAsteroid(const Asteroid &asteroid) {
