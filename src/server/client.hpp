@@ -1,13 +1,16 @@
 #pragma once
-#include "networked.hpp"
 #include <sys/epoll.h>
 #include <sys/socket.h>
+#include <thread>
 #include <unistd.h>
 
-struct Client : public Networked {
+struct Client {
   int fd;
-  int player_id;
-  int room_id;
-  void handleNetworkEvent(uint32_t events) override;
-  ~Client() override;
+  size_t player_id;
+  size_t room_id;
+  std::thread thread;
+  Client(int fd);
+  ~Client();
+
+  // void handle_connection();
 };
