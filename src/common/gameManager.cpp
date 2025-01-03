@@ -8,7 +8,11 @@ GameManager::~GameManager() {}
 
 void GameManager::NewGame(int players_in_game) {
   asteroids = std::vector<Asteroid>(Constants::ASTEROIDS_MAX, Asteroid());
-  players = std::vector<Player>(Constants::PLAYERS_MAX, Player());
+  players.clear();
+  players.reserve(Constants::PLAYERS_MAX);
+  for (int i = 0; i < Constants::PLAYERS_MAX; i++) {
+    players.push_back(AddPlayer(i));
+  }
   bullets = std::vector<Bullet>(
       Constants::BULLETS_PER_PLAYER * Constants::PLAYERS_MAX, Bullet());
   status = Status::LOBBY;
@@ -16,9 +20,6 @@ void GameManager::NewGame(int players_in_game) {
   _alive_players = players_in_game;
   startRoundTime = GetTime();
   endRoundTime = -1;
-  for (int i = 0; i < Constants::PLAYERS_MAX; i++) {
-    players[i] = AddPlayer(i);
-  }
 }
 
 void GameManager::UpdateGameStatus() {
@@ -164,4 +165,42 @@ void GameManager::AddBullet(Player player, int player_number) {
 
   TraceLog(LOG_INFO, "Failed to shoot a bullet - player[%d]: no bullets left",
            player_number);
+}
+
+void GameManager::UpdatePlayersLobby() {
+  for (int i = 0; i < Constants::PLAYERS_MAX; i++) {
+    if (IsKeyPressed(KEY_SPACE)) {
+      players[i].state = PlayerInfo::READY;
+    }
+  }
+  // TraceLog(LOG_DEBUG, "PLAYERS READY FOR NEW ROUND: %d", ready_players);
+}
+
+size_t GameManager::GetReadyPlayers() {
+  size_t i = 0;
+  for (auto &p : players) {
+    if (p.state == PlayerInfo::READY)
+      i++;
+  }
+  return i;
+}
+
+bool GameManager::UpdateLobbyStatus() {
+  size_t ready_players = GetReadyPlayers();
+  if (ready_players > 2) {
+    new_round_timer = new_round_timer > 0 ? new_round_timer : GetTime();
+    if (new_round_timer > 0 &&
+        int(GetTime() - new_round_timer) >= Constants::LOBBY_READY_TIME)
+      return true;
+  } else
+    new_round_timer = -1;
+  return false;
+}
+
+void GameManager::RestartLobby() {
+  for (auto &p : players) {
+    p.state = PlayerInfo::NOT_READY;
+    p.active = true;
+  }
+  new_round_timer = -1;
 }

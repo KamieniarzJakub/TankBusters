@@ -19,6 +19,7 @@ struct GameManager {
   float _spawnerTime;
   float startRoundTime;
   float endRoundTime;
+  float new_round_timer;
 
   GameManager();
   ~GameManager();
@@ -37,4 +38,11 @@ struct GameManager {
   void AddAsteroid();
   void SplitAsteroid(Vector2 position, Vector2 velocity, int size);
   void AddBullet(Player player, int player_number);
+
+  void RestartLobby();
+
+  void UpdatePlayersLobby();
+
+  bool UpdateLobbyStatus();
+  size_t GetReadyPlayers();
 };

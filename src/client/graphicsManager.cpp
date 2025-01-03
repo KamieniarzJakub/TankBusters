@@ -1,6 +1,5 @@
 #include "graphicsManager.hpp"
 #include "gameManager.hpp"
-#include "lobbyManager.hpp"
 #include "resource_dir.hpp"
 #include <raylib.h>
 
@@ -55,10 +54,10 @@ void GraphicsManager::DrawBullet(const Bullet &bullet) {
              WHITE);
 }
 
-void GraphicsManager::DrawTimer(const LobbyManager &lm) {
-  if (lm.new_round_timer > 0) {
+void GraphicsManager::DrawTimer(const GameManager &gm) {
+  if (gm.new_round_timer > 0) {
     int time =
-        Constants::LOBBY_READY_TIME - int(GetTime() - lm.new_round_timer);
+        Constants::LOBBY_READY_TIME - int(GetTime() - gm.new_round_timer);
     const char *text = TextFormat("New round in %d", int(time));
     Vector2 origin = MeasureTextEx(font, text, Constants::TEXT_SIZE,
                                    Constants::TEXT_SPACING);
@@ -70,9 +69,9 @@ void GraphicsManager::DrawTimer(const LobbyManager &lm) {
   }
 }
 
-void GraphicsManager::DrawTitle(const LobbyManager &lm) {
+void GraphicsManager::DrawTitle(const GameManager &gm) {
   const char *text =
-      TextFormat("LOBBY[%d/%d]", lm.players_in_lobby, Constants::PLAYERS_MAX);
+      TextFormat("LOBBY[%d/%d]", gm.players.size(), Constants::PLAYERS_MAX);
   Vector2 origin = MeasureTextEx(font, text, Constants::TEXT_WIN_SIZE,
                                  Constants::TEXT_SPACING);
   DrawTextPro(font, text, Vector2{(float)Constants::screenWidth / 2, 0},
@@ -80,17 +79,17 @@ void GraphicsManager::DrawTitle(const LobbyManager &lm) {
               Constants::TEXT_SPACING, RAYWHITE);
 }
 
-void GraphicsManager::DrawLobbyPlayers(const LobbyManager &lm) {
+void GraphicsManager::DrawLobbyPlayers(const GameManager &gm) {
   for (int i = 0; i < Constants::PLAYERS_MAX; i++) {
     float margin = (i - 2) * 2 * Constants::TEXT_OFFSET;
     const char *text =
         TextFormat("%s PLAYER", Constants::PLAYER_NAMES[i].c_str());
     Vector2 origin = MeasureTextEx(font, text, Constants::TEXT_SIZE,
                                    Constants::TEXT_SPACING);
-    Color player_color = (lm.players[i] == PlayerInfo::NONE)
+    Color player_color = (gm.players[i].state == PlayerInfo::NONE)
                              ? Constants::NOT_CONNECTED_GRAY
                              : Constants::PLAYER_COLORS[i];
-    if (lm.players[i] == PlayerInfo::NOT_READY)
+    if (gm.players[i].state == PlayerInfo::NOT_READY)
       player_color.a = 50;
     DrawTextPro(font, text,
                 Vector2{(float)Constants::screenWidth / 2,

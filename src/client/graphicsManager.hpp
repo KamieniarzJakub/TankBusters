@@ -2,7 +2,6 @@
 #include "asteroid.hpp"
 #include "bullet.hpp"
 #include "gameManager.hpp"
-#include "lobbyManager.hpp"
 #include "player.hpp"
 #include <raylib.h>
 
@@ -25,9 +24,9 @@ struct GraphicsManager {
   void DrawNewRoundCountdown(const GameManager &gm);
 
   // lobby manager
-  void DrawTimer(const LobbyManager &lm);
-  void DrawTitle(const LobbyManager &lm);
-  void DrawLobbyPlayers(const LobbyManager &lm);
+  void DrawTimer(const GameManager &gm);
+  void DrawTitle(const GameManager &gm);
+  void DrawLobbyPlayers(const GameManager &gm);
   void DrawReadyMessage();
 
   // player
