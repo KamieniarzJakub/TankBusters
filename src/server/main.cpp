@@ -21,4 +21,5 @@ int main(int argc, char **argv) {
   signal(SIGINT, exit); // imperfect, but objects should clean after themselves
   signal(SIGPIPE, SIG_IGN);
   auto server = Server(port);
+  server.listen_for_connections();
 }

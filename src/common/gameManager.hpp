@@ -14,7 +14,7 @@ struct GameManager {
   std::vector<Player> players;
   std::vector<Bullet> bullets;
 
-  int status;
+  Status status;
   int _alive_players;
   float _spawnerTime;
   float startRoundTime;
@@ -45,4 +45,5 @@ struct GameManager {
 
   bool UpdateLobbyStatus();
   size_t GetReadyPlayers();
+  size_t GetConnectedPlayers(PlayerConnection pc);
 };

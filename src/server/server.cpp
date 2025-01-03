@@ -1,6 +1,7 @@
 #include "server.hpp"
-#include "constants.hpp"
 #include "networkUtils.hpp"
+#include "player.hpp"
+#include <cstdint>
 #include <errno.h>
 #include <error.h>
 #include <iostream>
@@ -8,6 +9,7 @@
 #include <nlohmann/json.hpp>
 #include <sys/epoll.h>
 #include <sys/socket.h>
+#include <sys/types.h>
 #include <unistd.h>
 #include <vector>
 
@@ -32,7 +34,8 @@ Server::Server(in_port_t port) {
   if (res)
     error(1, errno, "listen failed");
 
-  this->connection_thread = std::thread(&Server::listen_for_connections, this);
+  // this->connection_thread = std::thread(&Server::listen_for_connections,
+  // this);
 }
 
 Server::~Server() {
@@ -61,24 +64,41 @@ void Server::listen_for_connections() {
 }
 
 void Server::handle_connection(Client client) {
-  char buf;
-  read(client.fd, &buf, 1);
-  std::cout << buf << std::endl;
-  // long room_id = ntohl(buf);
-  // std::string m = std::to_string(room_id);
-  // write(1, &m, sizeof(m));
+  uint32_t player_id_buf;
+  read(client.fd, &player_id_buf, sizeof(player_id_buf));
+  client.player_id = ntohl(player_id_buf);
+  std::cout << client.player_id << std::endl;
+
+  auto rooms = std::vector<Room>(5, Room{0});
+  std::cout << json(rooms).dump() << std::endl;
+  json jo;
+  jo["data"] = rooms;
+  // std::vector<std::uint8_t> rooms_bson = json::to_bson(jo);
+  std::string rooms_bson = json(rooms).dump();
+  std::cout << rooms_bson.size() << std::endl;
+  ssize_t rooms_size = htonl(rooms_bson.size());
+  write(client.fd, &rooms_size, sizeof(rooms_size));
+  write(client.fd, rooms_bson.c_str(), rooms_bson.size());
+
+  int res = shutdown(client.fd, SHUT_RDWR);
+  if (res) {
+    error(0, errno, "Failed shutdown for client: %lu", client.player_id);
+  }
+  res = close(client.fd);
+  if (res) {
+    error(0, errno, "Failed socket close for client: %lu", client.player_id);
+  }
 }
 
-size_t Server::get_available_rooms(size_t *room_ids) {
-  room_ids = (size_t *)calloc(rooms.size(), sizeof(size_t));
-  size_t n = 0;
-  for (size_t i = 0; i < rooms.size(); i++) {
-    if (rooms[i].gameManager.GetReadyPlayers() >= Constants::PLAYERS_MAX)
-      continue;
-    room_ids[i] = htonl(rooms[i].room_id);
-    n++;
+std::vector<Room> Server::get_available_rooms() {
+  std::vector<Room> rs;
+  for (Room &r : rooms) {
+    if ((r.gameManager.GetConnectedPlayers(PlayerConnection::None) +
+         r.gameManager.GetConnectedPlayers(PlayerConnection::Disconnected))) {
+      rs.push_back(r);
+    }
   }
-  return n;
+  return rs;
 }
 
 void Server::new_client(int client_fd) {

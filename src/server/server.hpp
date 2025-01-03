@@ -24,7 +24,7 @@ struct Server {
   ~Server();
 
   void listen_for_connections();
-  size_t get_available_rooms(size_t *room_ids);
+  std::vector<Room> get_available_rooms();
   void new_client(int fd);
   void delete_client(size_t client_id);
   Client *find_client(size_t client_id);

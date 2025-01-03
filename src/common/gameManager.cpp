@@ -204,3 +204,13 @@ void GameManager::RestartLobby() {
   }
   new_round_timer = -1;
 }
+
+size_t GameManager::GetConnectedPlayers(PlayerConnection pc) {
+  size_t n = 0;
+  for (auto &p : players) {
+    if (p.connection_state == pc) {
+      n++;
+    }
+  }
+  return n;
+}
