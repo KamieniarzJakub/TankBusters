@@ -1,5 +1,7 @@
 #include "player.hpp"
+#include "colorjson.hpp"
 #include "constants.hpp"
+#include "vec2json.hpp"
 
 Player AddPlayer(int i) {
   Player player;
@@ -55,4 +57,22 @@ bool Shoot() {
 Vector2 GetPlayerSpawnPosition(int i) {
   return Vector2{(float)Constants::screenWidth / 2,
                  (float)i * Constants::screenHeight / 4};
+}
+
+void to_json(json &j, const Player &p) {
+
+  j = json{{"player_id", p.player_id}, {"state", p.state},
+           {"active", p.active},       {"position", p.position},
+           {"velocity", p.velocity},   {"rotation", p.rotation},
+           {"color", p.player_color},  {"connection", p.connection_state}};
+}
+void from_json(const json &j, Player &p) {
+  j.at("player_id").get_to(p.player_id);
+  j.at("state").get_to(p.state);
+  j.at("active").get_to(p.active);
+  j.at("velocity").get_to(p.velocity);
+  j.at("position").get_to(p.position);
+  j.at("rotation").get_to(p.rotation);
+  j.at("color").get_to(p.player_color);
+  j.at("connection").get_to(p.connection_state);
 }
