@@ -51,14 +51,12 @@ void do_stuff(const char *host, const char *port) {
   read(fd, &rooms_size, sizeof(rooms_size));
   rooms_size = ntohl(rooms_size);
   std::cout << rooms_size << std::endl;
-  std::string rooms_bson(rooms_size, '\0');
-  // std::vector<uint8_t> rooms_bson = std::vector<uint8_t>(rooms_size, 0);
-  int r = read(fd, &rooms_bson[0], rooms_size);
+  auto rooms_bson = std::vector<std::uint8_t>(rooms_size, 0x0);
+  int r = read(fd, &rooms_bson.front(), rooms_bson.size());
   rooms_bson.resize(r);
   std::cout << "r " << r << std::endl;
-  // json rooms = json::from_bson(rooms_bson);
-  // std::cout << rooms.dump() << std::endl;
-  std::cout << rooms_bson << std::endl;
+  json rooms = json::from_bson(rooms_bson);
+  std::cout << rooms.dump() << std::endl;
 
   status = shutdown(fd, SHUT_RDWR);
   if (status != 0) {

@@ -73,12 +73,11 @@ void Server::handle_connection(Client client) {
   std::cout << json(rooms).dump() << std::endl;
   json jo;
   jo["data"] = rooms;
-  // std::vector<std::uint8_t> rooms_bson = json::to_bson(jo);
-  std::string rooms_bson = json(rooms).dump();
+  std::vector<std::uint8_t> rooms_bson = json::to_bson(jo);
   std::cout << rooms_bson.size() << std::endl;
   ssize_t rooms_size = htonl(rooms_bson.size());
   write(client.fd, &rooms_size, sizeof(rooms_size));
-  write(client.fd, rooms_bson.c_str(), rooms_bson.size());
+  write(client.fd, &rooms_bson.front(), rooms_bson.size());
 
   int res = shutdown(client.fd, SHUT_RDWR);
   if (res) {
