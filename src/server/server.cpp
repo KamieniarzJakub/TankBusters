@@ -1,10 +1,9 @@
 #include "server.hpp"
+#include "jsonutils.hpp"
 #include "networkUtils.hpp"
 #include "player.hpp"
-#include <cstdint>
 #include <errno.h>
 #include <error.h>
-#include <iostream>
 #include <netinet/in.h>
 #include <nlohmann/json.hpp>
 #include <sys/epoll.h>
@@ -34,8 +33,7 @@ Server::Server(in_port_t port) {
   if (res)
     error(1, errno, "listen failed");
 
-  // this->connection_thread = std::thread(&Server::listen_for_connections,
-  // this);
+  this->connection_thread = std::thread(&Server::listen_for_connections, this);
 }
 
 Server::~Server() {
@@ -64,29 +62,19 @@ void Server::listen_for_connections() {
 }
 
 void Server::handle_connection(Client client) {
-  uint32_t player_id_buf;
-  read(client.fd, &player_id_buf, sizeof(player_id_buf));
-  client.player_id = ntohl(player_id_buf);
-  std::cout << client.player_id << std::endl;
+  client.player_id = read_uint32(client.fd);
+  // std::cout << client.player_id << std::endl;
+  if (client.player_id == 0) {
+    write_uint32(client.fd, _next_client_id++);
+  }
 
   auto rooms = std::vector<Room>(5, Room{0});
-  std::cout << json(rooms).dump() << std::endl;
-  json jo;
-  jo["data"] = rooms;
-  std::vector<std::uint8_t> rooms_bson = json::to_bson(jo);
-  std::cout << rooms_bson.size() << std::endl;
-  ssize_t rooms_size = htonl(rooms_bson.size());
-  write(client.fd, &rooms_size, sizeof(rooms_size));
-  write(client.fd, &rooms_bson.front(), rooms_bson.size());
+  // std::cout << json(rooms).dump() << std::endl;
+  auto json_rooms = json(rooms);
+  write_json(client.fd, json_rooms);
 
-  int res = shutdown(client.fd, SHUT_RDWR);
-  if (res) {
-    error(0, errno, "Failed shutdown for client: %lu", client.player_id);
-  }
-  res = close(client.fd);
-  if (res) {
-    error(0, errno, "Failed socket close for client: %lu", client.player_id);
-  }
+  shutdown(client.fd, SHUT_RDWR);
+  close(client.fd);
 }
 
 std::vector<Room> Server::get_available_rooms() {

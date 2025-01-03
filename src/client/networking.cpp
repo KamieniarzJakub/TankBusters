@@ -1,11 +1,12 @@
 #include "networking.hpp"
+#include "jsonutils.hpp"
 #include <cstdint>
 #include <errno.h>
 #include <iostream>
 #include <nlohmann/json.hpp>
 #include <ostream>
 #include <room.hpp>
-#include <string>
+#include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -13,19 +14,18 @@ using json = nlohmann::json;
 
 void do_stuff(const char *host, const char *port) {
   int status, fd;
-  struct addrinfo addr;
-  struct addrinfo hints = {0};
+  struct addrinfo hints{};
   hints.ai_family = AF_INET;
   hints.ai_socktype = SOCK_STREAM;
   hints.ai_protocol = IPPROTO_TCP;
-  struct addrinfo *p_addr = &addr;
-  struct addrinfo *c_addr = NULL;
+  struct addrinfo *p_addr = nullptr;
+  struct addrinfo *c_addr = nullptr;
   status = getaddrinfo(host, port, &hints, &p_addr);
-  if (status != 0 || p_addr == NULL) {
+  if (status != 0 || p_addr == nullptr) {
     error(1, errno, "Couldn't resolve hostname or service\n");
   }
 
-  for (c_addr = p_addr; c_addr != NULL; c_addr = c_addr->ai_next) {
+  for (c_addr = p_addr; c_addr != nullptr; c_addr = c_addr->ai_next) {
 
     fd = socket(p_addr->ai_family, p_addr->ai_socktype, p_addr->ai_protocol);
     if (fd == -1) {
@@ -40,31 +40,25 @@ void do_stuff(const char *host, const char *port) {
   }
 
   freeaddrinfo(p_addr);
-  if (c_addr == NULL) {
+  if (c_addr == nullptr) {
     error(1, errno, "Could not connect\n");
   }
 
   uint32_t client_id = 0;
-  write(fd, &client_id, sizeof(client_id));
+  write_uint32(fd, client_id);
 
-  ssize_t rooms_size;
-  read(fd, &rooms_size, sizeof(rooms_size));
-  rooms_size = ntohl(rooms_size);
-  std::cout << rooms_size << std::endl;
-  auto rooms_bson = std::vector<std::uint8_t>(rooms_size, 0x0);
-  int r = read(fd, &rooms_bson.front(), rooms_bson.size());
-  rooms_bson.resize(r);
-  std::cout << "r " << r << std::endl;
-  json rooms = json::from_bson(rooms_bson);
+  client_id = read_uint32(fd);
+  std::cout << client_id << std::endl;
+  json rooms = read_json(fd);
   std::cout << rooms.dump() << std::endl;
 
   status = shutdown(fd, SHUT_RDWR);
-  if (status != 0) {
-    error(1, errno, "Couldn't shutdown the connection properly\n");
-  }
-
+  // if (status != 0) {
+  //   error(1, errno, "Couldn't shutdown the connection properly\n");
+  // }
+  //
   status = close(fd);
-  if (status != 0) {
-    error(1, errno, "Couldn't close the socket properly\n");
-  }
+  // if (status != 0) {
+  //   error(1, errno, "Couldn't close the socket properly\n");
+  // }
 }

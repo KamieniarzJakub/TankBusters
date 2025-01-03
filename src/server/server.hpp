@@ -13,12 +13,12 @@ struct Server {
   int fd;
   std::thread connection_thread;
 
-  std::atomic_bool _stop;
+  std::atomic_bool _stop = false;
 
   std::vector<Room> rooms;
   // size_t _room_id = 1;
   std::vector<Client> clients;
-  // size_t _next_client_id = 1;
+  std::atomic_size_t _next_client_id = 1;
 
   Server(in_port_t port);
   ~Server();
