@@ -11,18 +11,6 @@
 #include <unistd.h>
 #include <vector>
 
-enum State { NEW_CONNECTION, REQUEST_AVAILABLE_ROOMS, CONNECT_TO_ROOM, OTHER };
-
-struct Payload {
-  State state;
-  void *data;
-  size_t len;
-
-  Payload(State state, void *data, size_t len)
-      : state(state), data(data), len(len) {}
-  ~Payload() { free(data); }
-};
-
 Server::Server(in_port_t port) {
 
   this->fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -44,13 +32,6 @@ Server::Server(in_port_t port) {
   if (res)
     error(1, errno, "listen failed");
 
-  this->epollfd = epoll_create1(0);
-  if (epollfd == -1)
-    error(1, errno, "epoll_create1");
-
-  epoll_event ee{EPOLLIN, {}};
-  ee.data.ptr = new Payload{NEW_CONNECTION, 0, 0};
-  epoll_ctl(epollfd, EPOLL_CTL_ADD, fd, &ee);
   this->connection_thread = std::thread(&Server::listen_for_connections, this);
 }
 
@@ -66,51 +47,16 @@ Server::~Server() {
   res = close(fd);
   if (res)
     error(1, errno, "close fd failed");
-  res = close(epollfd);
-  if (res)
-    error(1, errno, "close epollfd failed");
-  // for (auto &e : events) {
-  // free(e.data.ptr);
-  // }
 }
 
 void Server::listen_for_connections() {
   while (!this->_stop) {
-    // int res = epoll_wait(epollfd, events, Constants::MAX_EPOLL_EVENTS, -1);
-    // if (res == -1 && errno != EINTR) {
-    //   error(0, errno, "epoll_wait failed");
-    // }
-    // for (int i = 0; i < res; i++) {
-    //   auto &e = events[i];
-    //   if (e.data.ptr == nullptr)
-    //     continue;
-    //
-    //   if (e.data.fd == 0) {
     sockaddr_in clientAddr{};
     socklen_t socklen = sizeof(clientAddr);
 
     int client_fd = accept(fd, (sockaddr *)&clientAddr, &socklen);
 
     new_client(client_fd);
-
-    // epoll_event ee{EPOLLIN, {}};
-
-    // Payload *p1 = new Payload{REQUEST_AVAILABLE_ROOMS, new int(client_fd),
-    // sizeof(client_fd)
-    // };
-    // ee.data.ptr = p1;
-    //   epoll_ctl(epollfd, EPOLL_CTL_ADD, client_fd, &ee);
-    //   delete p;
-    // } else if (p->state == REQUEST_AVAILABLE_ROOMS) {
-    //   size_t *room_ids = nullptr;
-    //   auto n = get_available_rooms(room_ids);
-    //   int *cfd = (int *)p->data;
-    //   write(*cfd, room_ids, n);
-    //   delete p;
-    // } else if (p->state == CONNECT_TO_ROOM) {
-    //
-    // }
-    // }
   }
 }
 
@@ -122,14 +68,6 @@ void Server::handle_connection(Client client) {
   // std::string m = std::to_string(room_id);
   // write(1, &m, sizeof(m));
 }
-
-// void Server::delete_client(size_t client_id){
-//   if (thread.joinable()) {
-//     thread.join();
-//   }
-// }
-
-// void Server::handle_game_logic(Server &server) {}
 
 size_t Server::get_available_rooms(size_t *room_ids) {
   room_ids = (size_t *)calloc(rooms.size(), sizeof(size_t));
@@ -144,10 +82,6 @@ size_t Server::get_available_rooms(size_t *room_ids) {
 }
 
 void Server::new_client(int client_fd) {
-  // clients.push_back(Client{
-  //     client_fd,
-  // });
-  // std::thread(&Server::handle_connection, this, clients.back()).detach();
   std::thread(&Server::handle_connection, this, Client{client_fd}).detach();
 }
 

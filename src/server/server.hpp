@@ -11,11 +11,9 @@
 
 struct Server {
   int fd;
-  int epollfd;
   std::thread connection_thread;
 
   std::atomic_bool _stop;
-  epoll_event events[Constants::MAX_EPOLL_EVENTS];
 
   std::vector<Room> rooms;
   // size_t _room_id = 1;
