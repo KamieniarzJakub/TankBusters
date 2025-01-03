@@ -26,9 +26,10 @@ struct Server {
   ~Server();
 
   void listen_for_connections();
-  size_t create_room();
-  size_t new_player(size_t room_id);
-  void handle_connection(int fd);
-  size_t authenticate_client(int fd);
   size_t get_available_rooms(size_t *room_ids);
+  void new_client(int fd);
+  void delete_client(size_t client_id);
+  Client *find_client(size_t client_id);
+  void handle_connection(Client client);
+  void handle_game_logic();
 };
