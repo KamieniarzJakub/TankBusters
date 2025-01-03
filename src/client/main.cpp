@@ -1,5 +1,6 @@
 #include "constants.hpp"
 #include "game.cpp"
+#include "networking.hpp"
 #include <raylib.h>
 
 #if defined(PLATFORM_WEB)
@@ -16,6 +17,7 @@ int main() {
   emscripten_set_main_loop(game.updateDrawFrame, 0, 1);
 #else
   // Main game loop
+  do_stuff("localhost", "1234");
   while (!WindowShouldClose()) // Detect window close button or ESC key
   {
     game.updateDrawFrame();
