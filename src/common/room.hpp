@@ -7,7 +7,7 @@ using json = nlohmann::json;
 
 struct Room {
   size_t room_id = 0;
-  int players = 0;
+  size_t players = 0;
   GameStatus status = GameStatus::LOBBY;
 };
 

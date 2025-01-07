@@ -1,4 +1,5 @@
 #include "server.hpp"
+#include "gameManager.hpp"
 #include "jsonutils.hpp"
 #include "networkUtils.hpp"
 #include "player.hpp"
@@ -37,7 +38,7 @@ Server::Server(in_port_t port) {
 
   this->connection_thread = std::thread(&Server::listen_for_connections, this);
   this->rooms = std::vector<Room>(4, Room()); // FIXME:
-  rooms[0].players = 3;
+  this->games = std::vector<GameManager>(4, GameManager());
 }
 
 Server::~Server() {
@@ -86,7 +87,7 @@ void Server::handle_network_event(Client &client, uint32_t event) {
   }
   case NetworkEvents::GetRoomList: {
     write_uint32(client.fd, NetworkEvents::GetRoomList);
-    auto j_rooms = json(rooms);
+    auto j_rooms = json(this->get_available_rooms());
     write_json(client.fd, j_rooms);
     break;
   }
@@ -102,12 +103,13 @@ void Server::disconnect_client(Client &client) {
 
 std::vector<Room> Server::get_available_rooms() {
   std::vector<Room> rs;
-  for (Room &r : rooms) {
-    // if ((r.gameManager.GetConnectedPlayers(PlayerConnection::None) +
-    //      r.gameManager.GetConnectedPlayers(PlayerConnection::Disconnected)))
-    //      {
-    rs.push_back(r);
-    // }
+  for (GameManager &g : this->games) {
+    auto room =
+        Room{g.room_id,
+             g.GetConnectedPlayers(PlayerConnection::Connected) +
+                 g.GetConnectedPlayers(PlayerConnection::PoorConnection),
+             g.status};
+    rs.push_back(room);
   }
   return rs;
 }

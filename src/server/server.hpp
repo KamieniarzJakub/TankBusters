@@ -1,5 +1,6 @@
 #pragma once
 #include "client.hpp"
+#include "gameManager.hpp"
 #include "networkEvents.hpp"
 #include "room.hpp"
 #include <atomic>
@@ -17,8 +18,9 @@ struct Server {
 
   std::atomic_bool _stop = false;
 
-  std::vector<Room> rooms; // FIXME: no game state
-  // size_t _room_id = 1;
+  std::vector<Room> rooms;
+  // size_t _next_room_id = 1;
+  std::vector<GameManager> games;
   std::vector<Client> clients;
   std::atomic_size_t _next_client_id = 1;
 

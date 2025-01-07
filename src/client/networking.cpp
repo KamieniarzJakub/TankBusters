@@ -1,4 +1,5 @@
 #include "networking.hpp"
+#include "gameManager.hpp"
 #include "jsonutils.hpp"
 #include "networkEvents.hpp"
 #include <cstdint>
@@ -93,31 +94,115 @@ int ClientNetworkManager::connect_to(const char *host, const char *port) {
   return fd;
 }
 
-// bool ClientNetworkManager::join_room(uint32_t room_id) {
-//   write_uint32(fd, NetworkEvents::JoinRoom);
-//   write_uint32(fd, room_id);
-//
-//   uint32_t event = NetworkEvents::NoEvent;
-//   event = read_uint32(fd);
-//   if (event == NetworkEvents::JoinRoom) {
-//     uint32_t joined_room = read_uint32(fd);
-//     // FIXME: FINISHED HERE
-//     return true;
-//   } else {
-//     return false;
-//   }
-// }
+bool ClientNetworkManager::join_room(uint32_t room_id) {
+  // FIXME: UNFINISHED
+  write_uint32(fd, NetworkEvents::JoinRoom);
+  write_uint32(fd, room_id);
 
-// bool ClientNetworkManager::send_current_player_state() {}
-//
-// void ClientNetworkManager::fetch_room_state() {}
-//
-// std::vector<Player> ClientNetworkManager::fetch_players() {}
-//
-// std::vector<Asteroid> ClientNetworkManager::fetch_asteroids() {}
-//
-// std::vector<Bullet> ClientNetworkManager::fetch_bullets() {}
-//
-// bool ClientNetworkManager::shoot_bullet() {}
-//
-// int ClientNetworkManager::vote_ready() {}
+  uint32_t event = read_uint32(fd);
+  if (event == NetworkEvents::JoinRoom) {
+    uint32_t joined_room = read_uint32(fd);
+    return true;
+  } else {
+    return false;
+  }
+}
+
+Room ClientNetworkManager::fetch_room_state() {
+  return fetch_room_state(this->room_id);
+}
+
+Room ClientNetworkManager::fetch_room_state(uint32_t fetch_room_id) {
+  // FIXME: UNFINISHED
+  //
+  // UpdateRoomState
+  // UpdateRoomState
+  return {};
+}
+
+void ClientNetworkManager::leave_room() {
+  if (room_id == 0) {
+    return;
+  }
+  // FIXME: UNFINISHED
+  //
+  //   LeaveRoom
+  //   LeaveRoom
+  room_id = 0;
+}
+
+bool ClientNetworkManager::send_movement(Vector2 direction) {
+  // TODO: discussion
+  // FIXME: UNFINISHED
+  //
+  // PlayerMovement
+  // PlayerMovement
+  return false;
+}
+
+GameManager ClientNetworkManager::fetch_game_state() {
+  // FIXME: UNFINISHED
+  //
+  // UpdateGameState,
+  // UpdateGameState,
+  return {};
+}
+
+std::vector<Player> ClientNetworkManager::fetch_players() {
+  // FIXME: UNFINISHED
+  //
+  // UpdatePlayers
+  // UpdatePlayers
+  return {};
+}
+
+std::vector<Asteroid> ClientNetworkManager::fetch_asteroids() {
+  // FIXME: UNFINISHED
+  //
+  // UpdateAsteroids
+  // UpdateAsteroids
+  return {};
+}
+
+std::vector<Bullet> ClientNetworkManager::fetch_bullets() {
+  // FIXME: UNFINISHED
+  //
+  // UpdateBullets
+  // UpdateBullets
+  return {};
+}
+
+// returns isPlayerShootingAccoringToServer
+// flips player shooting state according to the server
+bool ClientNetworkManager::shoot_bullets() {
+  // FIXME: UNFINISHED
+  //
+  // FlipShooting
+  // FlipShooting
+  return {};
+}
+
+int ClientNetworkManager::vote_ready() {
+  // FIXME: UNFINISHED
+  //
+  // VoteReady,
+  // VoteReady,
+
+  return {};
+}
+
+void ClientNetworkManager::handle_end_round() {
+  // TODO: discussion
+  // FIXME: UNFINISHED
+  //
+  // recv only EndRound
+}
+
+bool ClientNetworkManager::handle_connection_check() {
+  // TODO: discussion
+  // FIXME: UNFINISHED
+  //
+  // CheckConnection
+  // CheckConnection
+  return false;
+}

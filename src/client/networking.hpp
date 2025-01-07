@@ -1,4 +1,6 @@
+#include "asteroid.hpp"
 #include "bullet.hpp"
+#include "gameManager.hpp"
 #include "player.hpp"
 #include "room.hpp"
 #include <cstdint>
@@ -18,17 +20,30 @@ struct ClientNetworkManager {
   ClientNetworkManager(const char *host, const char *port);
   ~ClientNetworkManager();
 
-  uint32_t get_new_client_id();
-  std::vector<Room> get_rooms();
+  // Connection
+  int connect_to(const char *host, const char *port);
   void disconnect();
   void set_socket_timeout(time_t seconds);
-  int connect_to(const char *host, const char *port);
-  // bool join_room(uint32_t room_id);
-  // bool send_current_player_state();
-  // void fetch_room_state();
-  // std::vector<Player> fetch_players();
-  // std::vector<Asteroid> fetch_asteroids();
-  // std::vector<Bullet> fetch_bullets();
-  // bool shoot_bullet();
-  // int vote_ready();
+
+  // Player
+  uint32_t get_new_client_id();
+  int vote_ready();
+  bool send_movement(Vector2 direction);
+  bool shoot_bullets();
+
+  // Room
+  std::vector<Room> get_rooms();
+  bool join_room(uint32_t room_id);
+  void leave_room();
+
+  // Fetching data from server
+  Room fetch_room_state();
+  Room fetch_room_state(uint32_t fetch_room_id);
+  GameManager fetch_game_state();
+  std::vector<Player> fetch_players();
+  std::vector<Asteroid> fetch_asteroids();
+  std::vector<Bullet> fetch_bullets();
+
+  void handle_end_round();
+  bool handle_connection_check();
 };
