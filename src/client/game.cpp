@@ -2,7 +2,6 @@
 #include "gameStatus.hpp"
 #include "graphicsManager.hpp"
 #include "networking.hpp"
-#include <iostream>
 #include <raylib.h>
 #include <raymath.h>
 
@@ -16,7 +15,7 @@ struct Game {
         networkManager(host, port) {
     std::vector<Room> rooms =
         networkManager.get_rooms(); // FIXME: move somewhere else
-    std::cout << json(rooms) << std::endl;
+    TraceLog(LOG_INFO, ("ROOMS: " + json(rooms).dump()).c_str());
   }
 
   void updateDrawFrame(void) {
