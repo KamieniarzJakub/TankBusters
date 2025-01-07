@@ -15,7 +15,7 @@ void GameManager::NewGame(int players_in_game) {
   }
   bullets = std::vector<Bullet>(
       Constants::BULLETS_PER_PLAYER * Constants::PLAYERS_MAX, Bullet());
-  status = Status::LOBBY;
+  status = GameStatus::LOBBY;
   _spawnerTime = 0;
   _alive_players = players_in_game;
   startRoundTime = GetTime();
@@ -24,14 +24,14 @@ void GameManager::NewGame(int players_in_game) {
 
 void GameManager::UpdateGameStatus() {
   if (_alive_players > 1) {
-    status = Status::GAME;
+    status = GameStatus::GAME;
     endRoundTime = GetTime();
   } else if (endRoundTime > 0) {
-    status = Status::END_OF_ROUND;
+    status = GameStatus::END_OF_ROUND;
     if (GetTime() - endRoundTime >= Constants::NEW_ROUND_WAIT_TIME)
       endRoundTime = -1;
   } else {
-    status = Status::LOBBY;
+    status = GameStatus::LOBBY;
   }
 }
 

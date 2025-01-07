@@ -1,6 +1,8 @@
 #include "gameManager.hpp"
+#include "gameStatus.hpp"
 #include "graphicsManager.hpp"
 #include "networking.hpp"
+#include <iostream>
 #include <raylib.h>
 #include <raymath.h>
 
@@ -11,12 +13,16 @@ struct Game {
 
   Game(const char *host, const char *port)
       : gameManager(GameManager()), graphicsManager(GraphicsManager()),
-        networkManager(host, port) {}
+        networkManager(host, port) {
+    std::vector<Room> rooms =
+        networkManager.get_rooms(); // FIXME: move somewhere else
+    std::cout << json(rooms) << std::endl;
+  }
 
   void updateDrawFrame(void) {
     gameManager.UpdateGameStatus();
     // TraceLog(LOG_DEBUG, "Game status: %d", gameManager.status);
-    if (gameManager.status == Status::GAME) {
+    if (gameManager.status == GameStatus::GAME) {
       float frametime = GetFrameTime();
 
       gameManager.ManageCollisions();
@@ -38,12 +44,12 @@ struct Game {
 
     ClearBackground(Constants::BACKGROUND_COLOR);
 
-    if (gameManager.status == Status::GAME ||
-        gameManager.status == Status::END_OF_ROUND) {
+    if (gameManager.status == GameStatus::GAME ||
+        gameManager.status == GameStatus::END_OF_ROUND) {
       graphicsManager.DrawAsteroids(gameManager);
       graphicsManager.DrawPlayers(gameManager);
       graphicsManager.DrawBullets(gameManager);
-      if (gameManager.status == Status::END_OF_ROUND) {
+      if (gameManager.status == GameStatus::END_OF_ROUND) {
         graphicsManager.DrawWinnerText(gameManager);
         graphicsManager.DrawNewRoundCountdown(gameManager);
       }

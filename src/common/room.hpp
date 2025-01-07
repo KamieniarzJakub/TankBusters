@@ -1,12 +1,14 @@
 #pragma once
-#include "gameManager.hpp"
+#include "gameStatus.hpp"
+#include "player.hpp"
 #include <nlohmann/json.hpp>
 
 using json = nlohmann::json;
 
 struct Room {
-  size_t room_id;
-  GameManager gameManager;
+  size_t room_id = 0;
+  int players = 0;
+  GameStatus status = GameStatus::LOBBY;
 };
 
 void to_json(json &j, const Room &r);

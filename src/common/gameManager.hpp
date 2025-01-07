@@ -2,19 +2,18 @@
 
 #include "asteroid.hpp"
 #include "bullet.hpp"
+#include "gameStatus.hpp"
 #include "player.hpp"
 #include <raylib.h>
 #include <raymath.h>
 #include <vector>
-
-enum Status { LOBBY = 0, GAME = 1, END_OF_ROUND = 2 };
 
 struct GameManager {
   std::vector<Asteroid> asteroids;
   std::vector<Player> players;
   std::vector<Bullet> bullets;
 
-  Status status;
+  GameStatus status;
   int _alive_players;
   float _spawnerTime;
   float startRoundTime;

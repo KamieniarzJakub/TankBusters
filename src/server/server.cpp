@@ -2,6 +2,8 @@
 #include "jsonutils.hpp"
 #include "networkUtils.hpp"
 #include "player.hpp"
+#include "room.hpp"
+#include <cstdint>
 #include <errno.h>
 #include <error.h>
 #include <netinet/in.h>
@@ -14,26 +16,28 @@
 
 Server::Server(in_port_t port) {
 
-  this->fd = socket(AF_INET, SOCK_STREAM, 0);
-  if (this->fd == -1)
+  this->sfd = socket(AF_INET, SOCK_STREAM, 0);
+  if (this->sfd == -1)
     error(1, errno, "socket failed");
 
-  setReuseAddr(this->fd);
+  setReuseAddr(this->sfd);
 
   sockaddr_in serverAddr{};
   serverAddr.sin_family = AF_INET;
   serverAddr.sin_port = htons((short)port);
   serverAddr.sin_addr = {INADDR_ANY};
 
-  int res = bind(this->fd, (sockaddr *)&serverAddr, sizeof(serverAddr));
+  int res = bind(this->sfd, (sockaddr *)&serverAddr, sizeof(serverAddr));
   if (res)
     error(1, errno, "bind failed");
 
-  res = listen(this->fd, 1);
+  res = listen(this->sfd, 1);
   if (res)
     error(1, errno, "listen failed");
 
   this->connection_thread = std::thread(&Server::listen_for_connections, this);
+  this->rooms = std::vector<Room>(4, Room()); // FIXME:
+  rooms[0].players = 3;
 }
 
 Server::~Server() {
@@ -42,10 +46,10 @@ Server::~Server() {
     this->connection_thread.join();
 
   // close network resources
-  int res = shutdown(fd, SHUT_RDWR);
+  int res = shutdown(sfd, SHUT_RDWR);
   if (res)
     error(1, errno, "shutdown fd failed");
-  res = close(fd);
+  res = close(sfd);
   if (res)
     error(1, errno, "close fd failed");
 }
@@ -55,24 +59,43 @@ void Server::listen_for_connections() {
     sockaddr_in clientAddr{};
     socklen_t socklen = sizeof(clientAddr);
 
-    int client_fd = accept(fd, (sockaddr *)&clientAddr, &socklen);
+    int client_fd = accept(sfd, (sockaddr *)&clientAddr, &socklen);
 
     new_client(client_fd);
   }
 }
 
 void Server::handle_connection(Client client) {
-  client.player_id = read_uint32(client.fd);
-  // std::cout << client.player_id << std::endl;
-  if (client.player_id == 0) {
-    write_uint32(client.fd, _next_client_id++);
+  while (true) {
+    uint32_t event = read_uint32(client.fd);
+    handle_network_event(client, event);
   }
+}
 
-  auto rooms = std::vector<Room>(5, Room{0});
-  // std::cout << json(rooms).dump() << std::endl;
-  auto json_rooms = json(rooms);
-  write_json(client.fd, json_rooms);
+void Server::handle_network_event(Client &client, uint32_t event) {
+  switch (event) {
+  case NetworkEvents::NoEvent:
+    break;
+  case NetworkEvents::GetPlayerId: {
+    uint32_t client_id = read_uint32(client.fd);
+    // 0 new client, 0> existing client reconnecting
+    client.player_id = client_id;
+    write_uint32(client.fd, NetworkEvents::GetPlayerId);
+    write_uint32(client.fd, _next_client_id++);
+    break;
+  }
+  case NetworkEvents::GetRoomList: {
+    write_uint32(client.fd, NetworkEvents::GetRoomList);
+    auto j_rooms = json(rooms);
+    write_json(client.fd, j_rooms);
+    break;
+  }
+  default:
+    break;
+  }
+}
 
+void Server::disconnect_client(Client &client) {
   shutdown(client.fd, SHUT_RDWR);
   close(client.fd);
 }
@@ -80,10 +103,11 @@ void Server::handle_connection(Client client) {
 std::vector<Room> Server::get_available_rooms() {
   std::vector<Room> rs;
   for (Room &r : rooms) {
-    if ((r.gameManager.GetConnectedPlayers(PlayerConnection::None) +
-         r.gameManager.GetConnectedPlayers(PlayerConnection::Disconnected))) {
-      rs.push_back(r);
-    }
+    // if ((r.gameManager.GetConnectedPlayers(PlayerConnection::None) +
+    //      r.gameManager.GetConnectedPlayers(PlayerConnection::Disconnected)))
+    //      {
+    rs.push_back(r);
+    // }
   }
   return rs;
 }

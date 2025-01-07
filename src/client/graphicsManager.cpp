@@ -134,7 +134,7 @@ void GraphicsManager::DrawBullets(const GameManager &gm) {
 }
 
 void GraphicsManager::DrawTime(const GameManager &gm, double time) {
-  if (gm.status == Status::END_OF_ROUND)
+  if (gm.status == GameStatus::END_OF_ROUND)
     time = gm.endRoundTime;
 
   const char *text = TextFormat("%00.2f", time - gm.startRoundTime);

@@ -1,4 +1,5 @@
 #include "jsonutils.hpp"
+#include <iostream>
 
 void write_uint32(int fd, uint32_t v) {
   uint32_t val = htonl(v);
@@ -6,7 +7,7 @@ void write_uint32(int fd, uint32_t v) {
 }
 
 uint32_t read_uint32(int fd) {
-  uint32_t val;
+  uint32_t val = 0;
   read(fd, &val, sizeof(val));
   return ntohl(val);
 }
@@ -20,8 +21,9 @@ void write_json(int fd, const json &j) {
 }
 
 json read_json(int fd) {
-  auto bson = std::vector<std::uint8_t>(read_uint32(fd), 0x0);
+  auto bson = std::vector<std::uint8_t>(read_uint32(fd), 0);
   read(fd, &bson[0], bson.size());
-  json j = json::from_bson(bson);
+  json j = json::from_bson(bson); // FIXME: try catch safe parsing
+  std::cout << j << std::endl;
   return j.at("data");
 }

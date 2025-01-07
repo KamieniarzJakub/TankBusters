@@ -1,7 +1,9 @@
 #pragma once
 #include "client.hpp"
+#include "networkEvents.hpp"
 #include "room.hpp"
 #include <atomic>
+#include <cstdint>
 #include <error.h>
 #include <netinet/in.h>
 #include <sys/epoll.h>
@@ -10,12 +12,12 @@
 #include <vector>
 
 struct Server {
-  int fd;
+  int sfd;
   std::thread connection_thread;
 
   std::atomic_bool _stop = false;
 
-  std::vector<Room> rooms;
+  std::vector<Room> rooms; // FIXME: no game state
   // size_t _room_id = 1;
   std::vector<Client> clients;
   std::atomic_size_t _next_client_id = 1;
@@ -30,4 +32,6 @@ struct Server {
   Client *find_client(size_t client_id);
   void handle_connection(Client client);
   void handle_game_logic();
+  void disconnect_client(Client &client);
+  void handle_network_event(Client &client, uint32_t networkEvent);
 };
