@@ -1,10 +1,9 @@
 #include "networking.hpp"
 #include "jsonutils.hpp"
+#include "networkEvents.hpp"
 #include <cstdint>
 #include <errno.h>
-#include <iostream>
 #include <nlohmann/json.hpp>
-#include <ostream>
 #include <room.hpp>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -12,7 +11,39 @@
 
 using json = nlohmann::json;
 
-void do_stuff(const char *host, const char *port) {
+ClientNetworkManager::ClientNetworkManager(const char *host, const char *port) {
+  fd = connect_to(host, port);
+  client_id = get_new_client_id();
+}
+
+ClientNetworkManager::~ClientNetworkManager() { disconnect(); }
+
+uint32_t ClientNetworkManager::get_new_client_id() {
+  // Negotiate new client id
+  write_uint32(fd, NetworkEvents::GetPlayerId);
+  write_uint32(fd, client_id);
+  return read_uint32(fd);
+}
+
+std::vector<Room> ClientNetworkManager::get_rooms() {
+  write_uint32(fd, NetworkEvents::GetRoomList);
+  json rooms = read_json(fd);
+  return rooms.template get<std::vector<Room>>();
+}
+
+void ClientNetworkManager::disconnect() {
+  shutdown(fd, SHUT_RDWR);
+  close(fd);
+  // if (status != 0) {
+  //   error(1, errno, "Couldn't shutdown the connection properly\n");
+  // }
+  //
+  // if (status != 0) {
+  //   error(1, errno, "Couldn't close the socket properly\n");
+  // }
+}
+
+int ClientNetworkManager::connect_to(const char *host, const char *port) {
   int status, fd;
   struct addrinfo hints{};
   hints.ai_family = AF_INET;
@@ -44,21 +75,5 @@ void do_stuff(const char *host, const char *port) {
     error(1, errno, "Could not connect\n");
   }
 
-  uint32_t client_id = 0;
-  write_uint32(fd, client_id);
-
-  client_id = read_uint32(fd);
-  std::cout << client_id << std::endl;
-  json rooms = read_json(fd);
-  std::cout << rooms.dump() << std::endl;
-
-  status = shutdown(fd, SHUT_RDWR);
-  // if (status != 0) {
-  //   error(1, errno, "Couldn't shutdown the connection properly\n");
-  // }
-  //
-  status = close(fd);
-  // if (status != 0) {
-  //   error(1, errno, "Couldn't close the socket properly\n");
-  // }
+  return fd;
 }

@@ -1,11 +1,17 @@
 #include "gameManager.hpp"
 #include "graphicsManager.hpp"
+#include "networking.hpp"
 #include <raylib.h>
 #include <raymath.h>
 
 struct Game {
   GameManager gameManager;
   GraphicsManager graphicsManager;
+  ClientNetworkManager networkManager;
+
+  Game(const char *host, const char *port)
+      : gameManager(GameManager()), graphicsManager(GraphicsManager()),
+        networkManager(host, port) {}
 
   void updateDrawFrame(void) {
     gameManager.UpdateGameStatus();

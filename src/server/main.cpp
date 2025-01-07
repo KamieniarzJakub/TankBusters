@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <error.h>
+#include <iostream>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <sys/epoll.h>
@@ -21,4 +22,5 @@ int main(int argc, char **argv) {
   signal(SIGINT, exit); // imperfect, but objects should clean after themselves
   signal(SIGPIPE, SIG_IGN);
   auto server = Server(port);
+  std::cout << "Server is running on localhost:" << argv[1] << std::endl;
 }
