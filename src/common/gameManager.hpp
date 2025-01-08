@@ -25,10 +25,11 @@ struct GameManager {
 
   void NewGame(int players_in_game = 0);
 
-  void UpdateGameStatus();
+  void UpdateStatus();
   void UpdatePlayers(float frametime);
   void UpdateBullets(float frametime);
   void UpdateAsteroids(float frametime);
+  void UpdateGame();
 
   void AsteroidSpawner(double time);
 
@@ -43,6 +44,7 @@ struct GameManager {
   void UpdatePlayersLobby();
 
   bool UpdateLobbyStatus();
+  bool ReturnToRooms();
   size_t GetReadyPlayers();
   size_t GetConnectedPlayers(PlayerConnection pc);
 };

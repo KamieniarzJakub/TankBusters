@@ -22,7 +22,7 @@ void GameManager::NewGame(int players_in_game) {
   endRoundTime = -1;
 }
 
-void GameManager::UpdateGameStatus() {
+void GameManager::UpdateStatus() {
   if (_alive_players > 1) {
     status = GameStatus::GAME;
     endRoundTime = GetTime();
@@ -54,6 +54,28 @@ void GameManager::UpdateBullets(float frametime) {
 void GameManager::UpdateAsteroids(float frametime) {
   for (int i = 0; i < Constants::ASTEROIDS_MAX; i++) {
     UpdateAsteroid(&asteroids[i], frametime);
+  }
+}
+
+void GameManager::UpdateGame(){
+  UpdateStatus();
+  // TraceLog(LOG_DEBUG, "Game status: %d", gameManager.status);
+  if (status == GameStatus::GAME) {
+    float frametime = GetFrameTime();
+
+    ManageCollisions();
+
+    UpdatePlayers(frametime);
+    UpdateBullets(frametime);
+    UpdateAsteroids(frametime);
+
+    AsteroidSpawner(GetTime());
+  } else {
+    if (UpdateLobbyStatus()) {
+      NewGame(GetReadyPlayers());
+      RestartLobby();
+    }
+    UpdatePlayersLobby();
   }
 }
 
@@ -195,6 +217,10 @@ bool GameManager::UpdateLobbyStatus() {
   } else
     new_round_timer = -1;
   return false;
+}
+
+bool GameManager::ReturnToRooms(){
+  return (status==GameStatus::LOBBY && (IsKeyPressed(KEY_ENTER)||IsKeyPressed(KEY_BACKSPACE)));
 }
 
 void GameManager::RestartLobby() {

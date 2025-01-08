@@ -175,3 +175,87 @@ void GraphicsManager::DrawNewRoundCountdown(const GameManager &gm) {
       Vector2{origin.x / 2, origin.y + Constants::TEXT_OFFSET}, 0,
       Constants::TEXT_SIZE, Constants::TEXT_SPACING, RAYWHITE);
 }
+
+void GraphicsManager::DrawGame(GameManager gameManager) {
+  if (gameManager.status == GameStatus::GAME ||
+        gameManager.status == GameStatus::END_OF_ROUND) {
+      DrawAsteroids(gameManager);
+      DrawPlayers(gameManager);
+      DrawBullets(gameManager);
+      if (gameManager.status == GameStatus::END_OF_ROUND) {
+        DrawWinnerText(gameManager);
+        DrawNewRoundCountdown(gameManager);
+      }
+      DrawTime(gameManager, GetTime());
+    } else {
+      DrawTitle(gameManager);
+      DrawLobbyPlayers(gameManager);
+      DrawReadyMessage();
+      DrawTimer(gameManager);
+    }
+}
+
+void GraphicsManager::DrawRoomTitle(){
+  const char *text1 = TextFormat("T\t\tNK BUSTERS");
+  Vector2 origin = MeasureTextEx(player_font, text1, Constants::PLAYER_SIZE, Constants::TEXT_SPACING);
+  DrawTextPro(player_font, text1,
+            Vector2{(float)Constants::screenWidth / 2, 0},
+            Vector2{origin.x / 2, -origin.y/2}, 0, Constants::PLAYER_SIZE,
+            Constants::TEXT_SPACING, RAYWHITE);
+  const auto draw_offset = Vector2Scale(MeasureTextEx(font, Constants::PLAYER_AVATAR.c_str(), Constants::PLAYER_SIZE, 0),
+                   0.5);
+  DrawTextPro(player_font, Constants::PLAYER_AVATAR.c_str(), Vector2{origin.x /2 - 3*Constants::TEXT_OFFSET, origin.y},
+              draw_offset, 10*GetTime(), Constants::PLAYER_SIZE, 0,
+              Constants::PLAYER_COLORS[0]);
+}
+
+void GraphicsManager::DrawRoomSubTitle(){
+  const char *text = "ROOMS:";
+  Vector2 origin = MeasureTextEx(font, text, Constants::TEXT_SIZE, Constants::TEXT_SPACING);
+  DrawTextPro(player_font, text,
+            Vector2{(float)Constants::screenWidth / 2, Constants::screenHeight/2-2*Constants::TEXT_OFFSET},
+            Vector2{origin.x / 2, origin.y/2}, 0, Constants::TEXT_SIZE,
+            Constants::TEXT_SPACING, RAYWHITE);
+}
+
+void GraphicsManager::DrawRoomBottomText() {
+  const char *text = "Click [space] to join selected room";
+  Vector2 origin = MeasureTextEx(font, text, Constants::TEXT_SIZE, Constants::TEXT_SPACING);
+  DrawTextPro(font, text,
+            Vector2{(float)Constants::screenWidth / 2,
+            Constants::screenHeight - Constants::TEXT_OFFSET},
+            Vector2{origin.x / 2, origin.y}, 0, Constants::TEXT_SIZE,
+            Constants::TEXT_SPACING, RAYWHITE);
+}
+
+void GraphicsManager::DrawRooms(std::vector<Room> rooms, int selected) {
+  for (int i = 0; i < (int)rooms.size(); i++) {
+    std::string room_status = (rooms[i].status==GameStatus::GAME) ? "IN GAME" : "LOBBY";
+    Color room_color = Constants::NOT_CONNECTED_GRAY;
+    float text_size = Constants::TEXT_SIZE;
+    char active = ' ';
+    if (i == selected){
+      room_color = Constants::PLAYER_COLORS[0];
+      text_size *= 1.2;
+      active = '>';
+    } 
+    
+    if (rooms[i].players==Constants::PLAYERS_MAX)
+    {
+      room_status = "FULL";
+      room_color.a = 50;
+    } 
+    float margin = i * 2 * Constants::TEXT_OFFSET;
+    const char *text = TextFormat("%c %s[%d/%d] - %s",
+                                  active, Constants::COOL_ROOM_NAMES[i].c_str(), 
+                                  rooms[i].players, Constants::PLAYERS_MAX, room_status.c_str());
+    Vector2 origin = MeasureTextEx(font, text, text_size,
+                                   Constants::TEXT_SPACING);
+    
+    DrawTextPro(font, text,
+                Vector2{(float)Constants::screenWidth / 2,
+                        (float)Constants::screenHeight / 2 + margin},
+                {origin.x / 2, origin.y / 2}, 0, text_size,
+                Constants::TEXT_SPACING, room_color);
+  }
+}

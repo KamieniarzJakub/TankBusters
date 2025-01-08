@@ -37,7 +37,7 @@ Server::Server(in_port_t port) {
 
   this->connection_thread = std::thread(&Server::listen_for_connections, this);
   this->rooms = std::vector<Room>(4, Room()); // FIXME:
-  rooms[0].players = 3;
+  rooms[0].players = 4;
 }
 
 Server::~Server() {

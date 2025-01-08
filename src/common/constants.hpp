@@ -7,6 +7,8 @@ const static int screenWidth = 900;
 const static int screenHeight = 650;
 const static std::string windowTitle = "Tank Busters!";
 
+const static std::string COOL_ROOM_NAMES[4] = {"BLUE SHARK", "STONEBREAKER", "POTATO KING", "FOOTBALL FAN"};
+
 const static int ASTEROID_SPEED_MIN = 100;
 const static int ASTEROID_SPEED_MAX = 200;
 const static int ASTEROID_ROTATION_SPEED_MAX = 200;
