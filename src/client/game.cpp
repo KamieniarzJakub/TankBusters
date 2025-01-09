@@ -13,8 +13,8 @@ struct Game {
   Game(const char *host, const char *port)
       : gameManager(GameManager()), graphicsManager(GraphicsManager()),
         networkManager(host, port) {
-    std::vector<Room> rooms =
-        networkManager.get_rooms(); // FIXME: move somewhere else
+    std::vector<Room> rooms;
+    bool status = networkManager.get_rooms(rooms); // FIXME: move somewhere else
     TraceLog(LOG_INFO, ("ROOMS: " + json(rooms).dump()).c_str());
   }
 

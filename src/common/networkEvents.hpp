@@ -1,3 +1,5 @@
+#include <string>
+
 enum NetworkEvents {
   // General
   NoEvent = 0,
@@ -6,10 +8,10 @@ enum NetworkEvents {
   EndRound = 30,
 
   // Player
-  GetPlayerId = 100,
+  GetClientId = 100, // TODO: rename to GetClientId
   VoteReady = 110,
   PlayerMovement = 120,
-  FlipShooting = 130,
+  ShootBullets = 130,
 
   // Room
   GetRoomList = 200,
@@ -23,3 +25,5 @@ enum NetworkEvents {
   UpdateAsteroids = 330,
   UpdateBullets = 340,
 };
+
+const std::string network_event_to_string(NetworkEvents networkEvent);

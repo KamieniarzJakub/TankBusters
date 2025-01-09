@@ -205,6 +205,11 @@ void GameManager::RestartLobby() {
   new_round_timer = -1;
 }
 
+GameManager::GameManager(uint32_t room_id, uint32_t player_number)
+    : room_id(room_id) {
+  NewGame(player_number);
+}
+
 size_t GameManager::GetConnectedPlayers(PlayerConnection pc) {
   size_t n = 0;
   for (auto &p : players) {
