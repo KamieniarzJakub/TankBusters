@@ -7,6 +7,8 @@ const static int screenWidth = 900;
 const static int screenHeight = 650;
 const static std::string windowTitle = "Tank Busters!";
 
+const static std::string COOL_ROOM_NAMES[4] = {"BLUE SHARK", "STONEBREAKER", "POTATO KING", "FOOTBALL FAN"};
+
 const static int ASTEROID_SPEED_MIN = 100;
 const static int ASTEROID_SPEED_MAX = 200;
 const static int ASTEROID_ROTATION_SPEED_MAX = 200;
@@ -35,6 +37,7 @@ const static int BULLETS_PER_PLAYER = 3;
 const static float BULLET_SPEED = 350.0f;
 const static float BULLET_SIZE = 5.0f;
 
+const static std::string ROBOTO_REGULAR = "Roboto-Regular.ttf";
 const static int TEXT_OFFSET = 30;
 const static float TEXT_SIZE = 50.0f;
 const static float TEXT_WIN_SIZE = 100.0f;
@@ -46,4 +49,6 @@ const static Color NOT_CONNECTED_GRAY = {200, 200, 200, 150};
 
 const static int NEW_ROUND_WAIT_TIME = 3;
 const static int LOBBY_READY_TIME = 5;
+
+const static int MAX_EPOLL_EVENTS = 1024;
 } // namespace Constants

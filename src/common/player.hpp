@@ -1,6 +1,14 @@
 #pragma once
+#include <nlohmann/json.hpp>
 #include <raylib.h>
 #include <raymath.h>
+
+using json = nlohmann::json;
+enum PlayerInfo { NONE = 0, NOT_READY = 1, READY = 2 };
+
+NLOHMANN_JSON_SERIALIZE_ENUM(PlayerInfo, {{NONE, nullptr},
+                                          {NOT_READY, "NOT_READY"},
+                                          {READY, "READY"}})
 
 enum PlayerConnection {
   None = 0,
@@ -9,24 +17,30 @@ enum PlayerConnection {
   Connected = 3
 };
 
+NLOHMANN_JSON_SERIALIZE_ENUM(PlayerConnection,
+                             {{None, nullptr},
+                              {Disconnected, "Disconnected"},
+                              {PoorConnection, "PoorConnection"},
+                              {Connected, "Connected"}})
+
 struct Player {
-  bool active;
-  Font font;
-  const char *avatar;
+  PlayerInfo state = PlayerInfo::NONE;
+  bool active = false;
   Vector2 position;
   Vector2 velocity;
-  Vector2 draw_offset;
   float rotation;
   Color player_color;
-  PlayerConnection connection_state;
+  PlayerConnection connection_state = PlayerConnection::None;
+  size_t player_id = 0;
 };
 
-Player AddPlayer(int i, Font font);
+Player AddPlayer(int i);
 
 void UpdatePlayer(Player *player, float frametime);
-
-void DrawPlayer(Player player);
 
 bool Shoot();
 
 Vector2 GetPlayerSpawnPosition(int i);
+
+void to_json(json &j, const Player &p);
+void from_json(const json &j, Player &p);

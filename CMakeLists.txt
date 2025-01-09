@@ -32,6 +32,23 @@ if (NOT raylib_FOUND) # If there's none, fetch and build raylib
   endif()
 endif()
 
+set(JSON_VERSION 3.11.3)
+find_package(nlohmann_json ${JSON_VERSION} QUIET)
+if (NOT nlohmann_json_FOUND) # If there's none, fetch and build nlohmann_json
+  include(FetchContent)
+  FetchContent_Declare(
+    json
+    DOWNLOAD_EXTRACT_TIMESTAMP OFF
+    URL https://github.com/nlohmann/json/releases/download/v${JSON_VERSION}/json.tar.xz
+  )
+  FetchContent_GetProperties(json)
+  if (NOT nlohmann_json_POPULATED) # Have we downloaded nlohmann_json yet?
+    set(FETCHCONTENT_QUIET NO)
+    FetchContent_MakeAvailable(json)
+    set(JSON_BuildTests OFF CACHE INTERNAL "")
+  endif()
+endif()
+
 # Project definition
 
 include ( CheckCXXCompilerFlag )
@@ -64,6 +81,7 @@ target_include_directories(${CLIENT} PRIVATE ${PROJECT_COMMON_INCLUDE})
 target_include_directories(${CLIENT} PRIVATE ${PROJECT_CLIENT_ONLY_INCLUDE})
 target_link_libraries(${CLIENT} raylib)
 target_link_libraries(${CLIENT} Threads::Threads)
+target_link_libraries(${CLIENT} nlohmann_json::nlohmann_json)
 
 # Server config
 add_executable(${SERVER})
@@ -73,6 +91,7 @@ target_include_directories(${SERVER} PRIVATE ${PROJECT_COMMON_INCLUDE})
 target_include_directories(${SERVER} PRIVATE ${PROJECT_SERVER_ONLY_INCLUDE})
 target_link_libraries(${SERVER} raylib)
 target_link_libraries(${SERVER} Threads::Threads)
+target_link_libraries(${SERVER} nlohmann_json::nlohmann_json)
 
 
 # Web Configurations

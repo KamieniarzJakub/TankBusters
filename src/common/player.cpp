@@ -1,16 +1,13 @@
 #include "player.hpp"
+#include "colorjson.hpp"
 #include "constants.hpp"
+#include "vec2json.hpp"
 
-Player AddPlayer(int i, Font font) {
+Player AddPlayer(int i) {
   Player player;
   player.active = false;
-  player.font = font;
   player.position = GetPlayerSpawnPosition(i);
   player.velocity = {0, 0}; // Direct initialization of the velocity vector
-  player.draw_offset =
-      Vector2Scale(MeasureTextEx(font, Constants::PLAYER_AVATAR.c_str(),
-                                 Constants::PLAYER_SIZE, 0),
-                   0.5);
   player.rotation = (float)GetRandomValue(0, 360);
   player.player_color = Constants::PLAYER_COLORS[i];
   return player;
@@ -46,21 +43,9 @@ void UpdatePlayer(Player *player, float frametime) {
     player->position.y += Constants::screenHeight;
   if (player->position.y > Constants::screenHeight)
     player->position.y -= Constants::screenHeight;
-}
 
-void DrawPlayer(Player player) {
-  // DrawPoly(player.position, 3, 16, player.rotation, RED);
-  // https://tradam.itch.io/raylib-drawtexturepro-interactive-demo
-  // Rectangle source = {0, 0, float(player.texture.width),
-  // float(player.texture.height)}; Rectangle dest = {player.position.x,
-  // player.position.y, source.width, source.height}; Vector2 origin =
-  // {dest.width/2.0f, dest.height/2.0f}; DrawCircle(player.position.x,
-  // player.position.y, player.size/3, PINK); DrawTexturePro(player.texture,
-  // source, dest, origin, player.rotation, player.player_color);
-  player.player_color.a = player.active ? 255 : 25;
-  DrawTextPro(player.font, Constants::PLAYER_AVATAR.c_str(), player.position,
-              player.draw_offset, player.rotation + 90.0f,
-              Constants::PLAYER_SIZE, 0, player.player_color);
+  // Update player color depending on the active state
+  player->player_color.a = player->active ? 255 : 25;
 }
 
 bool Shoot() {
@@ -72,4 +57,22 @@ bool Shoot() {
 Vector2 GetPlayerSpawnPosition(int i) {
   return Vector2{(float)Constants::screenWidth / 2,
                  (float)i * Constants::screenHeight / 4};
+}
+
+void to_json(json &j, const Player &p) {
+
+  j = json{{"player_id", p.player_id}, {"state", p.state},
+           {"active", p.active},       {"position", p.position},
+           {"velocity", p.velocity},   {"rotation", p.rotation},
+           {"color", p.player_color},  {"connection", p.connection_state}};
+}
+void from_json(const json &j, Player &p) {
+  j.at("player_id").get_to(p.player_id);
+  j.at("state").get_to(p.state);
+  j.at("active").get_to(p.active);
+  j.at("velocity").get_to(p.velocity);
+  j.at("position").get_to(p.position);
+  j.at("rotation").get_to(p.rotation);
+  j.at("color").get_to(p.player_color);
+  j.at("connection").get_to(p.connection_state);
 }

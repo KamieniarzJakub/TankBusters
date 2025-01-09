@@ -2,50 +2,51 @@
 
 #include "asteroid.hpp"
 #include "bullet.hpp"
+#include "gameStatus.hpp"
 #include "player.hpp"
 #include <raylib.h>
 #include <raymath.h>
 #include <vector>
-
-enum Status { LOBBY = 0, GAME = 1, END_OF_ROUND = 2 };
 
 struct GameManager {
   std::vector<Asteroid> asteroids;
   std::vector<Player> players;
   std::vector<Bullet> bullets;
 
-  int status;
+  uint32_t room_id;
+  GameStatus status;
   int _alive_players;
   float _spawnerTime;
   float startRoundTime;
   float endRoundTime;
-  Texture player_texture;
-  Font font;
-  Font win_font;
-  Font player_font;
+  float new_round_timer;
 
   GameManager();
+  GameManager(uint32_t room_id, uint32_t player_number);
   ~GameManager();
 
   void NewGame(int players_in_game = 0);
 
-  void UpdateGameStatus();
+  void UpdateStatus();
   void UpdatePlayers(float frametime);
   void UpdateBullets(float frametime);
   void UpdateAsteroids(float frametime);
+  void UpdateGame();
 
   void AsteroidSpawner(double time);
-
-  void DrawAsteroids();
-  void DrawPlayers();
-  void DrawBullets();
-  void DrawTime(double time);
-  void DrawWinnerText();
-  void DrawNewRoundCountdown();
 
   void ManageCollisions();
 
   void AddAsteroid();
   void SplitAsteroid(Vector2 position, Vector2 velocity, int size);
   void AddBullet(Player player, int player_number);
+
+  void RestartLobby();
+
+  void UpdatePlayersLobby();
+
+  bool UpdateLobbyStatus();
+  bool ReturnToRooms();
+  size_t GetReadyPlayers();
+  size_t GetConnectedPlayers(PlayerConnection pc);
 };

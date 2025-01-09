@@ -54,6 +54,23 @@
 		"stdexcept": "cpp",
 		"streambuf": "cpp",
 		"cinttypes": "cpp",
-		"typeinfo": "cpp"
+		"typeinfo": "cpp",
+		"any": "cpp",
+		"codecvt": "cpp",
+		"csignal": "cpp",
+		"cstring": "cpp",
+		"ctime": "cpp",
+		"forward_list": "cpp",
+		"map": "cpp",
+		"optional": "cpp",
+		"ratio": "cpp",
+		"iomanip": "cpp",
+		"ranges": "cpp",
+		"semaphore": "cpp",
+		"span": "cpp",
+		"sstream": "cpp",
+		"stop_token": "cpp",
+		"thread": "cpp",
+		"valarray": "cpp"
 	}
 }

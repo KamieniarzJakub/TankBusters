@@ -1,58 +1,37 @@
 #include "gameManager.hpp"
 #include "constants.hpp"
-#include "resource_dir.hpp"
+#include "player.hpp"
 
-GameManager::GameManager() {
-  // Utility function from resource_dir.h to find the resources folder and set
-  // it as the current working directory so we can load from it
-  SearchAndSetResourceDir("resources");
+GameManager::GameManager() { NewGame(); }
 
-  // Load a texture from the resources directory
-  player_texture = LoadTexture("Player.png");
-  // font = LoadFont("Roboto-Regular.ttf");
-  font = LoadFontEx("Roboto-Regular.ttf", Constants::TEXT_SIZE, nullptr, 0);
-  win_font =
-      LoadFontEx("Roboto-Regular.ttf", Constants::TEXT_WIN_SIZE, nullptr, 0);
-  player_font =
-      LoadFontEx("Roboto-Regular.ttf", Constants::PLAYER_SIZE, nullptr, 0);
-  // Optionally, set texture filtering for smooth font scaling
-  // SetTextureFilter(font.texture, TEXTURE_FILTER_ANISOTROPIC_16X);
-
-  NewGame();
-}
-
-GameManager::~GameManager() {
-  UnloadTexture(player_texture);
-  UnloadFont(font);
-  UnloadFont(win_font);
-  UnloadFont(player_font);
-}
+GameManager::~GameManager() {}
 
 void GameManager::NewGame(int players_in_game) {
   asteroids = std::vector<Asteroid>(Constants::ASTEROIDS_MAX, Asteroid());
-  players = std::vector<Player>(Constants::PLAYERS_MAX, Player());
+  players.clear();
+  players.reserve(Constants::PLAYERS_MAX);
+  for (int i = 0; i < Constants::PLAYERS_MAX; i++) {
+    players.push_back(AddPlayer(i));
+  }
   bullets = std::vector<Bullet>(
       Constants::BULLETS_PER_PLAYER * Constants::PLAYERS_MAX, Bullet());
-  status = Status::LOBBY;
+  status = GameStatus::LOBBY;
   _spawnerTime = 0;
   _alive_players = players_in_game;
   startRoundTime = GetTime();
   endRoundTime = -1;
-  for (int i = 0; i < Constants::PLAYERS_MAX; i++) {
-    players[i] = AddPlayer(i, player_font);
-  }
 }
 
-void GameManager::UpdateGameStatus() {
+void GameManager::UpdateStatus() {
   if (_alive_players > 1) {
-    status = Status::GAME;
+    status = GameStatus::GAME;
     endRoundTime = GetTime();
   } else if (endRoundTime > 0) {
-    status = Status::END_OF_ROUND;
+    status = GameStatus::END_OF_ROUND;
     if (GetTime() - endRoundTime >= Constants::NEW_ROUND_WAIT_TIME)
       endRoundTime = -1;
   } else {
-    status = Status::LOBBY;
+    status = GameStatus::LOBBY;
   }
 }
 
@@ -78,76 +57,34 @@ void GameManager::UpdateAsteroids(float frametime) {
   }
 }
 
+void GameManager::UpdateGame(){
+  UpdateStatus();
+  // TraceLog(LOG_DEBUG, "Game status: %d", gameManager.status);
+  if (status == GameStatus::GAME) {
+    float frametime = GetFrameTime();
+
+    ManageCollisions();
+
+    UpdatePlayers(frametime);
+    UpdateBullets(frametime);
+    UpdateAsteroids(frametime);
+
+    AsteroidSpawner(GetTime());
+  } else {
+    if (UpdateLobbyStatus()) {
+      NewGame(GetReadyPlayers());
+      RestartLobby();
+    }
+    UpdatePlayersLobby();
+  }
+}
+
 void GameManager::AsteroidSpawner(double time) {
   if (time > _spawnerTime + Constants::ASTEROID_SPAWN_DELAY) {
     TraceLog(LOG_DEBUG, "ASTEROID SPAWNER");
     _spawnerTime = time;
     AddAsteroid();
   }
-}
-
-void GameManager::DrawAsteroids() {
-  for (int i = 0; i < Constants::ASTEROIDS_MAX; i++) {
-    if (!asteroids[i].active)
-      continue;
-    DrawAsteroid(asteroids[i]);
-  }
-}
-
-void GameManager::DrawPlayers() {
-  for (int i = 0; i < Constants::PLAYERS_MAX; i++) {
-    DrawPlayer(players[i]);
-  }
-}
-
-void GameManager::DrawBullets() {
-  for (int i = 0; i < Constants::PLAYERS_MAX * Constants::BULLETS_PER_PLAYER;
-       i++) {
-    if (!bullets[i].active)
-      continue;
-    DrawBullet(bullets[i]);
-  }
-}
-
-void GameManager::DrawTime(double time) {
-  time = status == Status::END_OF_ROUND ? endRoundTime : time;
-  const char *text = TextFormat("%00.2f", time - startRoundTime);
-  DrawTextPro(font, text,
-              Vector2{Constants::TEXT_OFFSET, Constants::TEXT_OFFSET},
-              Vector2{0, 0}, 0.0f, Constants::TEXT_SIZE,
-              Constants::TEXT_SPACING, RAYWHITE);
-}
-
-void GameManager::DrawWinnerText() {
-  for (int i = 0; i < Constants::PLAYERS_MAX; i++) {
-    if (players[i].active) {
-      const char *text =
-          TextFormat("%s PLAYER WIN", Constants::PLAYER_NAMES[i].c_str());
-      Vector2 text_length = MeasureTextEx(font, text, Constants::TEXT_WIN_SIZE,
-                                          Constants::TEXT_SPACING);
-      DrawRectangle(0, 0, Constants::screenWidth, Constants::screenHeight,
-                    Constants::BACKGROUND_COLOR_HALF_ALFA);
-      DrawTextPro(win_font, text,
-                  Vector2{(float)Constants::screenWidth / 2,
-                          (float)Constants::screenHeight / 2},
-                  Vector2{text_length.x / 2, text_length.y / 2}, 0,
-                  Constants::TEXT_WIN_SIZE, Constants::TEXT_SPACING,
-                  Constants::PLAYER_COLORS[i]);
-      return;
-    }
-  }
-}
-
-void GameManager::DrawNewRoundCountdown() {
-  int time = Constants::NEW_ROUND_WAIT_TIME - int(GetTime() - endRoundTime);
-  const char *text = TextFormat("New round in %d", time);
-  Vector2 origin =
-      MeasureTextEx(font, text, Constants::TEXT_SIZE, Constants::TEXT_SPACING);
-  DrawTextPro(
-      font, text,
-      Vector2{(float)Constants::screenWidth / 2, Constants::screenHeight},
-      Vector2{origin.x / 2, origin.y + Constants::TEXT_OFFSET}, 0,
-      Constants::TEXT_SIZE, Constants::TEXT_SPACING, RAYWHITE);
 }
 
 void GameManager::ManageCollisions() {
@@ -250,4 +187,61 @@ void GameManager::AddBullet(Player player, int player_number) {
 
   TraceLog(LOG_INFO, "Failed to shoot a bullet - player[%d]: no bullets left",
            player_number);
+}
+
+void GameManager::UpdatePlayersLobby() {
+  for (int i = 0; i < Constants::PLAYERS_MAX; i++) {
+    if (IsKeyPressed(KEY_SPACE)) {
+      players[i].state = PlayerInfo::READY;
+    }
+  }
+  // TraceLog(LOG_DEBUG, "PLAYERS READY FOR NEW ROUND: %d", ready_players);
+}
+
+size_t GameManager::GetReadyPlayers() {
+  size_t i = 0;
+  for (auto &p : players) {
+    if (p.state == PlayerInfo::READY)
+      i++;
+  }
+  return i;
+}
+
+bool GameManager::UpdateLobbyStatus() {
+  size_t ready_players = GetReadyPlayers();
+  if (ready_players > 2) {
+    new_round_timer = new_round_timer > 0 ? new_round_timer : GetTime();
+    if (new_round_timer > 0 &&
+        int(GetTime() - new_round_timer) >= Constants::LOBBY_READY_TIME)
+      return true;
+  } else
+    new_round_timer = -1;
+  return false;
+}
+
+bool GameManager::ReturnToRooms(){
+  return (status==GameStatus::LOBBY && (IsKeyPressed(KEY_ENTER)||IsKeyPressed(KEY_BACKSPACE)));
+}
+
+void GameManager::RestartLobby() {
+  for (auto &p : players) {
+    p.state = PlayerInfo::NOT_READY;
+    p.active = true;
+  }
+  new_round_timer = -1;
+}
+
+GameManager::GameManager(uint32_t room_id, uint32_t player_number)
+    : room_id(room_id) {
+  NewGame(player_number);
+}
+
+size_t GameManager::GetConnectedPlayers(PlayerConnection pc) {
+  size_t n = 0;
+  for (auto &p : players) {
+    if (p.connection_state == pc) {
+      n++;
+    }
+  }
+  return n;
 }

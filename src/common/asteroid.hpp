@@ -1,6 +1,9 @@
 #pragma once
 #include "constants.hpp"
+#include <nlohmann/json.hpp>
 #include <raylib.h>
+
+using json = nlohmann::json;
 
 struct Asteroid {
   bool active;
@@ -24,4 +27,5 @@ CreateAsteroid(Vector2 position = GetRandomPosition(),
 
 void UpdateAsteroid(Asteroid *asteroid, float frametime);
 
-void DrawAsteroid(Asteroid asteroid);
+void to_json(json &j, const Asteroid &a);
+void from_json(const json &j, Asteroid &a);

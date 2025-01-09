@@ -1,6 +1,7 @@
 #include "asteroid.hpp"
 #include "spaceJunkCollector.hpp"
 #include <raymath.h>
+#include <vec2json.hpp>
 
 Asteroid CreateAsteroid(Vector2 position, Vector2 velocity, int size) {
   velocity =
@@ -33,11 +34,6 @@ void UpdateAsteroid(Asteroid *asteroid, float frametime) {
   asteroid->rotation += asteroid->rotation_speed * frametime;
 }
 
-void DrawAsteroid(Asteroid asteroid) {
-  DrawPolyLines(asteroid.position, asteroid.polygon, asteroid.size,
-                asteroid.rotation, WHITE);
-}
-
 Vector2 GetRandomPosition() {
   int side = GetRandomValue(-1, 2);
   if (side % 2)
@@ -59,4 +55,23 @@ Vector2 GetRandomVelocity(Vector2 position) {
   return Vector2Rotate(velocity,
                        GetRandomValue(-Constants::ASTEROID_PATH_RANDOM_ANGLE,
                                       Constants::ASTEROID_PATH_RANDOM_ANGLE));
+}
+
+void to_json(json &j, const Asteroid &a) {
+  j = json{{"active", a.active},
+           {"position", a.position},
+           {"velocity", a.velocity},
+           {"rotation", a.rotation},
+           {"rotation_speed", a.rotation_speed},
+           {"size", a.size},
+           {"polygon", a.polygon}};
+}
+void from_json(const json &j, Asteroid &a) {
+  j.at("active").get_to(a.active);
+  j.at("position").get_to(a.position);
+  j.at("velocity").get_to(a.velocity);
+  j.at("rotation").get_to(a.rotation);
+  j.at("rotation_speed").get_to(a.rotation_speed);
+  j.at("size").get_to(a.size);
+  j.at("polygon").get_to(a.polygon);
 }

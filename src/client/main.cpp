@@ -1,6 +1,5 @@
 #include "constants.hpp"
-#include "game.hpp"
-#include <memory>
+#include "game.cpp"
 #include <raylib.h>
 
 #if defined(PLATFORM_WEB)
@@ -11,15 +10,17 @@ int main() {
   SetConfigFlags(FLAG_VSYNC_HINT | FLAG_WINDOW_HIGHDPI);
   InitWindow(Constants::screenWidth, Constants::screenHeight,
              Constants::windowTitle.c_str());
-  std::unique_ptr<Game> game = std::make_unique<Game>();
+  Game game =
+      Game("localhost",
+           "1234"); // TODO: initalize network connection after displaying GUI
 
 #if defined(PLATFORM_WEB)
-  emscripten_set_main_loop(game->updateDrawFrame, 0, 1);
+  emscripten_set_main_loop(game.updateDrawFrame, 0, 1);
 #else
   // Main game loop
   while (!WindowShouldClose()) // Detect window close button or ESC key
   {
-    game->updateDrawFrame();
+    game.updateDrawFrame();
   }
 #endif
 
