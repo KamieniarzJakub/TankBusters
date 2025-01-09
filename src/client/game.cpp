@@ -1,5 +1,4 @@
 #include "gameManager.hpp"
-#include "gameStatus.hpp"
 #include "graphicsManager.hpp"
 #include "networking.hpp"
 #include <raylib.h>
@@ -9,6 +8,8 @@ struct Game {
   GameManager gameManager;
   GraphicsManager graphicsManager;
   ClientNetworkManager networkManager;
+  int selected_room = 0;
+  unsigned int number_of_rooms;
 
   Game(const char *host, const char *port)
       : gameManager(GameManager()), graphicsManager(GraphicsManager()),
@@ -19,45 +20,47 @@ struct Game {
   }
 
   void updateDrawFrame(void) {
-    gameManager.UpdateGameStatus();
-    // TraceLog(LOG_DEBUG, "Game status: %d", gameManager.status);
-    if (gameManager.status == GameStatus::GAME) {
-      float frametime = GetFrameTime();
-
-      gameManager.ManageCollisions();
-
-      gameManager.UpdatePlayers(frametime);
-      gameManager.UpdateBullets(frametime);
-      gameManager.UpdateAsteroids(frametime);
-
-      gameManager.AsteroidSpawner(GetTime());
-    } else {
-      if (gameManager.UpdateLobbyStatus()) {
-        gameManager.NewGame(gameManager.GetReadyPlayers());
-        gameManager.RestartLobby();
+    // MAYBE move somewhere else
+    if (!networkManager.room_id) {
+      std::vector<Room> rooms;
+      bool status =
+          networkManager.get_rooms(rooms); // FIXME: DON'T FETCH ON MAIN THREAD
+      if (status) {
+        if (IsKeyPressed(KEY_SPACE) &&
+            rooms[selected_room].players != Constants::PLAYERS_MAX) {
+          networkManager.room_id =
+              selected_room + 1; // FIXME: Server respond to request
+        } else if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) {
+          selected_room--;
+          selected_room %= number_of_rooms;
+        } else if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) {
+          selected_room++;
+          selected_room %= number_of_rooms;
+        }
       }
-      gameManager.UpdatePlayersLobby();
+      TraceLog(LOG_DEBUG, "SELECTED ROOM: %d", selected_room);
+    } else {
+      gameManager.UpdateGame();
+      if (gameManager.ReturnToRooms())
+        networkManager.room_id = 0;
     }
 
     BeginDrawing();
 
     ClearBackground(Constants::BACKGROUND_COLOR);
 
-    if (gameManager.status == GameStatus::GAME ||
-        gameManager.status == GameStatus::END_OF_ROUND) {
-      graphicsManager.DrawAsteroids(gameManager);
-      graphicsManager.DrawPlayers(gameManager);
-      graphicsManager.DrawBullets(gameManager);
-      if (gameManager.status == GameStatus::END_OF_ROUND) {
-        graphicsManager.DrawWinnerText(gameManager);
-        graphicsManager.DrawNewRoundCountdown(gameManager);
+    if (!networkManager.room_id) {
+      graphicsManager.DrawRoomTitle();
+      graphicsManager.DrawRoomSubTitle();
+      std::vector<Room> rooms;
+      bool status =
+          networkManager.get_rooms(rooms); // FIXME: DON'T FETCH ON MAIN THREAD
+      if (status) {
+        graphicsManager.DrawRooms(rooms, selected_room);
       }
-      graphicsManager.DrawTime(gameManager, GetTime());
+      graphicsManager.DrawRoomBottomText();
     } else {
-      graphicsManager.DrawTitle(gameManager);
-      graphicsManager.DrawLobbyPlayers(gameManager);
-      graphicsManager.DrawReadyMessage();
-      graphicsManager.DrawTimer(gameManager);
+      graphicsManager.DrawGame(gameManager);
     }
 
     EndDrawing();

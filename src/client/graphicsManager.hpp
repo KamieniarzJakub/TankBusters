@@ -3,6 +3,7 @@
 #include "bullet.hpp"
 #include "gameManager.hpp"
 #include "player.hpp"
+#include "room.hpp"
 #include <raylib.h>
 
 struct GraphicsManager {
@@ -37,4 +38,13 @@ struct GraphicsManager {
 
   // bullet
   void DrawBullet(const Bullet &bullet);
+
+  // Game
+  void DrawGame(GameManager gameManager);
+
+  // Room
+  void DrawRoomTitle();
+  void DrawRoomSubTitle();
+  void DrawRoomBottomText();
+  void DrawRooms(const std::vector<Room> &rooms, int selected);
 };
