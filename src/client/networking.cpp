@@ -131,8 +131,8 @@ void ClientNetworkManager::leave_room() {
   room_id = 0;
 }
 
+// position, rotation, velocity
 bool ClientNetworkManager::send_movement(Vector2 direction) {
-  // TODO: discussion
   // FIXME: UNFINISHED
   //
   // PlayerMovement
@@ -172,6 +172,7 @@ std::vector<Bullet> ClientNetworkManager::fetch_bullets() {
   return {};
 }
 
+// TODO: CHANGE TO CREATE_NEW_BULLET
 // returns isPlayerShootingAccoringToServer
 // flips player shooting state according to the server
 bool ClientNetworkManager::shoot_bullets() {
@@ -191,15 +192,16 @@ int ClientNetworkManager::vote_ready() {
   return {};
 }
 
+// send END ROUND
+// send who won
 void ClientNetworkManager::handle_end_round() {
-  // TODO: discussion
   // FIXME: UNFINISHED
   //
   // recv only EndRound
 }
 
+// in lobby and room select only
 bool ClientNetworkManager::handle_connection_check() {
-  // TODO: discussion
   // FIXME: UNFINISHED
   //
   // CheckConnection
