@@ -4,10 +4,14 @@
 #include <unistd.h>
 using json = nlohmann::json;
 
-void write_uint32(int fd, uint32_t v);
+bool write_uint32(int fd, uint32_t v);
 
-uint32_t read_uint32(int fd);
+bool read_uint32(int fd, uint32_t &v);
 
-void write_json(int fd, const json &j);
+bool write_json(int fd, const json &j);
 
-json read_json(int fd);
+bool read_json(int fd, json &j, size_t maxsize);
+
+bool expectEvent(int fd, uint32_t expected_event);
+
+bool setEvent(int fd, uint32_t event);

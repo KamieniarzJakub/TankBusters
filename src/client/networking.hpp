@@ -1,9 +1,10 @@
+#include "asteroid.hpp"
 #include "bullet.hpp"
+#include "gameManager.hpp"
+#include "networkEvents.hpp"
 #include "player.hpp"
 #include "room.hpp"
 #include <cstdint>
-#include <cstdio>
-#include <error.h>
 #include <fcntl.h>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -18,17 +19,41 @@ struct ClientNetworkManager {
   ClientNetworkManager(const char *host, const char *port);
   ~ClientNetworkManager();
 
-  uint32_t get_new_client_id();
-  std::vector<Room> get_rooms();
-  void disconnect();
-  void set_socket_timeout(time_t seconds);
+  // NOTE: If a function returns:
+  // - bool:
+  //  - true is ok
+  //  - false is some kind of error
+  // - int:
+  //  - value is propagated from C sockets API function
+  //
+  // NOTE: If a function accepts non constant reference (&) to an object then it
+  // is the return value and will be modified. In that case check the return
+  // value for status.
+
+  // Connection
   int connect_to(const char *host, const char *port);
-  // bool join_room(uint32_t room_id);
-  // bool send_current_player_state();
-  // void fetch_room_state();
-  // std::vector<Player> fetch_players();
-  // std::vector<Asteroid> fetch_asteroids();
-  // std::vector<Bullet> fetch_bullets();
-  // bool shoot_bullet();
-  // int vote_ready();
+  int disconnect();
+  int set_socket_timeout(time_t seconds);
+
+  // Player
+  bool get_new_client_id(uint32_t &new_client_id);
+  bool vote_ready(uint32_t &ready_players);
+  bool send_movement(Vector2 position, Vector2 velocity, float rotation);
+  bool shoot_bullet();
+
+  // Room
+  bool get_rooms(std::vector<Room> &rooms);
+  bool join_room(uint32_t room_id);
+  bool leave_room();
+
+  // Fetching data from server
+  bool fetch_room_state(Room &room);
+  bool fetch_room_state(uint32_t fetch_room_id, Room &room);
+  bool fetch_game_state(GameManager &gameManager);
+  bool fetch_players(std::vector<Player> &players);
+  bool fetch_asteroids(std::vector<Asteroid> &asteroids);
+  bool fetch_bullets(std::vector<Bullet> &bullets);
+
+  bool handle_end_round(uint32_t &winner_player_id);
+  bool handle_connection_check();
 };

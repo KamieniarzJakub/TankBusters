@@ -13,6 +13,7 @@ struct GameManager {
   std::vector<Player> players;
   std::vector<Bullet> bullets;
 
+  uint32_t room_id;
   GameStatus status;
   int _alive_players;
   float _spawnerTime;
@@ -21,6 +22,7 @@ struct GameManager {
   float new_round_timer;
 
   GameManager();
+  GameManager(uint32_t room_id, uint32_t player_number);
   ~GameManager();
 
   void NewGame(int players_in_game = 0);

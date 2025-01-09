@@ -39,12 +39,12 @@ struct GraphicsManager {
   // bullet
   void DrawBullet(const Bullet &bullet);
 
-  //Game
+  // Game
   void DrawGame(GameManager gameManager);
 
-  //Room
+  // Room
   void DrawRoomTitle();
   void DrawRoomSubTitle();
   void DrawRoomBottomText();
-  void DrawRooms(std::vector<Room> rooms, int selected);
+  void DrawRooms(const std::vector<Room> &rooms, int selected);
 };
