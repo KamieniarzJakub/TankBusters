@@ -307,6 +307,7 @@ bool ClientNetworkManager::send_movement(Vector2 position, Vector2 velocity,
 }
 
 // Fetches GameManager state for currently joined room
+// Players' state, asteroids and bullets are *NOT* fetched
 bool ClientNetworkManager::fetch_game_state(GameManager &gameManager) {
 
   if (room_id == 0) {
@@ -319,11 +320,11 @@ bool ClientNetworkManager::fetch_game_state(GameManager &gameManager) {
   if (!status)
     return false;
 
-  status = write_uint32(fd, room_id);
-  if (!status) {
-    TraceLog(LOG_ERROR, "NET: Couldn't send ROOM ID");
-    return false;
-  }
+  // status = write_uint32(fd, room_id);
+  // if (!status) {
+  //   TraceLog(LOG_ERROR, "NET: Couldn't send ROOM ID");
+  //   return false;
+  // }
 
   status = expectEvent(fd, NetworkEvents::UpdateGameState);
   if (!status)
@@ -357,11 +358,11 @@ bool ClientNetworkManager::fetch_players(std::vector<Player> &players) {
     return false;
 
   // TODO: Possibly unnecessary
-  status = write_uint32(fd, room_id);
-  if (!status) {
-    TraceLog(LOG_ERROR, "NET: Couldn't send ROOM ID");
-    return false;
-  }
+  // status = write_uint32(fd, room_id);
+  // if (!status) {
+  //   TraceLog(LOG_ERROR, "NET: Couldn't send ROOM ID");
+  //   return false;
+  // }
 
   status = expectEvent(fd, NetworkEvents::UpdatePlayers);
   if (!status)
@@ -396,11 +397,11 @@ bool ClientNetworkManager::fetch_asteroids(std::vector<Asteroid> &asteroids) {
     return false;
 
   // TODO: Possibly unnecessary
-  status = write_uint32(fd, room_id);
-  if (!status) {
-    TraceLog(LOG_ERROR, "NET: Couldn't send ROOM ID");
-    return false;
-  }
+  // status = write_uint32(fd, room_id);
+  // if (!status) {
+  //   TraceLog(LOG_ERROR, "NET: Couldn't send ROOM ID");
+  //   return false;
+  // }
 
   status = expectEvent(fd, NetworkEvents::UpdateAsteroids);
   if (!status)
@@ -436,11 +437,11 @@ bool ClientNetworkManager::fetch_bullets(std::vector<Bullet> &bullets) {
     return false;
 
   // TODO: Possibly unnecessary
-  status = write_uint32(fd, room_id);
-  if (!status) {
-    TraceLog(LOG_ERROR, "NET: Couldn't send ROOM ID");
-    return false;
-  }
+  // status = write_uint32(fd, room_id);
+  // if (!status) {
+  //   TraceLog(LOG_ERROR, "NET: Couldn't send ROOM ID");
+  //   return false;
+  // }
 
   status = expectEvent(fd, NetworkEvents::UpdateBullets);
   if (!status)
@@ -473,7 +474,19 @@ bool ClientNetworkManager::shoot_bullet() {
   if (!status)
     return false;
 
-  return true;
+  uint32_t bullet_shot;
+  status = read_uint32(fd, bullet_shot);
+  if (!status) {
+    TraceLog(LOG_ERROR, "NET: Couldn't receive whether bullet was shot");
+    return false;
+  }
+
+  status = (bullet_shot > 0);
+  if (!status) {
+    TraceLog(LOG_ERROR,
+             "GAME: Couldn't shoot a bullet according to the server");
+  }
+  return status;
 }
 
 bool ClientNetworkManager::vote_ready(uint32_t &ready_players) {

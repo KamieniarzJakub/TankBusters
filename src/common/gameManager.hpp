@@ -39,7 +39,7 @@ struct GameManager {
 
   void AddAsteroid();
   void SplitAsteroid(Vector2 position, Vector2 velocity, int size);
-  void AddBullet(Player player, int player_number);
+  bool AddBullet(const Player &player, int player_number);
 
   void RestartLobby();
 

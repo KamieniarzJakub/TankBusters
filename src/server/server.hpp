@@ -15,6 +15,7 @@
 struct GameRoom {
   Room room;
   GameManager gameManager;
+  std::vector<uint32_t> clients;
 };
 
 struct Server {
@@ -38,11 +39,24 @@ struct Server {
   void new_client(int fd);
   void delete_client(size_t client_id);
   Client *find_client(size_t client_id);
+
   void handle_connection(Client client);
   void handle_game_logic();
-  void disconnect_client(Client &client);
   void handle_network_event(Client &client, uint32_t networkEvent);
   void client_error(Client &client);
+  void disconnect_client(Client &client);
+  void serverSetEvent(Client &client, NetworkEvents event);
+
   void handleGetClientId(Client &client);
   void handleGetRoomList(Client &client);
+  void handleVoteReady(Client &client);
+  void handlePlayerMovement(Client &client);
+  void handleShootBullet(Client &client);
+  void handleJoinRoom(Client &client);
+  void handleLeaveRoom(Client &client);
+  void handleUpdateGameState(Client &client);
+  void handleUpdateRoomState(Client &client);
+  void handleUpdatePlayers(Client &client);
+  void handleUpdateAsteroids(Client &client);
+  void handleUpdateBullets(Client &client);
 };

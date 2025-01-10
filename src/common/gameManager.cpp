@@ -172,7 +172,8 @@ void GameManager::SplitAsteroid(Vector2 position, Vector2 velocity, int size) {
   TraceLog(LOG_ERROR, "Failed to split an asteroid - no empty slots left");
 }
 
-void GameManager::AddBullet(Player player, int player_number) {
+bool GameManager::AddBullet(const Player &player, int player_number) {
+  // TODO: function signature refactoring
   for (int i = player_number * Constants::BULLETS_PER_PLAYER;
        i < (player_number + 1) * Constants::BULLETS_PER_PLAYER; i++) {
     if (bullets[i].active)
@@ -182,11 +183,12 @@ void GameManager::AddBullet(Player player, int player_number) {
                                    player.rotation * DEG2RAD);
     bullets[i] =
         CreateBullet(Vector2Add(player.position, offset), player.rotation);
-    return;
+    return true;
   }
 
   TraceLog(LOG_INFO, "Failed to shoot a bullet - player[%d]: no bullets left",
            player_number);
+  return false;
 }
 
 void GameManager::UpdatePlayersLobby() {

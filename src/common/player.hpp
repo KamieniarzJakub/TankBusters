@@ -31,7 +31,7 @@ struct Player {
   float rotation;
   Color player_color;
   PlayerConnection connection_state = PlayerConnection::None;
-  size_t player_id = 0;
+  uint32_t player_id = 0;
 };
 
 Player AddPlayer(int i);
