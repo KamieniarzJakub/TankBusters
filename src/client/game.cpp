@@ -12,9 +12,9 @@ struct Game {
   int selected_room = 0;
   unsigned int number_of_rooms;
 
-  Game(const char *host, const char *port_main, const char *port_stream)
+  Game(const char *host, const char *port)
       : gameManager(GameManager()), graphicsManager(GraphicsManager()),
-        networkManager(host, port_main, port_stream) {
+        networkManager(host, port) {
     std::vector<Room> rooms;
     bool status = networkManager.get_rooms(rooms); // FIXME: move somewhere else
     if (status) {

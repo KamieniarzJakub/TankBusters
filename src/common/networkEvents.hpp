@@ -12,7 +12,6 @@ enum NetworkEvents {
   CheckConnection = 20,
   EndRound = 30,
   StartRound = 40,
-  SetupStreamConnection = 50,
 
   // Player
   GetClientId = 100,

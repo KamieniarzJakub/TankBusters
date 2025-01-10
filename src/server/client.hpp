@@ -5,11 +5,11 @@
 
 struct Client {
   int fd_main;
-  int fd_stream;
   size_t client_id = 0;
   size_t player_id = 0;
   size_t room_id = 0;
   std::time_t last_response;
+  int epd;
 
   const char *signature();
 };

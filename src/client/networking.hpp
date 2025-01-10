@@ -13,12 +13,10 @@
 
 struct ClientNetworkManager {
   int mainfd;
-  int streamfd;
   uint32_t client_id = 0;
   uint32_t room_id = 0;
 
-  ClientNetworkManager(const char *host, const char *port_main,
-                       const char *port_stream);
+  ClientNetworkManager(const char *host, const char *port);
   ~ClientNetworkManager();
 
   // NOTE: If a function returns:

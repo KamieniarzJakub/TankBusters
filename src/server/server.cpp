@@ -2,11 +2,13 @@
 
 #include <errno.h>
 #include <error.h>
+#include <exception>
 #include <mutex>
 #include <netinet/in.h>
 #include <sys/epoll.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <thread>
 #include <unistd.h>
 
 #include <cstdint>
@@ -77,13 +79,6 @@ Server::~Server() {
   res = close(mainfd);
   if (res)
     error(1, errno, "close main fd failed");
-
-  res = shutdown(streamfd, SHUT_RDWR);
-  if (res)
-    error(1, errno, "shutdown stream fd failed");
-  res = close(streamfd);
-  if (res)
-    error(1, errno, "close stream fd failed");
 }
 
 void Server::listen_for_connections() {
@@ -96,8 +91,8 @@ void Server::listen_for_connections() {
       continue;
     }
 
-    Client client{client_main_fd, -1};
-    new_client(client);
+    Client client{client_main_fd};
+    std::thread(&Server::handle_connection, this, client).detach();
   }
 }
 
@@ -106,24 +101,131 @@ void Server::client_error(Client &client) {
   disconnect_client(client);
 }
 
+void Server::sendCheckConnection(Client &client) {
+
+  // Set socket timeouts
+  struct timeval tv;
+  size_t tvs = sizeof(tv);
+  tv.tv_sec = Constants::CONNECTION_TIMEOUT_MILISECONDS / 1000;
+  tv.tv_usec = (Constants::CONNECTION_TIMEOUT_MILISECONDS % 1000) * 1000;
+  setsockopt(client.fd_main, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, tvs);
+  setsockopt(client.fd_main, SOL_SOCKET, SO_SNDTIMEO, (const char *)&tv, tvs);
+
+  // Send ping
+  uint32_t network_event;
+  bool status = write_uint32(client.fd_main, NetworkEvents::CheckConnection);
+  if (!status) {
+    TraceLog(
+        LOG_WARNING,
+        "Couldn't write CheckConnection NetworkEvent to client_id=%ld,fd=%d",
+        client.client_id, client.fd_main);
+    disconnect_client(client);
+    std::terminate(); // end thread
+    return;
+  }
+
+  // Expect pong
+  status = read_uint32(client.fd_main, network_event);
+  if (status) {
+    TraceLog(LOG_INFO, "Received NetworkEvent %s from client_id=%ld,fd=%d",
+             network_event_to_string(network_event).c_str(), client.client_id,
+             client.fd_main);
+    handle_network_event(client, network_event);
+  }
+
+  // Reset to no timeout
+  tv = {};
+  setsockopt(client.fd_main, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, tvs);
+  setsockopt(client.fd_main, SOL_SOCKET, SO_SNDTIMEO, (const char *)&tv, tvs);
+  std::time(&client.last_response); // Set last response to current time
+}
+
 void Server::handle_connection(Client client) {
+  const size_t MAX_EVENTS = 2;
+  epoll_event ee, events[MAX_EVENTS];
+  int epoll_fd = epoll_create1(0);
+  if (epoll_fd == -1) {
+    TraceLog(LOG_ERROR, "Couldn't instantiate epoll for client_id=%ld,fd=%d",
+             client.client_id, client.fd_main);
+    disconnect_client(client);
+    return;
+  }
+
+  ee.events = EPOLLIN;
+  ee.data.fd = client.fd_main;
+  if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client.fd_main, &ee) == -1) {
+    close(epoll_fd);
+    TraceLog(LOG_ERROR, "Couldn't instantiate epoll for client_id=%ld,fd=%d",
+             client.client_id, client.fd_main);
+    disconnect_client(client);
+    return;
+  }
+
+  // ee.events = EPOLLOUT;
+  // ee.data.fd = client.fd_main;
+  // if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client.fd_main, &ee) == -1) {
+  //   close(epoll_fd);
+  //   TraceLog(LOG_ERROR,
+  //            "Couldn't instantiate epoll for client_id=%ld,streamfd=%d",
+  //            client.client_id, client.fd_main);
+  //   disconnect_client(client);
+  //   return;
+  // }
+
   std::time(&client.last_response); // Set last response to current time
   while (client.fd_main > 2) {
-    uint32_t event;
-    bool status = read_uint32(client.fd_main, event);
-    if (status) {
-      TraceLog(LOG_INFO, "Received NetworkEvent %s from client_id=%ld,fd=%d",
-               network_event_to_string(event).c_str(), client.client_id,
-               client.fd_main);
-      handle_network_event(client, event);
-    } else {
-      TraceLog(LOG_WARNING,
-               "Couldn't read NetworkEvent from client_id=%ld,fd=%d",
+    // FIXME: epoll add fd_main write when in game
+    // FIXME: epoll rm fd_main write when out of the game
+    // try {
+    //   const GameRoom &gr = games.at(client.room_id);
+    //   if (gr.gameManager.status == GAME) {
+    //     if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client.fd_main, &ee) == -1) {
+    //       continue;
+    //     }
+    //   }
+    //   catch (const std::out_of_range &ex) {
+    //     continue;
+    //   }
+    int nfds = epoll_wait(epoll_fd, events, MAX_EVENTS,
+                          Constants::CONNECTION_TIMEOUT_MILISECONDS);
+    if (nfds == -1) { // EPOLL WAIT ERROR
+      close(epoll_fd);
+      TraceLog(LOG_ERROR, "Epoll wait error for client_id=%ld,fd=%d",
                client.client_id, client.fd_main);
-      client_error(client);
-      break;
+      disconnect_client(client);
+      return;
+    } else if (nfds == 0) { // EPOLL WAIT TIMEOUT
+      sendCheckConnection(client);
+    }
+    for (int n = 0; n < nfds; n++) {
+      if (events[n].events & EPOLLOUT) {
+        // if game/round end
+        // FIXME: send GAME END
+
+        handleUpdateAsteroids(client);
+        handleUpdatePlayers(client);
+        handleUpdateBullets(client);
+      } else if (events[n].events & EPOLLIN) {
+        uint32_t network_event;
+        bool status = read_uint32(client.fd_main, network_event);
+        if (status) {
+          TraceLog(LOG_INFO,
+                   "Received NetworkEvent %s from client_id=%ld,fd=%d",
+                   network_event_to_string(network_event).c_str(),
+                   client.client_id, client.fd_main);
+          handle_network_event(client, network_event);
+        } else {
+          TraceLog(LOG_WARNING,
+                   "Couldn't read NetworkEvent from client_id=%ld,fd=%d",
+                   client.client_id, client.fd_main);
+          client_error(client);
+          break;
+        }
+      }
     }
   }
+
+  close(epoll_fd);
   disconnect_client(client);
 }
 
@@ -257,39 +359,6 @@ void Server::handlePlayerMovement(Client &client) {
   }
 }
 
-void Server::handleStreamPlayerMovement(Client &client) {
-  Vector2 position, velocity;
-  float rotation;
-  json movement;
-  bool status = read_json(client.fd_stream, movement, -1); // FIXME: MAXSIZE
-  if (!status) {
-    TraceLog(LOG_ERROR, "NET: Couldn't receive json of movement");
-    client_error(client);
-    return;
-  }
-
-  try {
-    movement.at("position").get_to(position);
-    movement.at("velocity").get_to(velocity);
-    movement.at("rotation").get_to(rotation);
-  } catch (json::exception &ex) {
-    TraceLog(LOG_ERROR, "JSON: Couldn't deserialize json into movement");
-    client_error(client);
-    return;
-  }
-
-  // FIXME: value checking
-
-  try {
-    GameRoom &gr = games[client.room_id];
-    std::lock_guard<std::mutex> lgm(gr.gameRoomMutex);
-    Player &p = gr.gameManager.players[client.player_id];
-    p.position = position;
-    p.velocity = velocity;
-    p.rotation = rotation;
-  } catch (const std::out_of_range &ex) {
-  }
-}
 void Server::serverSetEvent(Client &client, NetworkEvents event) {
   bool status = write_uint32(client.fd_main, event);
   if (!status) {
@@ -297,17 +366,6 @@ void Server::serverSetEvent(Client &client, NetworkEvents event) {
              "Couldn't write %s NetworkEvent to client_id=%ld,fd=%d",
              network_event_to_string(event).c_str(), client.client_id,
              client.fd_main);
-    client_error(client);
-  }
-}
-
-void Server::serverSetStreamEvent(Client &client, NetworkEvents event) {
-  bool status = write_uint32(client.fd_stream, event);
-  if (!status) {
-    TraceLog(LOG_WARNING,
-             "Couldn't write %s NetworkEvent to client_id=%ld,fd=%d",
-             network_event_to_string(event).c_str(), client.client_id,
-             client.fd_stream);
     client_error(client);
   }
 }
@@ -335,31 +393,7 @@ void Server::handleShootBullet(Client &client) {
   }
 }
 
-void Server::handleStreamShootBullet(Client &client) {
-
-  try {
-    GameRoom &gr = games[client.room_id];
-    std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
-    const Player &p = gr.gameManager.players[client.player_id];
-    gr.gameManager.AddBullet(p, p.player_id);
-  } catch (const std::out_of_range &ex) {
-  }
-}
-
 void Server::handleJoinRoom(Client &client) {
-  if (client.fd_stream == -1) {
-    // Prevent joining a room if stream connection wasn't setup yet
-    TraceLog(
-        LOG_WARNING,
-        "Secondary connection hasn't been setup yet for client_id=%ld,fd=%d",
-        client.client_id, client.fd_main);
-    uint32_t _;
-    read_uint32(client.fd_main, _);
-    serverSetEvent(client, NetworkEvents::JoinRoom);
-    write_uint32(client.fd_main, (uint32_t)0);
-    return;
-  }
-
   bool status;
   uint32_t room_id;
   status = read_uint32(client.fd_main, room_id);
@@ -475,27 +509,6 @@ void Server::handleUpdateRoomState(Client &client) {
   }
 }
 
-void Server::handleStreamUpdatePlayers(Client &client) {
-  try {
-    bool status;
-    json players_json = games.at(client.room_id).gameManager.players;
-    serverSetEvent(client, NetworkEvents::UpdatePlayers);
-    status = write_json(client.fd_stream, players_json);
-    if (!status) {
-      TraceLog(LOG_WARNING,
-               "Couldn't send json of players to client_id=%ld,fd=%d",
-               client.client_id, client.fd_stream);
-      client_error(client);
-      return;
-    }
-  } catch (const std::out_of_range &ex) {
-    TraceLog(LOG_WARNING, "Invalid room id %lu from client_id=%ld,fd=%d",
-             client.room_id, client.client_id, client.fd_stream);
-    client_error(client);
-    return;
-  }
-}
-
 void Server::handleUpdatePlayers(Client &client) {
   try {
     bool status;
@@ -512,27 +525,6 @@ void Server::handleUpdatePlayers(Client &client) {
   } catch (const std::out_of_range &ex) {
     TraceLog(LOG_WARNING, "Invalid room id %lu from client_id=%ld,fd=%d",
              client.room_id, client.client_id, client.fd_main);
-    client_error(client);
-    return;
-  }
-}
-
-void Server::handleStreamUpdateAsteroids(Client &client) {
-  try {
-    bool status;
-    json asteroids_json = games.at(client.room_id).gameManager.asteroids;
-    serverSetEvent(client, NetworkEvents::UpdateAsteroids);
-    status = write_json(client.fd_stream, asteroids_json);
-    if (!status) {
-      TraceLog(LOG_WARNING,
-               "Couldn't send json of asteroids to client_id=%ld,fd=%d",
-               client.client_id, client.fd_stream);
-      client_error(client);
-      return;
-    }
-  } catch (const std::out_of_range &ex) {
-    TraceLog(LOG_WARNING, "Invalid room id %lu from client_id=%ld,fd=%d",
-             client.room_id, client.client_id, client.fd_stream);
     client_error(client);
     return;
   }
@@ -559,27 +551,6 @@ void Server::handleUpdateAsteroids(Client &client) {
   }
 }
 
-void Server::handleStreamUpdateBullets(Client &client) {
-  try {
-    bool status;
-    json bullets_json = games.at(client.room_id).gameManager.bullets;
-    serverSetEvent(client, NetworkEvents::UpdateBullets);
-    status = write_json(client.fd_stream, bullets_json);
-    if (!status) {
-      TraceLog(LOG_WARNING,
-               "Couldn't send json of bullets to client_id=%ld,fd=%d",
-               client.client_id, client.fd_stream);
-      client_error(client);
-      return;
-    }
-  } catch (const std::out_of_range &ex) {
-    TraceLog(LOG_WARNING, "Invalid room id %lu from client_id=%ld,fd=%d",
-             client.room_id, client.client_id, client.fd_stream);
-    client_error(client);
-    return;
-  }
-}
-
 void Server::handleUpdateBullets(Client &client) {
   try {
     bool status;
@@ -601,142 +572,6 @@ void Server::handleUpdateBullets(Client &client) {
   }
 }
 
-void Server::handleSetupStreamConnection(Client &client) {
-  uint32_t client_id = 0;
-  bool status = read_uint32(client.fd_main, client_id);
-  if (!status) {
-    TraceLog(LOG_WARNING, "Couldn't receive client_id from stream socket fd=%d",
-             client.client_id, client.fd_stream);
-    client_error(client);
-    return;
-  }
-
-  try {
-    std::lock_guard<std::mutex> lc(clients_mutex);
-    Client &mainClient = clients.at(client_id);
-    if (mainClient.fd_stream == -1) {
-      mainClient.fd_stream = client.fd_stream;
-    }
-  } catch (const std::out_of_range &ex) {
-    TraceLog(LOG_WARNING, "Bad client_id from stream socket fd=%d",
-             client.client_id, client.fd_stream);
-    client_error(client);
-    return;
-  }
-
-  std::thread(&Server::handle_stream_socket, this,
-              Client{client.fd_main, client.fd_stream, client.client_id})
-      .detach();
-  std::terminate(); // end this thread
-}
-
-void Server::handle_stream_socket(Client client) {
-  const size_t MAX_EVENTS = 2;
-  epoll_event ee, events[MAX_EVENTS];
-  int epoll_fd =
-      epoll_create1(0); // FIXME: Move epoll to the main socket to eliminate the
-                        // need for the second connection
-  if (epoll_fd == -1) {
-    TraceLog(LOG_ERROR,
-             "Couldn't instantiate epoll for client_id=%ld,streamfd=%d",
-             client.client_id, client.fd_stream);
-    disconnect_client(client);
-    return;
-  }
-
-  ee.events = EPOLLIN;
-  ee.data.fd = client.fd_stream;
-  if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client.fd_stream, &ee) == -1) {
-    close(epoll_fd);
-    TraceLog(LOG_ERROR,
-             "Couldn't instantiate epoll for client_id=%ld,streamfd=%d",
-             client.client_id, client.fd_stream);
-    disconnect_client(client);
-    return;
-  }
-
-  ee.events = EPOLLOUT;
-  ee.data.fd = client.fd_stream;
-  if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client.fd_stream, &ee) == -1) {
-    close(epoll_fd);
-    TraceLog(LOG_ERROR,
-             "Couldn't instantiate epoll for client_id=%ld,streamfd=%d",
-             client.client_id, client.fd_stream);
-    disconnect_client(client);
-    return;
-  }
-
-  while (client.fd_stream > 2) {
-    // FIXME:
-    // barrier until GameStart
-    //
-    // FIXME:
-    // while (!gameEnd)
-    //  barrier until any changes to game objects or event received
-    try {
-      const GameRoom &gr = games.at(client.room_id);
-      if (gr.gameManager.status != GAME) {
-        continue;
-      }
-    } catch (const std::out_of_range &ex) {
-      continue;
-    }
-    int nfds = epoll_wait(epoll_fd, events, MAX_EVENTS, -1);
-    if (nfds == -1) {
-      close(epoll_fd);
-      TraceLog(LOG_ERROR,
-               "Couldn't instantiate epoll for client_id=%ld,streamfd=%d",
-               client.client_id, client.fd_stream);
-      disconnect_client(client);
-      return;
-    }
-    for (int n = 0; n < nfds; n++) {
-      if (events[n].events & EPOLLOUT) {
-        handleStreamUpdateAsteroids(client);
-        handleStreamUpdatePlayers(client);
-        handleStreamUpdateBullets(client);
-      } else if (events[n].events & EPOLLIN) {
-        uint32_t network_event;
-        bool status = read_uint32(client.fd_stream, network_event);
-        if (status) {
-          TraceLog(LOG_INFO,
-                   "Received NetworkEvent %s from client_id=%ld,streamfd=%d",
-                   network_event_to_string(network_event).c_str(),
-                   client.client_id, client.fd_stream);
-          handle_stream_network_event(client, network_event);
-        } else {
-          TraceLog(LOG_WARNING,
-                   "Couldn't read NetworkEvent from client_id=%ld,fd=%d",
-                   client.client_id, client.fd_main);
-          client_error(client);
-          break;
-        }
-      }
-    }
-  }
-
-  close(epoll_fd);
-}
-
-void Server::handle_stream_network_event(Client &client, uint32_t event) {
-  switch ((NetworkEvents)event) {
-
-  case NetworkEvents::NoEvent:
-    break;
-  case NetworkEvents::PlayerMovement:
-    handleStreamPlayerMovement(client);
-    break;
-  case NetworkEvents::ShootBullets:
-    handleStreamShootBullet(client);
-    break;
-  default:
-    TraceLog(LOG_WARNING,
-             "Unknown NetworkEvent received from client_id=%ld,fd=%d",
-             client.client_id, client.fd_main);
-    break;
-  }
-}
-
 void Server::handle_network_event(Client &client, uint32_t event) {
   switch ((NetworkEvents)event) {
   case NetworkEvents::NoEvent:
@@ -749,8 +584,6 @@ void Server::handle_network_event(Client &client, uint32_t event) {
     }
     break;
   case NetworkEvents::CheckConnection: {
-    // Only handling response
-    // FIXME: IMPLEMENT SENDING
     std::time(&client.last_response);
     break;
   }
@@ -762,10 +595,6 @@ void Server::handle_network_event(Client &client, uint32_t event) {
     // Never read by server
     // FIXME: IMPLEMENT SENDING
     break;
-  case NetworkEvents::SetupStreamConnection:
-    // setup another TCP connection
-    handleSetupStreamConnection(client);
-    break;
   case NetworkEvents::GetClientId:
     std::time(&client.last_response);
     handleGetClientId(client);
@@ -775,7 +604,6 @@ void Server::handle_network_event(Client &client, uint32_t event) {
     handleVoteReady(client);
     break;
   case NetworkEvents::PlayerMovement:
-    // Best sent over stream
     std::time(&client.last_response);
     handlePlayerMovement(client);
     break;
@@ -830,12 +658,6 @@ void Server::disconnect_client(Client &client) {
     close(client.fd_main);
     client.fd_main = -1;
   }
-  if (client.fd_stream > 2) {
-    // No info for client
-    shutdown(client.fd_stream, SHUT_RDWR);
-    close(client.fd_stream);
-    client.fd_stream = -1;
-  }
 }
 
 std::vector<Room> Server::get_available_rooms() {
@@ -852,10 +674,6 @@ std::vector<Room> Server::get_available_rooms() {
   //   rs.push_back(room);
   // }
   return rs;
-}
-
-void Server::new_client(Client client) {
-  std::thread(&Server::handle_connection, this, client).detach();
 }
 
 bool Server::delete_client(size_t client_id) {

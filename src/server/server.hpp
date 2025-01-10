@@ -20,11 +20,11 @@ struct GameRoom {
   GameManager gameManager;
   std::vector<uint32_t> clients;
   std::mutex gameRoomMutex;
+  // FIXME: update game state during game
 };
 
 struct Server {
   int mainfd;
-  int streamfd;
 
   std::thread connection_thread;
 
@@ -75,4 +75,5 @@ struct Server {
   void handleStreamUpdateAsteroids(Client &client);
   void handleStreamPlayerMovement(Client &client);
   void handleStreamShootBullet(Client &client);
+  void sendCheckConnection(Client &client);
 };

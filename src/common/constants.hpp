@@ -7,7 +7,8 @@ const static int screenWidth = 900;
 const static int screenHeight = 650;
 const static std::string windowTitle = "Tank Busters!";
 
-const static std::string COOL_ROOM_NAMES[4] = {"BLUE SHARK", "STONEBREAKER", "POTATO KING", "FOOTBALL FAN"};
+const static std::string COOL_ROOM_NAMES[4] = {"BLUE SHARK", "STONEBREAKER",
+                                               "POTATO KING", "FOOTBALL FAN"};
 
 const static int ASTEROID_SPEED_MIN = 100;
 const static int ASTEROID_SPEED_MAX = 200;
@@ -50,5 +51,5 @@ const static Color NOT_CONNECTED_GRAY = {200, 200, 200, 150};
 const static int NEW_ROUND_WAIT_TIME = 3;
 const static int LOBBY_READY_TIME = 5;
 
-const static int MAX_EPOLL_EVENTS = 1024;
+const static unsigned int CONNECTION_TIMEOUT_MILISECONDS = 5000;
 } // namespace Constants

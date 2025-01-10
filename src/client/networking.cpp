@@ -19,13 +19,9 @@
 
 using json = nlohmann::json;
 
-ClientNetworkManager::ClientNetworkManager(const char *host,
-                                           const char *port_main,
-                                           const char *port_stream) {
-  mainfd = connect_to(host, port_main);
+ClientNetworkManager::ClientNetworkManager(const char *host, const char *port) {
+  mainfd = connect_to(host, port);
   TraceLog(LOG_INFO, "NET: main fd=%d", mainfd);
-  streamfd = connect_to(host, port_stream);
-  TraceLog(LOG_INFO, "NET: stream fd=%d", streamfd);
 
   if (!get_new_client_id(client_id)) {
     TraceLog(LOG_ERROR, "GAME: Could not get a new client id");
@@ -85,7 +81,7 @@ bool ClientNetworkManager::get_rooms(std::vector<Room> &rooms) {
   }
 
   json rooms_json;
-  status = read_json(mainfd, rooms_json, -1);  // TODO: replace -1 with real max
+  status = read_json(mainfd, rooms_json, -1); // TODO: replace -1 with real max
   if (!status) {
     TraceLog(LOG_ERROR, "NET: Couldn't receive json of vector<Rooms>");
     return false;
@@ -234,7 +230,8 @@ bool ClientNetworkManager::fetch_room_state(uint32_t fetch_room_id,
 
   bool status;
   status = setEvent(mainfd, NetworkEvents::UpdateRoomState);
-  if (!status) return false;
+  if (!status)
+    return false;
 
   status = write_uint32(mainfd, fetch_room_id);
   if (!status) {
@@ -243,7 +240,8 @@ bool ClientNetworkManager::fetch_room_state(uint32_t fetch_room_id,
   }
 
   status = expectEvent(mainfd, NetworkEvents::UpdateRoomState);
-  if (!status) return false;
+  if (!status)
+    return false;
 
   json room_json = json(Room());
   status = read_json(mainfd, room_json, sizeof(room_json));
@@ -297,7 +295,8 @@ bool ClientNetworkManager::send_movement(Vector2 position, Vector2 velocity,
   }
 
   bool status = setEvent(mainfd, NetworkEvents::PlayerMovement);
-  if (!status) return false;
+  if (!status)
+    return false;
 
   status = write_json(mainfd, movement);
   if (!status) {
@@ -320,7 +319,8 @@ bool ClientNetworkManager::fetch_game_state(GameManager &gameManager) {
 
   bool status;
   status = setEvent(mainfd, NetworkEvents::UpdateGameState);
-  if (!status) return false;
+  if (!status)
+    return false;
 
   // status = write_uint32(fd, room_id);
   // if (!status) {
@@ -329,7 +329,8 @@ bool ClientNetworkManager::fetch_game_state(GameManager &gameManager) {
   // }
 
   status = expectEvent(mainfd, NetworkEvents::UpdateGameState);
-  if (!status) return false;
+  if (!status)
+    return false;
 
   json game_json = json(GameManager());
   status = read_json(mainfd, game_json, sizeof(game_json));
@@ -355,7 +356,8 @@ bool ClientNetworkManager::fetch_players(std::vector<Player> &players) {
 
   bool status;
   status = setEvent(mainfd, NetworkEvents::UpdatePlayers);
-  if (!status) return false;
+  if (!status)
+    return false;
 
   // TODO: Possibly unnecessary
   // status = write_uint32(fd, room_id);
@@ -365,7 +367,8 @@ bool ClientNetworkManager::fetch_players(std::vector<Player> &players) {
   // }
 
   status = expectEvent(mainfd, NetworkEvents::UpdatePlayers);
-  if (!status) return false;
+  if (!status)
+    return false;
 
   json players_json =
       json(std::vector<Player>(Constants::PLAYERS_MAX, Player()));
@@ -392,7 +395,8 @@ bool ClientNetworkManager::fetch_asteroids(std::vector<Asteroid> &asteroids) {
 
   bool status;
   status = setEvent(mainfd, NetworkEvents::UpdateAsteroids);
-  if (!status) return false;
+  if (!status)
+    return false;
 
   // TODO: Possibly unnecessary
   // status = write_uint32(fd, room_id);
@@ -402,7 +406,8 @@ bool ClientNetworkManager::fetch_asteroids(std::vector<Asteroid> &asteroids) {
   // }
 
   status = expectEvent(mainfd, NetworkEvents::UpdateAsteroids);
-  if (!status) return false;
+  if (!status)
+    return false;
 
   json asteroids_json =
       json(std::vector<Asteroid>(Constants::ASTEROIDS_MAX, Asteroid()));
@@ -430,7 +435,8 @@ bool ClientNetworkManager::fetch_bullets(std::vector<Bullet> &bullets) {
 
   bool status;
   status = setEvent(mainfd, NetworkEvents::UpdateBullets);
-  if (!status) return false;
+  if (!status)
+    return false;
 
   // TODO: Possibly unnecessary
   // status = write_uint32(fd, room_id);
@@ -440,7 +446,8 @@ bool ClientNetworkManager::fetch_bullets(std::vector<Bullet> &bullets) {
   // }
 
   status = expectEvent(mainfd, NetworkEvents::UpdateBullets);
-  if (!status) return false;
+  if (!status)
+    return false;
 
   json bullets_json = json(std::vector<Bullet>(
       Constants::BULLETS_PER_PLAYER * Constants::PLAYERS_MAX, Bullet()));
@@ -462,10 +469,12 @@ bool ClientNetworkManager::fetch_bullets(std::vector<Bullet> &bullets) {
 bool ClientNetworkManager::shoot_bullet() {
   bool status;
   status = setEvent(mainfd, NetworkEvents::ShootBullets);
-  if (!status) return false;
+  if (!status)
+    return false;
 
   status = expectEvent(mainfd, NetworkEvents::ShootBullets);
-  if (!status) return false;
+  if (!status)
+    return false;
 
   uint32_t bullet_shot;
   status = read_uint32(mainfd, bullet_shot);
@@ -486,10 +495,12 @@ bool ClientNetworkManager::vote_ready(uint32_t &ready_players) {
   bool status;
 
   status = setEvent(mainfd, NetworkEvents::VoteReady);
-  if (!status) return false;
+  if (!status)
+    return false;
 
   status = expectEvent(mainfd, NetworkEvents::VoteReady);
-  if (!status) return false;
+  if (!status)
+    return false;
 
   status = read_uint32(mainfd, ready_players);
   if (!status) {
@@ -502,7 +513,8 @@ bool ClientNetworkManager::vote_ready(uint32_t &ready_players) {
 bool ClientNetworkManager::handle_end_round(uint32_t &winner_player_id) {
   bool status;
   status = expectEvent(mainfd, NetworkEvents::EndRound);
-  if (!status) return false;
+  if (!status)
+    return false;
 
   status = read_uint32(mainfd, winner_player_id);
   if (!status) {
@@ -517,7 +529,8 @@ bool ClientNetworkManager::handle_connection_check() {
   bool status;
 
   status = expectEvent(mainfd, NetworkEvents::CheckConnection);
-  if (!status) return false;
+  if (!status)
+    return false;
 
   status = setEvent(mainfd, NetworkEvents::CheckConnection);
   return status;
