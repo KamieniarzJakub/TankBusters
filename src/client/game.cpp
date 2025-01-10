@@ -16,7 +16,11 @@ struct Game {
         networkManager(host, port) {
     std::vector<Room> rooms;
     bool status = networkManager.get_rooms(rooms); // FIXME: move somewhere else
-    TraceLog(LOG_INFO, ("ROOMS: " + json(rooms).dump()).c_str());
+    if (status) {
+      TraceLog(LOG_INFO, ("ROOMS: " + json(rooms).dump()).c_str());
+    } else {
+      TraceLog(LOG_ERROR, "NET: connection problem");
+    }
   }
 
   void updateDrawFrame(void) {

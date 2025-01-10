@@ -47,6 +47,7 @@ bool write_json(int fd, const json &j) {
 }
 
 // returns true if ok
+// maxsize is optional, disable this check by passing -1 (MAX_SIZE_T)
 bool read_json(int fd, json &j, size_t maxsize) {
   bool status;
   uint32_t bson_size;

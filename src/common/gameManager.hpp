@@ -50,3 +50,6 @@ struct GameManager {
   size_t GetReadyPlayers();
   size_t GetConnectedPlayers(PlayerConnection pc);
 };
+
+void to_json(json &j, const GameManager &gm);
+void from_json(const json &j, GameManager &gm);

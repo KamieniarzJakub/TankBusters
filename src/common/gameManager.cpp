@@ -57,7 +57,7 @@ void GameManager::UpdateAsteroids(float frametime) {
   }
 }
 
-void GameManager::UpdateGame(){
+void GameManager::UpdateGame() {
   UpdateStatus();
   // TraceLog(LOG_DEBUG, "Game status: %d", gameManager.status);
   if (status == GameStatus::GAME) {
@@ -219,8 +219,9 @@ bool GameManager::UpdateLobbyStatus() {
   return false;
 }
 
-bool GameManager::ReturnToRooms(){
-  return (status==GameStatus::LOBBY && (IsKeyPressed(KEY_ENTER)||IsKeyPressed(KEY_BACKSPACE)));
+bool GameManager::ReturnToRooms() {
+  return (status == GameStatus::LOBBY &&
+          (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_BACKSPACE)));
 }
 
 void GameManager::RestartLobby() {
@@ -244,4 +245,25 @@ size_t GameManager::GetConnectedPlayers(PlayerConnection pc) {
     }
   }
   return n;
+}
+
+void to_json(json &j, const GameManager &gm) {
+  j = json{{"room_id", gm.room_id},
+           {"status", gm.status},
+           {"alive_players", gm._alive_players},
+           {"spawnerTime", gm._spawnerTime},
+           {"startRoundTime", gm.startRoundTime},
+           {"endRoundTime", gm.endRoundTime},
+           {"new_round_timer", gm.new_round_timer}};
+  // asteroids, players, bullets omitted
+}
+
+void from_json(const json &j, GameManager &gm) {
+  j.at("room_id").get_to(gm.room_id);
+  j.at("status").get_to(gm.status);
+  j.at("alive_players").get_to(gm._alive_players);
+  j.at("spawnerTime").get_to(gm._spawnerTime);
+  j.at("startRoundTime").get_to(gm.startRoundTime);
+  j.at("endRoundTime").get_to(gm.endRoundTime);
+  j.at("new_round_timer").get_to(gm.new_round_timer);
 }

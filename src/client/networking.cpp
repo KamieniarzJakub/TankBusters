@@ -1,7 +1,12 @@
 #include "networking.hpp"
+#include "asteroid.hpp"
+#include "bullet.hpp"
+#include "constants.hpp"
 #include "gameManager.hpp"
 #include "jsonutils.hpp"
+#include "player.hpp"
 #include "raylib.h"
+#include "vec2json.hpp"
 #include <cstdint>
 #include <nlohmann/json.hpp>
 #include <room.hpp>
@@ -165,8 +170,10 @@ int ClientNetworkManager::connect_to(const char *host, const char *port) {
 }
 
 // Join a room by room_id
+// NOTE: REMEMBER TO UPDATE VALUE IN GAME MANAGER
+//
 // returns true if joined room
-bool ClientNetworkManager::join_room(uint32_t room_id) {
+bool ClientNetworkManager::join_room(uint32_t join_room_id) {
   bool status;
 
   status = setEvent(fd, NetworkEvents::JoinRoom);
@@ -174,12 +181,12 @@ bool ClientNetworkManager::join_room(uint32_t room_id) {
     return false;
   }
 
-  if (room_id == 0) {
+  if (join_room_id == 0) {
     TraceLog(LOG_ERROR, "GAME: Room ID=0 passed into join_room");
     return false;
   }
 
-  status = write_uint32(fd, room_id);
+  status = write_uint32(fd, join_room_id);
   if (!status) {
     TraceLog(LOG_ERROR, "NET: Couldn't send Room ID");
     return false;
@@ -196,108 +203,320 @@ bool ClientNetworkManager::join_room(uint32_t room_id) {
     TraceLog(LOG_ERROR, "NET: Couldn't read joined room id");
     return false;
   }
-  return (joined_room == room_id);
+
+  if (joined_room == join_room_id) {
+    this->room_id = joined_room;
+    return true;
+  } else {
+    return false;
+  }
 }
 
+// Get info about currently joined room
 bool ClientNetworkManager::fetch_room_state(Room &room) {
   return fetch_room_state(this->room_id, room);
 }
 
+// Get info about arbitrary room by room id
 bool ClientNetworkManager::fetch_room_state(uint32_t fetch_room_id,
                                             Room &room) {
-  TraceLog(LOG_INFO, "%lu %lu", fetch_room_id, room.room_id);
-  // FIXME: UNFINISHED
-  //
-  // UpdateRoomState
-  // UpdateRoomState
-  return false;
-}
-
-bool ClientNetworkManager::leave_room() {
-  if (room_id == 0) {
+  if (fetch_room_id == 0) {
+    TraceLog(LOG_ERROR, "GAME: Room ID=0 passed into join_room");
     return false;
   }
-  // FIXME: UNFINISHED
-  //
-  //   LeaveRoom
-  //   LeaveRoom
-  room_id = 0;
-  return false;
+
+  bool status;
+  status = setEvent(fd, NetworkEvents::UpdateRoomState);
+  if (!status)
+    return false;
+
+  status = write_uint32(fd, fetch_room_id);
+  if (!status) {
+    TraceLog(LOG_ERROR, "NET: Couldn't send ROOM ID");
+    return false;
+  }
+
+  status = expectEvent(fd, NetworkEvents::UpdateRoomState);
+  if (!status)
+    return false;
+
+  json room_json = json(Room());
+  status = read_json(fd, room_json, sizeof(room_json));
+  if (!status) {
+    TraceLog(LOG_ERROR, "NET: Couldn't receive json of Room");
+    return false;
+  }
+
+  try {
+    room = room_json.template get<Room>();
+    return true;
+  } catch (json::exception &ex) {
+    TraceLog(LOG_ERROR, "JSON: Couldn't deserialize json into Room");
+    return false;
+  }
 }
 
+// Leave currently joined room
+bool ClientNetworkManager::leave_room() {
+  if (this->room_id == 0) {
+    TraceLog(LOG_ERROR, "GAME: Leaving Room without previously joining any");
+    return false;
+  }
+
+  bool status;
+  status = setEvent(fd, NetworkEvents::LeaveRoom);
+  if (!status) {
+    return false;
+  }
+
+  status = expectEvent(fd, NetworkEvents::LeaveRoom);
+  if (!status) {
+    return false;
+  }
+
+  this->room_id = 0;
+  return true;
+}
+
+// NOTE: Potentially could be streamed
 bool ClientNetworkManager::send_movement(Vector2 position, Vector2 velocity,
                                          float rotation) {
-  // FIXME: UNFINISHED
-  //
-  // PlayerMovement
-  // PlayerMovement
-  return false;
+  // TODO: bounds check
+  json movement;
+  try {
+    movement = {
+        {"position", position}, {"velocity", velocity}, {"rotation", rotation}};
+  } catch (json::exception &ex) {
+    TraceLog(LOG_ERROR, "JSON: Couldn't serialize movement into json");
+    return false;
+  }
+
+  bool status = setEvent(fd, NetworkEvents::PlayerMovement);
+  if (!status)
+    return false;
+
+  status = write_json(fd, movement);
+  if (!status) {
+    TraceLog(LOG_ERROR, "NET: Couldn't send json of movement");
+    return false;
+  }
+
+  // Intentionally no response
+
+  return true;
 }
 
+// Fetches GameManager state for currently joined room
 bool ClientNetworkManager::fetch_game_state(GameManager &gameManager) {
-  // FIXME: UNFINISHED
-  //
-  // UpdateGameState,
-  // UpdateGameState,
-  return false;
+
+  if (room_id == 0) {
+    TraceLog(LOG_ERROR, "GAME: Room ID=0 passed into fetch game state");
+    return false;
+  }
+
+  bool status;
+  status = setEvent(fd, NetworkEvents::UpdateGameState);
+  if (!status)
+    return false;
+
+  status = write_uint32(fd, room_id);
+  if (!status) {
+    TraceLog(LOG_ERROR, "NET: Couldn't send ROOM ID");
+    return false;
+  }
+
+  status = expectEvent(fd, NetworkEvents::UpdateGameState);
+  if (!status)
+    return false;
+
+  json game_json = json(GameManager());
+  status = read_json(fd, game_json, sizeof(game_json));
+  if (!status) {
+    TraceLog(LOG_ERROR, "NET: Couldn't receive json of GameManager");
+    return false;
+  }
+
+  try {
+    gameManager = game_json.template get<GameManager>();
+    return true;
+  } catch (json::exception &ex) {
+    TraceLog(LOG_ERROR, "JSON: Couldn't deserialize json into GameManager");
+    return false;
+  }
 }
 
 bool ClientNetworkManager::fetch_players(std::vector<Player> &players) {
-  // FIXME: UNFINISHED
-  //
-  // UpdatePlayers
-  // UpdatePlayers
-  return false;
+  if (room_id == 0) {
+    TraceLog(LOG_ERROR, "GAME: Room ID=0 passed into fetch players");
+    return false;
+  }
+
+  bool status;
+  status = setEvent(fd, NetworkEvents::UpdatePlayers);
+  if (!status)
+    return false;
+
+  // TODO: Possibly unnecessary
+  status = write_uint32(fd, room_id);
+  if (!status) {
+    TraceLog(LOG_ERROR, "NET: Couldn't send ROOM ID");
+    return false;
+  }
+
+  status = expectEvent(fd, NetworkEvents::UpdatePlayers);
+  if (!status)
+    return false;
+
+  json players_json =
+      json(std::vector<Player>(Constants::PLAYERS_MAX, Player()));
+  status = read_json(fd, players_json, sizeof(players_json));
+  if (!status) {
+    TraceLog(LOG_ERROR, "NET: Couldn't receive json of vector<Player>");
+    return false;
+  }
+
+  try {
+    players = players_json.template get<std::vector<Player>>();
+    return true;
+  } catch (json::exception &ex) {
+    TraceLog(LOG_ERROR, "JSON: Couldn't deserialize json into vector<Player>");
+    return false;
+  }
 }
 
 bool ClientNetworkManager::fetch_asteroids(std::vector<Asteroid> &asteroids) {
-  // FIXME: UNFINISHED
-  //
-  // UpdateAsteroids
-  // UpdateAsteroids
-  return false;
+  if (room_id == 0) {
+    TraceLog(LOG_ERROR, "GAME: Room ID=0 passed into fetch asteroids");
+    return false;
+  }
+
+  bool status;
+  status = setEvent(fd, NetworkEvents::UpdateAsteroids);
+  if (!status)
+    return false;
+
+  // TODO: Possibly unnecessary
+  status = write_uint32(fd, room_id);
+  if (!status) {
+    TraceLog(LOG_ERROR, "NET: Couldn't send ROOM ID");
+    return false;
+  }
+
+  status = expectEvent(fd, NetworkEvents::UpdateAsteroids);
+  if (!status)
+    return false;
+
+  json asteroids_json =
+      json(std::vector<Asteroid>(Constants::ASTEROIDS_MAX, Asteroid()));
+  status = read_json(fd, asteroids_json, sizeof(asteroids_json));
+  if (!status) {
+    TraceLog(LOG_ERROR, "NET: Couldn't receive json of vector<Asteroid>");
+    return false;
+  }
+
+  try {
+    asteroids = asteroids_json.template get<std::vector<Asteroid>>();
+    return true;
+  } catch (json::exception &ex) {
+    TraceLog(LOG_ERROR,
+             "JSON: Couldn't deserialize json into vector<Asteroid>");
+    return false;
+  }
 }
 
 bool ClientNetworkManager::fetch_bullets(std::vector<Bullet> &bullets) {
-  // FIXME: UNFINISHED
-  //
-  // UpdateBullets
-  // UpdateBullets
-  return false;
+  if (room_id == 0) {
+    TraceLog(LOG_ERROR, "GAME: Room ID=0 passed into fetch bullets");
+    return false;
+  }
+
+  bool status;
+  status = setEvent(fd, NetworkEvents::UpdateBullets);
+  if (!status)
+    return false;
+
+  // TODO: Possibly unnecessary
+  status = write_uint32(fd, room_id);
+  if (!status) {
+    TraceLog(LOG_ERROR, "NET: Couldn't send ROOM ID");
+    return false;
+  }
+
+  status = expectEvent(fd, NetworkEvents::UpdateBullets);
+  if (!status)
+    return false;
+
+  json bullets_json = json(std::vector<Bullet>(
+      Constants::BULLETS_PER_PLAYER * Constants::PLAYERS_MAX, Bullet()));
+  status = read_json(fd, bullets_json, sizeof(bullets_json));
+  if (!status) {
+    TraceLog(LOG_ERROR, "NET: Couldn't receive json of vector<Bullet>");
+    return false;
+  }
+
+  try {
+    bullets = bullets_json.template get<std::vector<Bullet>>();
+    return true;
+  } catch (json::exception &ex) {
+    TraceLog(LOG_ERROR, "JSON: Couldn't deserialize json into vector<Bullet>");
+    return false;
+  }
 }
 
-// TODO: CHANGE TO CREATE_NEW_BULLET
 bool ClientNetworkManager::shoot_bullet() {
-  // FIXME: UNFINISHED
-  //
-  // ShootBullets:
-  // ShootBullets:
-  return false;
+  bool status;
+  status = setEvent(fd, NetworkEvents::ShootBullets);
+  if (!status)
+    return false;
+
+  status = expectEvent(fd, NetworkEvents::ShootBullets);
+  if (!status)
+    return false;
+
+  return true;
 }
 
 bool ClientNetworkManager::vote_ready(uint32_t &ready_players) {
-  // FIXME: UNFINISHED
-  //
-  // VoteReady,
-  // VoteReady,
+  bool status;
 
-  return false;
+  status = setEvent(fd, NetworkEvents::VoteReady);
+  if (!status)
+    return false;
+
+  status = expectEvent(fd, NetworkEvents::VoteReady);
+  if (!status)
+    return false;
+
+  status = read_uint32(fd, ready_players);
+  if (!status) {
+    TraceLog(LOG_ERROR, "NET: Couldn't receive ready players");
+  }
+
+  return status;
 }
 
-// send END ROUND
-// send who won
 bool ClientNetworkManager::handle_end_round(uint32_t &winner_player_id) {
-  // FIXME: UNFINISHED
-  //
-  // recv only EndRound
-  return false;
+  bool status;
+  status = expectEvent(fd, NetworkEvents::EndRound);
+  if (!status)
+    return false;
+
+  status = read_uint32(fd, winner_player_id);
+  if (!status) {
+    TraceLog(LOG_ERROR, "NET: Couldn't receive winner's player id");
+  }
+
+  return status;
 }
 
 // in lobby and room select only
 bool ClientNetworkManager::handle_connection_check() {
-  // FIXME: UNFINISHED
-  //
-  // CheckConnection
-  // CheckConnection
-  return false;
+  bool status;
+
+  status = expectEvent(fd, NetworkEvents::CheckConnection);
+  if (!status)
+    return false;
+
+  status = setEvent(fd, NetworkEvents::CheckConnection);
+  return status;
 }
