@@ -1,4 +1,20 @@
 #include "server.hpp"
+
+#include <errno.h>
+#include <error.h>
+#include <netinet/in.h>
+#include <sys/epoll.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+#include <cstdint>
+#include <ctime>
+#include <map>
+#include <nlohmann/json.hpp>
+#include <vec2json.hpp>
+#include <vector>
+
 #include "constants.hpp"
 #include "gameManager.hpp"
 #include "jsonutils.hpp"
@@ -6,25 +22,10 @@
 #include "player.hpp"
 #include "raylib.h"
 #include "room.hpp"
-#include <cstdint>
-#include <ctime>
-#include <errno.h>
-#include <error.h>
-#include <map>
-#include <netinet/in.h>
-#include <nlohmann/json.hpp>
-#include <sys/epoll.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <vec2json.hpp>
-#include <vector>
 
 Server::Server(in_port_t port) {
-
   this->sfd = socket(AF_INET, SOCK_STREAM, 0);
-  if (this->sfd == -1)
-    error(1, errno, "socket failed");
+  if (this->sfd == -1) error(1, errno, "socket failed");
 
   setReuseAddr(this->sfd);
 
@@ -34,12 +35,10 @@ Server::Server(in_port_t port) {
   serverAddr.sin_addr = {INADDR_ANY};
 
   int res = bind(this->sfd, (sockaddr *)&serverAddr, sizeof(serverAddr));
-  if (res)
-    error(1, errno, "bind failed");
+  if (res) error(1, errno, "bind failed");
 
   res = listen(this->sfd, 1);
-  if (res)
-    error(1, errno, "listen failed");
+  if (res) error(1, errno, "listen failed");
 
   this->connection_thread = std::thread(&Server::listen_for_connections, this);
   for (int i = 0; i < 4; i++) {
@@ -53,16 +52,13 @@ Server::Server(in_port_t port) {
 
 Server::~Server() {
   // join worker threads
-  if (this->connection_thread.joinable())
-    this->connection_thread.join();
+  if (this->connection_thread.joinable()) this->connection_thread.join();
 
   // close network resources
   int res = shutdown(sfd, SHUT_RDWR);
-  if (res)
-    error(1, errno, "shutdown fd failed");
+  if (res) error(1, errno, "shutdown fd failed");
   res = close(sfd);
-  if (res)
-    error(1, errno, "close fd failed");
+  if (res) error(1, errno, "close fd failed");
 }
 
 void Server::listen_for_connections() {
@@ -82,11 +78,14 @@ void Server::client_error(Client &client) {
 }
 
 void Server::handle_connection(Client client) {
-  std::time(&client.last_response); // Set last response to current time
-  while (true) {
+  std::time(&client.last_response);  // Set last response to current time
+  while (client.fd > 2) {
     uint32_t event;
     bool status = read_uint32(client.fd, event);
     if (status) {
+      TraceLog(LOG_INFO, "Received NetworkEvent %s from client_id=%ld,fd=%d",
+               network_event_to_string(event).c_str(), client.client_id,
+               client.fd);
       handle_network_event(client, event);
     } else {
       TraceLog(LOG_WARNING,
@@ -113,7 +112,7 @@ void Server::handleGetClientId(Client &client) {
   // NOTE: This is essentially just one if and else
   if (client_id > 0) {
     if (auto old_c = clients.find(client_id); old_c != clients.end()) {
-      if (old_c->second.fd == -1) { // if old client is disconnected
+      if (old_c->second.fd == -1) {  // if old client is disconnected
         client.client_id = old_c->second.client_id;
         client.player_id = old_c->second.fd;
         client.room_id = old_c->second.room_id;
@@ -121,7 +120,7 @@ void Server::handleGetClientId(Client &client) {
       }
     }
   }
-  if (client.client_id == 0) { // else
+  if (client.client_id == 0) {  // else
     client.client_id = _next_client_id++;
   }
   status = write_uint32(client.fd, NetworkEvents::GetClientId);
@@ -132,7 +131,7 @@ void Server::handleGetClientId(Client &client) {
     client_error(client);
   }
 
-  status = write_uint32(client.fd, _next_client_id++);
+  status = write_uint32(client.fd, client.client_id);
   if (!status) {
     TraceLog(LOG_WARNING, "Couldn't write new client id to client_id=%ld,fd=%d",
              client.client_id, client.fd);
@@ -185,7 +184,7 @@ void Server::handlePlayerMovement(Client &client) {
   Vector2 position, velocity;
   float rotation;
   json movement;
-  bool status = read_json(client.fd, movement, -1); // FIXME: MAXSIZE
+  bool status = read_json(client.fd, movement, -1);  // FIXME: MAXSIZE
   if (!status) {
     TraceLog(LOG_ERROR, "NET: Couldn't receive json of movement");
     client_error(client);
@@ -415,78 +414,79 @@ void Server::handleUpdateBullets(Client &client) {
 }
 
 void Server::handle_network_event(Client &client, uint32_t event) {
-
   switch ((NetworkEvents)event) {
-  case NetworkEvents::NoEvent:
-    TraceLog(LOG_WARNING, "NoEvent received from client_id=%ld,fd=%d",
-             client.client_id, client.fd);
-    break;
-  case NetworkEvents::Disconnect:
-    delete_client(client.client_id);
-    break;
-  case NetworkEvents::CheckConnection: {
-    // Only handling response
-    // FIXME: IMPLEMENT SENDING
-    std::time(&client.last_response);
-    break;
-  }
-  case NetworkEvents::EndRound:
-    // Never read by server
-    // FIXME: IMPLEMENT SENDING
-    break;
-  case NetworkEvents::GetClientId:
-    std::time(&client.last_response);
-    handleGetClientId(client);
-    break;
-  case NetworkEvents::VoteReady:
-    std::time(&client.last_response);
-    handleVoteReady(client);
-    break;
-  case NetworkEvents::PlayerMovement:
-    std::time(&client.last_response);
-    handlePlayerMovement(client);
-    break;
-  case NetworkEvents::ShootBullets:
-    std::time(&client.last_response);
-    handleShootBullet(client);
-    break;
-  case NetworkEvents::GetRoomList:
-    std::time(&client.last_response);
-    handleGetRoomList(client);
-    break;
-  case NetworkEvents::JoinRoom:
-    std::time(&client.last_response);
-    handleJoinRoom(client);
-    break;
-  case NetworkEvents::LeaveRoom:
-    std::time(&client.last_response);
-    handleLeaveRoom(client);
-    break;
-  case NetworkEvents::UpdateGameState:
-    std::time(&client.last_response);
-    handleUpdateGameState(client);
-    break;
-  case NetworkEvents::UpdateRoomState:
-    std::time(&client.last_response);
-    handleUpdateRoomState(client);
-    break;
-  case NetworkEvents::UpdatePlayers:
-    std::time(&client.last_response);
-    handleUpdatePlayers(client);
-    break;
-  case NetworkEvents::UpdateAsteroids:
-    std::time(&client.last_response);
-    handleUpdateAsteroids(client);
-    break;
-  case NetworkEvents::UpdateBullets:
-    std::time(&client.last_response);
-    handleUpdateBullets(client);
-    break;
-  default:
-    TraceLog(LOG_WARNING,
-             "Unknown NetworkEvent received from client_id=%ld,fd=%d",
-             client.client_id, client.fd);
-    break;
+    case NetworkEvents::NoEvent:
+      TraceLog(LOG_WARNING, "NoEvent received from client_id=%ld,fd=%d",
+               client.client_id, client.fd);
+      break;
+    case NetworkEvents::Disconnect:
+      if (!delete_client(client.client_id)) {
+        disconnect_client(client);
+      }
+      break;
+    case NetworkEvents::CheckConnection: {
+      // Only handling response
+      // FIXME: IMPLEMENT SENDING
+      std::time(&client.last_response);
+      break;
+    }
+    case NetworkEvents::EndRound:
+      // Never read by server
+      // FIXME: IMPLEMENT SENDING
+      break;
+    case NetworkEvents::GetClientId:
+      std::time(&client.last_response);
+      handleGetClientId(client);
+      break;
+    case NetworkEvents::VoteReady:
+      std::time(&client.last_response);
+      handleVoteReady(client);
+      break;
+    case NetworkEvents::PlayerMovement:
+      std::time(&client.last_response);
+      handlePlayerMovement(client);
+      break;
+    case NetworkEvents::ShootBullets:
+      std::time(&client.last_response);
+      handleShootBullet(client);
+      break;
+    case NetworkEvents::GetRoomList:
+      std::time(&client.last_response);
+      handleGetRoomList(client);
+      break;
+    case NetworkEvents::JoinRoom:
+      std::time(&client.last_response);
+      handleJoinRoom(client);
+      break;
+    case NetworkEvents::LeaveRoom:
+      std::time(&client.last_response);
+      handleLeaveRoom(client);
+      break;
+    case NetworkEvents::UpdateGameState:
+      std::time(&client.last_response);
+      handleUpdateGameState(client);
+      break;
+    case NetworkEvents::UpdateRoomState:
+      std::time(&client.last_response);
+      handleUpdateRoomState(client);
+      break;
+    case NetworkEvents::UpdatePlayers:
+      std::time(&client.last_response);
+      handleUpdatePlayers(client);
+      break;
+    case NetworkEvents::UpdateAsteroids:
+      std::time(&client.last_response);
+      handleUpdateAsteroids(client);
+      break;
+    case NetworkEvents::UpdateBullets:
+      std::time(&client.last_response);
+      handleUpdateBullets(client);
+      break;
+    default:
+      TraceLog(LOG_WARNING,
+               "Unknown NetworkEvent received from client_id=%ld,fd=%d",
+               client.client_id, client.fd);
+      break;
   }
 }
 
@@ -519,9 +519,8 @@ void Server::new_client(int client_fd) {
   std::thread(&Server::handle_connection, this, Client{client_fd}).detach();
 }
 
-void Server::delete_client(size_t client_id) {
+bool Server::delete_client(size_t client_id) {
   if (auto c = clients.find(client_id); c != clients.end()) {
-    // TODO: SEND WARNING TO CLIENT
     int res = shutdown(c->second.fd, SHUT_RDWR);
     if (res) {
       TraceLog(LOG_WARNING, "Failed shutdown for client: %lu",
@@ -534,5 +533,7 @@ void Server::delete_client(size_t client_id) {
     }
     c->second.fd = -1;
     clients.erase(client_id);
+    return true;
   }
+  return false;
 }

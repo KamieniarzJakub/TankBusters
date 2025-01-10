@@ -2,44 +2,45 @@
 #include <networkEvents.hpp>
 
 const std::string network_event_to_string(uint32_t networkEvent) {
-  return network_event_to_string((NetworkEvents)networkEvent);
+  int val = (int)networkEvent;
+  return network_event_to_string((NetworkEvents)val);
 }
 
 const std::string network_event_to_string(NetworkEvents networkEvent) {
   switch (networkEvent) {
-  case NoEvent:
-    return "NoEvent";
-  case Disconnect:
-    return "Disconnect";
-  case CheckConnection:
-    return "CheckConnection";
-  case EndRound:
-    return "EndRound";
-  case GetClientId:
-    return "GetClientIdId";
-  case VoteReady:
-    return "VoteReady";
-  case PlayerMovement:
-    return "PlayerMovement";
-  case ShootBullets:
-    return "ShootBullets";
-  case GetRoomList:
-    return "GetRoomList";
-  case JoinRoom:
-    return "JoinRoom";
-  case LeaveRoom:
-    return "LeaveRoom";
-  case UpdateGameState:
-    return "UpdateGameState";
-  case UpdateRoomState:
-    return "UpdateRoomState";
-  case UpdatePlayers:
-    return "UpdatePlayers";
-  case UpdateAsteroids:
-    return "UpdateAsteroids";
-  case UpdateBullets:
-    return "UpdateBullets";
-  default:
-    return "Unknown";
+    case NetworkEvents::NoEvent:
+      return "NoEvent";
+    case NetworkEvents::Disconnect:
+      return "Disconnect";
+    case NetworkEvents::CheckConnection:
+      return "CheckConnection";
+    case NetworkEvents::EndRound:
+      return "EndRound";
+    case NetworkEvents::GetClientId:
+      return "GetClientId";
+    case NetworkEvents::VoteReady:
+      return "VoteReady";
+    case NetworkEvents::PlayerMovement:
+      return "PlayerMovement";
+    case NetworkEvents::ShootBullets:
+      return "ShootBullets";
+    case NetworkEvents::GetRoomList:
+      return "GetRoomList";
+    case NetworkEvents::JoinRoom:
+      return "JoinRoom";
+    case NetworkEvents::LeaveRoom:
+      return "LeaveRoom";
+    case NetworkEvents::UpdateGameState:
+      return "UpdateGameState";
+    case NetworkEvents::UpdateRoomState:
+      return "UpdateRoomState";
+    case NetworkEvents::UpdatePlayers:
+      return "UpdatePlayers";
+    case NetworkEvents::UpdateAsteroids:
+      return "UpdateAsteroids";
+    case NetworkEvents::UpdateBullets:
+      return "UpdateBullets";
+    default:
+      return "Unknown";
   }
 }

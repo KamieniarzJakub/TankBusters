@@ -1,16 +1,18 @@
 #pragma once
-#include "client.hpp"
-#include "gameManager.hpp"
-#include "networkEvents.hpp"
-#include "room.hpp"
-#include <atomic>
-#include <cstdint>
 #include <error.h>
 #include <netinet/in.h>
 #include <sys/epoll.h>
 #include <sys/types.h>
+
+#include <atomic>
+#include <cstdint>
 #include <thread>
 #include <vector>
+
+#include "client.hpp"
+#include "gameManager.hpp"
+#include "networkEvents.hpp"
+#include "room.hpp"
 
 struct GameRoom {
   Room room;
@@ -37,7 +39,7 @@ struct Server {
   void listen_for_connections();
   std::vector<Room> get_available_rooms();
   void new_client(int fd);
-  void delete_client(size_t client_id);
+  bool delete_client(size_t client_id);
   Client *find_client(size_t client_id);
 
   void handle_connection(Client client);

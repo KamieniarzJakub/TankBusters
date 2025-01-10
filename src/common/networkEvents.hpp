@@ -1,5 +1,9 @@
 #include <string>
 
+// underlining type is int, but is being sent over the
+// network as uint32_t (after implicit conversion)
+// I tried setting this to a typed enum with uint32_t,
+// but it only caused more problems
 enum NetworkEvents {
   // General
   NoEvent = 0,
@@ -8,7 +12,7 @@ enum NetworkEvents {
   EndRound = 30,
 
   // Player
-  GetClientId = 100, // TODO: rename to GetClientId
+  GetClientId = 100,
   VoteReady = 110,
   PlayerMovement = 120,
   ShootBullets = 130,
@@ -27,3 +31,4 @@ enum NetworkEvents {
 };
 
 const std::string network_event_to_string(NetworkEvents networkEvent);
+const std::string network_event_to_string(uint32_t networkEvent);
