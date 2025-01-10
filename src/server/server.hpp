@@ -30,16 +30,15 @@ struct Server {
 
   std::atomic_bool _stop = false;
 
-  // FIXME: mutex map
   std::mutex games_mutex;
   std::map<size_t, GameRoom> games;
   std::atomic_uint32_t _next_game_id = 1;
-  // FIXME: mutex map
+
   std::mutex clients_mutex;
   std::map<size_t, Client> clients;
   std::atomic_uint32_t _next_client_id = 1;
 
-  Server(in_port_t main_port, in_port_t stream_port);
+  Server(in_port_t main_port);
   ~Server();
 
   void listen_for_connections();
@@ -48,7 +47,7 @@ struct Server {
   bool delete_client(size_t client_id);
   Client *find_client(size_t client_id);
 
-  void handle_main_connection(Client client);
+  void handle_connection(Client client);
   void handle_game_logic();
   void handle_network_event(Client &client, uint32_t networkEvent);
   void client_error(Client &client);
@@ -56,6 +55,9 @@ struct Server {
   void serverSetEvent(Client &client, NetworkEvents event);
   void serverSetStreamEvent(Client &client, NetworkEvents event);
 
+  void handleSetupStreamConnection(Client &client);
+  void handle_stream_network_event(Client &client, uint32_t event);
+  void handle_stream_socket(Client &client);
   void handleGetClientId(Client &client);
   void handleGetRoomList(Client &client);
   void handleVoteReady(Client &client);
@@ -68,4 +70,9 @@ struct Server {
   void handleUpdatePlayers(Client &client);
   void handleUpdateAsteroids(Client &client);
   void handleUpdateBullets(Client &client);
+  void handleStreamUpdatePlayers(Client &client);
+  void handleStreamUpdateBullets(Client &client);
+  void handleStreamUpdateAsteroids(Client &client);
+  void handleStreamPlayerMovement(Client &client);
+  void handleStreamShootBullet(Client &client);
 };
