@@ -9,7 +9,6 @@ struct Game {
   GraphicsManager graphicsManager;
   ClientNetworkManager networkManager;
   int selected_room = 0;
-  unsigned int number_of_rooms;
 
   Game(const char *host, const char *port)
       : gameManager(GameManager()), graphicsManager(GraphicsManager()),
@@ -32,10 +31,10 @@ struct Game {
               selected_room + 1; // FIXME: Server respond to request
         } else if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) {
           selected_room--;
-          selected_room %= number_of_rooms;
+          selected_room %= rooms.size();
         } else if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) {
           selected_room++;
-          selected_room %= number_of_rooms;
+          selected_room %= rooms.size();
         }
       }
       TraceLog(LOG_DEBUG, "SELECTED ROOM: %d", selected_room);
