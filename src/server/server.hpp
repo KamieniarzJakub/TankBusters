@@ -21,7 +21,8 @@ struct GameRoom {
 };
 
 struct Server {
-  int sfd;
+  int mainfd;
+
   std::thread connection_thread;
 
   std::atomic_bool _stop = false;
@@ -33,12 +34,12 @@ struct Server {
   std::map<size_t, Client> clients;
   std::atomic_uint32_t _next_client_id = 1;
 
-  Server(in_port_t port);
+  Server(in_port_t main_port);
   ~Server();
 
   void listen_for_connections();
   std::vector<Room> get_available_rooms();
-  void new_client(int fd);
+  void new_client(Client client);
   bool delete_client(size_t client_id);
   Client *find_client(size_t client_id);
 

@@ -4,7 +4,7 @@
 #include <unistd.h>
 
 struct Client {
-  int fd;
+  int fd_main;
   size_t client_id = 0;
   size_t player_id = 0;
   size_t room_id = 0;
