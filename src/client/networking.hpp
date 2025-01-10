@@ -12,11 +12,13 @@
 #include <unistd.h>
 
 struct ClientNetworkManager {
-  int fd;
+  int mainfd;
+  int streamfd;
   uint32_t client_id = 0;
   uint32_t room_id = 0;
 
-  ClientNetworkManager(const char *host, const char *port);
+  ClientNetworkManager(const char *host, const char *port_main,
+                       const char *port_stream);
   ~ClientNetworkManager();
 
   // NOTE: If a function returns:

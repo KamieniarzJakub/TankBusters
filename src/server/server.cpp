@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <error.h>
+#include <mutex>
 #include <netinet/in.h>
 #include <sys/epoll.h>
 #include <sys/socket.h>
@@ -23,7 +24,7 @@
 #include "raylib.h"
 #include "room.hpp"
 
-Server::Server(in_port_t main_port) {
+Server::Server(in_port_t main_port, in_port_t stream_port) {
   // setup main socket
   this->mainfd = socket(AF_INET, SOCK_STREAM, 0);
   if (this->mainfd == -1)
@@ -44,13 +45,41 @@ Server::Server(in_port_t main_port) {
   if (res)
     error(1, errno, "main listen failed");
 
-  for (int i = 0; i < 4; i++) {
-    uint32_t game_id = _next_game_id++;
-    this->games[game_id] = GameRoom{
-        Room{game_id, 0, GameStatus::LOBBY},
-        GameManager(game_id, 0),
-    };
+  // setup stream socket
+  this->streamfd = socket(AF_INET, SOCK_STREAM, 0);
+  if (this->streamfd == -1)
+    error(1, errno, "stream socket failed");
+
+  setReuseAddr(this->streamfd);
+
+  serverAddr = {};
+  serverAddr.sin_family = AF_INET;
+  serverAddr.sin_port = htons((short)stream_port);
+  serverAddr.sin_addr = {INADDR_ANY};
+
+  res = bind(this->streamfd, (sockaddr *)&serverAddr, sizeof(serverAddr));
+  if (res)
+    error(1, errno, "stream bind failed");
+
+  res = listen(this->streamfd, 1);
+  if (res)
+    error(1, errno, "stream listen failed");
+
+  {
+    std::lock_guard<std::mutex> gml(games_mutex);
+    for (int i = 0; i < 4; i++) {
+      uint32_t game_id = _next_game_id++;
+
+      this->games[game_id]; // Create a new game room
+      {
+        GameRoom &gr = this->games.at(game_id);
+        std::lock_guard<std::mutex> grl(gr.gameRoomMutex);
+        gr.room = Room{game_id, 0, GameStatus::LOBBY};
+        gr.gameManager = GameManager(game_id, 0);
+      }
+    }
   }
+
   this->connection_thread = std::thread(&Server::listen_for_connections, this);
 }
 
@@ -62,23 +91,48 @@ Server::~Server() {
   // close network resources
   int res = shutdown(mainfd, SHUT_RDWR);
   if (res)
-    error(1, errno, "shutdown fd failed");
+    error(1, errno, "shutdown main fd failed");
   res = close(mainfd);
   if (res)
-    error(1, errno, "close fd failed");
+    error(1, errno, "close main fd failed");
+
+  res = shutdown(streamfd, SHUT_RDWR);
+  if (res)
+    error(1, errno, "shutdown stream fd failed");
+  res = close(streamfd);
+  if (res)
+    error(1, errno, "close stream fd failed");
 }
 
 void Server::listen_for_connections() {
   while (!this->_stop) {
-    sockaddr_in clientAddr{};
-    socklen_t socklen = sizeof(clientAddr);
+    sockaddr_in clientAddrMain{};
+    socklen_t socklen = sizeof(clientAddrMain);
 
-    int client_fd = accept(mainfd, (sockaddr *)&clientAddr, &socklen);
-    if (client_fd == -1) {
+    int client_main_fd = accept(mainfd, (sockaddr *)&clientAddrMain, &socklen);
+    if (client_main_fd == -1) {
       continue;
     }
 
-    Client client{client_fd};
+    sockaddr_in clientAddrStream{};
+    int client_stream_fd;
+    while (clientAddrMain.sin_addr.s_addr != clientAddrStream.sin_addr.s_addr) {
+      client_stream_fd =
+          accept(mainfd, (sockaddr *)&clientAddrStream, &socklen);
+      if (client_stream_fd == -1) {
+        shutdown(client_main_fd, SHUT_RDWR);
+        close(client_main_fd);
+        continue;
+      }
+      if (clientAddrMain.sin_addr.s_addr != clientAddrStream.sin_addr.s_addr) {
+        shutdown(client_main_fd, SHUT_RDWR);
+        close(client_main_fd);
+        shutdown(client_main_fd, SHUT_RDWR);
+        close(client_main_fd);
+      }
+    }
+
+    Client client{client_main_fd, client_stream_fd};
     new_client(client);
   }
 }
@@ -88,7 +142,7 @@ void Server::client_error(Client &client) {
   disconnect_client(client);
 }
 
-void Server::handle_connection(Client client) {
+void Server::handle_main_connection(Client client) {
   std::time(&client.last_response); // Set last response to current time
   while (client.fd_main > 2) {
     uint32_t event;
@@ -122,6 +176,7 @@ void Server::handleGetClientId(Client &client) {
   client.client_id = 0;
   // NOTE: This is essentially just one if and else
   if (client_id > 0) {
+    std::lock_guard<std::mutex> lg(clients_mutex);
     if (auto old_c = clients.find(client_id); old_c != clients.end()) {
       if (old_c->second.fd_main == -1) { // if old client is disconnected
         client.client_id = old_c->second.client_id;
@@ -134,6 +189,11 @@ void Server::handleGetClientId(Client &client) {
   if (client.client_id == 0) { // else
     client.client_id = _next_client_id++;
   }
+  {
+    std::lock_guard<std::mutex> lg(clients_mutex);
+    clients[client_id] = client;
+  }
+
   status = write_uint32(client.fd_main, NetworkEvents::GetClientId);
   if (!status) {
     TraceLog(LOG_WARNING,
@@ -177,10 +237,18 @@ void Server::handleVoteReady(Client &client) {
     return;
   }
 
-  GameManager &gm = games[client.room_id].gameManager;
-  gm.players[client.player_id].state = PlayerInfo::READY;
+  uint32_t ready_players = 0;
 
-  status = write_uint32(client.fd_main, gm.GetReadyPlayers());
+  try {
+    GameRoom &gr = games[client.room_id];
+    std::lock_guard<std::mutex> lgm(gr.gameRoomMutex);
+    gr.gameManager.players[client.player_id].state = PlayerInfo::READY;
+    ready_players = gr.gameManager.GetReadyPlayers();
+  } catch (const std::out_of_range &ex) {
+    status = false;
+  }
+
+  status = write_uint32(client.fd_main, ready_players);
   if (!status) {
     TraceLog(
         LOG_WARNING,
@@ -191,11 +259,12 @@ void Server::handleVoteReady(Client &client) {
   }
 }
 
+// FIXME: STREAM
 void Server::handlePlayerMovement(Client &client) {
   Vector2 position, velocity;
   float rotation;
   json movement;
-  bool status = read_json(client.fd_main, movement, -1); // FIXME: MAXSIZE
+  bool status = read_json(client.fd_stream, movement, -1); // FIXME: MAXSIZE
   if (!status) {
     TraceLog(LOG_ERROR, "NET: Couldn't receive json of movement");
     client_error(client);
@@ -214,11 +283,15 @@ void Server::handlePlayerMovement(Client &client) {
 
   // FIXME: value checking
 
-  GameManager &gm = games[client.room_id].gameManager;
-  Player &p = gm.players[client.player_id];
-  p.position = position;
-  p.velocity = velocity;
-  p.rotation = rotation;
+  try {
+    GameRoom &gr = games[client.room_id];
+    std::lock_guard<std::mutex> lgm(gr.gameRoomMutex);
+    Player &p = gr.gameManager.players[client.player_id];
+    p.position = position;
+    p.velocity = velocity;
+    p.rotation = rotation;
+  } catch (const std::out_of_range &ex) {
+  }
 }
 
 void Server::serverSetEvent(Client &client, NetworkEvents event) {
@@ -232,10 +305,28 @@ void Server::serverSetEvent(Client &client, NetworkEvents event) {
   }
 }
 
+void Server::serverSetStreamEvent(Client &client, NetworkEvents event) {
+  bool status = write_uint32(client.fd_stream, event);
+  if (!status) {
+    TraceLog(LOG_WARNING,
+             "Couldn't write %s NetworkEvent to client_id=%ld,fd=%d",
+             network_event_to_string(event).c_str(), client.client_id,
+             client.fd_stream);
+    client_error(client);
+  }
+}
+
 void Server::handleShootBullet(Client &client) {
-  GameManager &gm = games[client.room_id].gameManager;
-  const Player &p = gm.players[client.player_id];
-  bool status = gm.AddBullet(p, p.player_id);
+  bool status;
+
+  try {
+    GameRoom &gr = games[client.room_id];
+    std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
+    const Player &p = gr.gameManager.players[client.player_id];
+    status = gr.gameManager.AddBullet(p, p.player_id);
+  } catch (const std::out_of_range &ex) {
+    status = false;
+  }
 
   serverSetEvent(client, NetworkEvents::ShootBullets);
 
@@ -261,6 +352,7 @@ void Server::handleJoinRoom(Client &client) {
 
   try {
     auto &gr = games.at(room_id);
+    std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
     status = gr.room.players < Constants::PLAYERS_MAX &&
              gr.clients.size() < Constants::PLAYERS_MAX;
     if (status) {
@@ -286,6 +378,7 @@ void Server::handleLeaveRoom(Client &client) {
   bool _ = false;
   try {
     auto &gr = games.at(client.room_id);
+    std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
     auto i = gr.clients.begin();
     for (; i != gr.clients.end(); i++) {
       if (*i == client.client_id) {
@@ -446,6 +539,10 @@ void Server::handle_network_event(Client &client, uint32_t event) {
     // Never read by server
     // FIXME: IMPLEMENT SENDING
     break;
+  case NetworkEvents::StartRound:
+    // Never read by server
+    // FIXME: IMPLEMENT SENDING
+    break;
   case NetworkEvents::GetClientId:
     std::time(&client.last_response);
     handleGetClientId(client);
@@ -509,6 +606,12 @@ void Server::disconnect_client(Client &client) {
     close(client.fd_main);
     client.fd_main = -1;
   }
+  if (client.fd_stream > 2) {
+    // No info for client
+    shutdown(client.fd_stream, SHUT_RDWR);
+    close(client.fd_stream);
+    client.fd_stream = -1;
+  }
 }
 
 std::vector<Room> Server::get_available_rooms() {
@@ -528,10 +631,11 @@ std::vector<Room> Server::get_available_rooms() {
 }
 
 void Server::new_client(Client client) {
-  std::thread(&Server::handle_connection, this, client).detach();
+  std::thread(&Server::handle_main_connection, this, client).detach();
 }
 
 bool Server::delete_client(size_t client_id) {
+  std::lock_guard<std::mutex> lc(clients_mutex);
   if (auto c = clients.find(client_id); c != clients.end()) {
     int res = shutdown(c->second.fd_main, SHUT_RDWR);
     if (res) {

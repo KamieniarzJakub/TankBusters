@@ -12,13 +12,11 @@ struct Game {
   int selected_room = 0;
   unsigned int number_of_rooms;
 
-  Game(const char *host, const char *port)
-      : gameManager(GameManager()),
-        graphicsManager(GraphicsManager()),
-        networkManager(host, port) {
+  Game(const char *host, const char *port_main, const char *port_stream)
+      : gameManager(GameManager()), graphicsManager(GraphicsManager()),
+        networkManager(host, port_main, port_stream) {
     std::vector<Room> rooms;
-    bool status =
-        networkManager.get_rooms(rooms);  // FIXME: move somewhere else
+    bool status = networkManager.get_rooms(rooms); // FIXME: move somewhere else
     if (status) {
       TraceLog(LOG_INFO, ("ROOMS: " + json(rooms).dump()).c_str());
     } else {
@@ -38,7 +36,7 @@ struct Game {
         if (IsKeyPressed(KEY_SPACE) &&
             rooms[selected_room].players != Constants::PLAYERS_MAX) {
           networkManager.room_id =
-              selected_room + 1;  // FIXME: Server respond to request
+              selected_room + 1; // FIXME: Server respond to request
         } else if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) {
           selected_room--;
           selected_room %= number_of_rooms;
@@ -50,7 +48,8 @@ struct Game {
       TraceLog(LOG_DEBUG, "SELECTED ROOM: %d", selected_room);
     } else {
       gameManager.UpdateGame();
-      if (gameManager.ReturnToRooms()) networkManager.room_id = 0;
+      if (gameManager.ReturnToRooms())
+        networkManager.room_id = 0;
     }
 
     BeginDrawing();

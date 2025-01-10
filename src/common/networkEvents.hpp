@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <string>
 
 // underlining type is int, but is being sent over the
@@ -10,6 +11,7 @@ enum NetworkEvents {
   Disconnect = 10,
   CheckConnection = 20,
   EndRound = 30,
+  StartRound = 40,
 
   // Player
   GetClientId = 100,

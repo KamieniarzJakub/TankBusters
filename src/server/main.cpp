@@ -14,13 +14,17 @@
 #include "networkUtils.hpp"
 #include "server.hpp"
 
-int main(int argc, char **argv) {
-  if (argc != 2)
-    error(1, 0, "Need 1 arg (port)");
-  auto port = readPort(argv[1]);
+void my_exit(int) { exit(0); }
 
-  signal(SIGINT, exit); // imperfect, but objects should clean after themselves
+int main(int argc, char **argv) {
+  if (argc != 3)
+    error(1, 0, "Need 2 args (main_port, stream_port)");
+  auto main_port = readPort(argv[1]);
+  auto stream_port = readPort(argv[2]);
+
+  signal(SIGINT, my_exit);
   signal(SIGPIPE, SIG_IGN);
-  auto server = Server(port);
-  std::cout << "Server is running on localhost:" << argv[1] << std::endl;
+  auto server = Server(main_port, stream_port);
+  std::cout << "Server is running on localhost:" << argv[1]
+            << " and localhost:" << argv[2] << std::endl;
 }

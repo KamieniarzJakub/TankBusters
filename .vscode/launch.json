@@ -10,7 +10,8 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/TankBustersServer",
             "args": [
-                "1234"
+                "1234",
+                "1235"
             ],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",

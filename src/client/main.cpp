@@ -11,8 +11,8 @@ int main() {
   InitWindow(Constants::screenWidth, Constants::screenHeight,
              Constants::windowTitle.c_str());
   Game game =
-      Game("localhost",
-           "1234"); // TODO: initalize network connection after displaying GUI
+      Game("localhost", "1234",
+           "1235"); // TODO: initalize network connection after displaying GUI
 
 #if defined(PLATFORM_WEB)
   emscripten_set_main_loop(game.updateDrawFrame, 0, 1);
