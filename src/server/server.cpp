@@ -624,11 +624,13 @@ void Server::handleSetupStreamConnection(Client &client) {
     return;
   }
 
-  std::thread(&Server::handle_stream_socket, this, client).detach();
+  std::thread(&Server::handle_stream_socket, this,
+              Client{client.fd_main, client.fd_stream, client.client_id})
+      .detach();
   std::terminate(); // end this thread
 }
 
-void Server::handle_stream_socket(Client &client) {
+void Server::handle_stream_socket(Client client) {
   const size_t MAX_EVENTS = 2;
   epoll_event ee, events[MAX_EVENTS];
   int epoll_fd =

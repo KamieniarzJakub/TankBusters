@@ -57,7 +57,7 @@ struct Server {
 
   void handleSetupStreamConnection(Client &client);
   void handle_stream_network_event(Client &client, uint32_t event);
-  void handle_stream_socket(Client &client);
+  void handle_stream_socket(Client client);
   void handleGetClientId(Client &client);
   void handleGetRoomList(Client &client);
   void handleVoteReady(Client &client);
