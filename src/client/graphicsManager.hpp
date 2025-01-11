@@ -29,6 +29,8 @@ struct GraphicsManager {
   void DrawTitle(const GameManager &gm);
   void DrawLobbyPlayers(const GameManager &gm);
   void DrawReadyMessage();
+  void DrawExitLobbyMessage();
+  void DrawLobby(const GameManager &gm);
 
   // player
   void DrawPlayer(const Player &player);

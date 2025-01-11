@@ -55,29 +55,28 @@ void GraphicsManager::DrawBullet(const Bullet &bullet) {
 }
 
 void GraphicsManager::DrawTimer(const GameManager &gm) {
-  if (gm.new_round_timer > 0) {
     int time =
         Constants::LOBBY_READY_TIME - int(GetTime() - gm.new_round_timer);
     const char *text = TextFormat("New round in %d", int(time));
-    Vector2 origin = MeasureTextEx(font, text, Constants::TEXT_SIZE,
-                                   Constants::TEXT_SPACING);
-    DrawTextPro(font, text,
-                Vector2{(float)Constants::screenWidth / 2,
-                        Constants::screenHeight - 2 * Constants::TEXT_OFFSET},
-                Vector2{origin.x / 2, 2 * origin.y}, 0, Constants::TEXT_SIZE,
-                Constants::TEXT_SPACING, RAYWHITE);
-  }
+    Vector2 origin =
+      MeasureTextEx(font, text, Constants::TEXT_SIZE, Constants::TEXT_SPACING);
+  DrawTextPro(font, text,
+              Vector2{(float)Constants::screenWidth / 2,
+                      Constants::screenHeight - 3*Constants::TEXT_OFFSET},
+              Vector2{origin.x / 2, origin.y}, 0, Constants::TEXT_SIZE,
+              Constants::TEXT_SPACING, RAYWHITE);
 }
 
 void GraphicsManager::DrawTitle(const GameManager &gm) {
   const char *text =
-      TextFormat("LOBBY[%d/%d]", gm.players.size(), Constants::PLAYERS_MAX);
+      TextFormat("%s[%d/%d]", Constants::COOL_ROOM_NAMES[0].c_str(), gm.players.size(), Constants::PLAYERS_MAX); //FIXME: const char*
   Vector2 origin = MeasureTextEx(font, text, Constants::TEXT_WIN_SIZE,
                                  Constants::TEXT_SPACING);
   DrawTextPro(font, text, Vector2{(float)Constants::screenWidth / 2, 0},
               Vector2{origin.x / 2, -origin.y / 3}, 0, Constants::TEXT_WIN_SIZE,
               Constants::TEXT_SPACING, RAYWHITE);
 }
+
 
 void GraphicsManager::DrawLobbyPlayers(const GameManager &gm) {
   for (int i = 0; i < Constants::PLAYERS_MAX; i++) {
@@ -108,6 +107,29 @@ void GraphicsManager::DrawReadyMessage() {
                       Constants::screenHeight - Constants::TEXT_OFFSET},
               Vector2{origin.x / 2, origin.y}, 0, Constants::TEXT_SIZE,
               Constants::TEXT_SPACING, RAYWHITE);
+}
+
+void GraphicsManager::DrawExitLobbyMessage() {
+  const char *text = "Click [Enter] to exit lobby";
+  Vector2 origin =
+      MeasureTextEx(font, text, Constants::TEXT_SIZE, Constants::TEXT_SPACING);
+  DrawTextPro(font, text,
+              Vector2{(float)Constants::screenWidth / 2,
+                      Constants::screenHeight - 3*Constants::TEXT_OFFSET},
+              Vector2{origin.x / 2, origin.y}, 0, Constants::TEXT_SIZE,
+              Constants::TEXT_SPACING, RAYWHITE);
+}
+
+void GraphicsManager::DrawLobby(const GameManager &gm)
+{
+  DrawTitle(gm);
+  DrawLobbyPlayers(gm);
+  DrawReadyMessage();
+  if (gm.new_round_timer > 0) {
+    DrawTimer(gm);
+  } else {
+    DrawExitLobbyMessage();
+  }
 }
 
 void GraphicsManager::DrawAsteroids(const GameManager &gm) {
@@ -143,6 +165,7 @@ void GraphicsManager::DrawTime(const GameManager &gm, double time) {
               Vector2{0, 0}, 0.0f, Constants::TEXT_SIZE,
               Constants::TEXT_SPACING, RAYWHITE);
 }
+
 
 void GraphicsManager::DrawWinnerText(const GameManager &gm) {
   for (int i = 0; i < Constants::PLAYERS_MAX; i++) {
@@ -187,11 +210,8 @@ void GraphicsManager::DrawGame(GameManager gameManager) {
       DrawNewRoundCountdown(gameManager);
     }
     DrawTime(gameManager, GetTime());
-  } else {
-    DrawTitle(gameManager);
-    DrawLobbyPlayers(gameManager);
-    DrawReadyMessage();
-    DrawTimer(gameManager);
+  } else { //LOBBY
+    DrawLobby(gameManager);
   }
 }
 
