@@ -1,12 +1,16 @@
 #include "networking.hpp"
 
+#include <sys/epoll.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <chrono>
 #include <cstdint>
 #include <nlohmann/json.hpp>
+#include <random>
 #include <room.hpp>
+#include <thread>
 
 #include "asteroid.hpp"
 #include "bullet.hpp"
@@ -19,17 +23,264 @@
 
 using json = nlohmann::json;
 
-ClientNetworkManager::ClientNetworkManager(const char *host, const char *port) {
+ClientNetworkManager::ClientNetworkManager(const char *host, const char *port)
+    : connected_to_host(host), connected_over_port(port) {
   mainfd = connect_to(host, port);
+  if (mainfd < 0) {
+    TraceLog(LOG_ERROR, "GAME: Could not connect");
+    shutdown(mainfd, SHUT_RDWR);
+    close(mainfd);
+    return;
+  }
   TraceLog(LOG_INFO, "NET: main fd=%d", mainfd);
 
   if (!get_new_client_id(client_id)) {
     TraceLog(LOG_ERROR, "GAME: Could not get a new client id");
   }
   // set_socket_timeout(5);
+  main_thread =
+      std::thread(&ClientNetworkManager::perform_network_actions, this);
 }
 
-ClientNetworkManager::~ClientNetworkManager() { disconnect(); }
+ClientNetworkManager::~ClientNetworkManager() {
+  this->_stop.exchange(true);
+  while (!todo.isEmpty()) {
+    todo.pop();
+  }
+  if (main_thread.joinable()) {
+    main_thread.join();
+  }
+  disconnect();
+}
+
+void ClientNetworkManager::perform_network_actions() {
+  const size_t MAX_EVENTS = 2;
+  epoll_event ee, events[MAX_EVENTS];
+  this->epollfd = epoll_create1(0);
+  if (epollfd == -1) {
+    TraceLog(LOG_ERROR, "NET: Couldn't instantiate epoll");
+    shutdown(mainfd, SHUT_RDWR);
+    close(mainfd);
+    return;
+  }
+
+  ee.events = EPOLLIN | EPOLLOUT;
+  ee.data.fd = mainfd;
+  if (epoll_ctl(epollfd, EPOLL_CTL_ADD, mainfd, &ee) == -1) {
+    TraceLog(LOG_ERROR, "NET: Couldn't add event to epoll");
+    close(epollfd);
+    shutdown(mainfd, SHUT_RDWR);
+    close(mainfd);
+    return;
+  }
+
+  while (!this->_stop) {
+    int nfds = epoll_wait(epollfd, events, MAX_EVENTS,
+                          Constants::CONNECTION_TIMEOUT_MILISECONDS);
+    if (nfds == -1) { // EPOLL WAIT ERROR
+      TraceLog(LOG_ERROR, "NET: Epoll wait error");
+      close(epollfd);
+      shutdown(mainfd, SHUT_RDWR);
+      close(mainfd);
+      return;
+    } else if (nfds == 0) { // EPOLL WAIT TIMEOUT
+      // RECONNECT
+      shutdown(mainfd, SHUT_RDWR);
+      close(mainfd);
+      reconnect(connected_to_host, connected_over_port, client_id);
+    }
+    for (int n = 0; n < nfds; n++) {
+      if (events[n].events & EPOLLOUT && !todo.isEmpty()) {
+        auto func = todo.pop();
+        func();
+      } else if (events[n].events & EPOLLIN) {
+        uint32_t network_event;
+        bool status = read_uint32(mainfd, network_event);
+        if (status) {
+          TraceLog(LOG_INFO, "NET: Received NetworkEvent %s",
+                   network_event_to_string(network_event).c_str());
+          handle_network_event(network_event);
+        } else {
+          TraceLog(LOG_WARNING, "NET: Couldn't read NetworkEvent");
+          shutdown(mainfd, SHUT_RDWR);
+          close(mainfd);
+          break;
+        }
+      }
+    }
+  }
+
+  close(epollfd);
+}
+
+bool ClientNetworkManager::reconnect(const char *host, const char *port,
+                                     uint32_t client_id) {
+  int retries = 3;
+  bool status = false;
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_int_distribution<> distrib(1000, 5000);
+  do {
+    mainfd = connect_to(host, port);
+    status = mainfd < 0;
+    if (status) {
+      shutdown(mainfd, SHUT_RDWR);
+      close(mainfd);
+    }
+    if (status)
+      break;
+
+    using namespace std::chrono_literals;
+    std::this_thread::sleep_for(std::chrono::milliseconds(distrib(gen)));
+  } while (!status && retries-- > 0);
+
+  status = mainfd < 0;
+  if (!status) {
+    return false;
+  }
+
+  // Negotiate old client id
+  status = write_uint32(mainfd, NetworkEvents::GetClientId);
+  if (!status) {
+    TraceLog(LOG_ERROR, "NET: Cannot send GetClientId NetworkEvent");
+    return false;
+  }
+
+  // Try to get old id
+  status = write_uint32(mainfd, client_id);
+  if (!status) {
+    TraceLog(LOG_ERROR, "NET: Cannot send client_id");
+    return false;
+  }
+
+  status = expectEvent(mainfd, NetworkEvents::GetClientId);
+  if (!status) {
+    return false;
+  }
+
+  uint32_t new_client_id;
+  status = read_uint32(mainfd, new_client_id);
+  if (!status) {
+    TraceLog(LOG_ERROR, "NET: Didn't receive full client id");
+    return false;
+  }
+  if (new_client_id == 0) {
+    TraceLog(LOG_ERROR, "GAME: Received client id is 0");
+    return false;
+  }
+
+  return new_client_id == client_id;
+}
+
+void ClientNetworkManager::handle_network_event(uint32_t event) {
+  switch ((NetworkEvents)event) {
+  case NetworkEvents::NoEvent:
+    TraceLog(LOG_WARNING, "NET: %s received",
+             network_event_to_string(event).c_str());
+    break;
+  case NetworkEvents::Disconnect:
+    TraceLog(LOG_WARNING, "NET: %s received",
+             network_event_to_string(event).c_str());
+    break;
+  case NetworkEvents::CheckConnection: {
+    if (!write_uint32(mainfd, NetworkEvents::CheckConnection)) {
+      TraceLog(LOG_WARNING, "NET: Cannot send %s",
+               network_event_to_string(event).c_str());
+    }
+    break;
+  }
+  case NetworkEvents::EndRound:
+    // FIXME: IMPLEMENT
+    break;
+  case NetworkEvents::StartRound:
+    // FIXME: IMPLEMENT
+    break;
+  case NetworkEvents::GetClientId: {
+    uint32_t new_client_id;
+    bool status = read_uint32(mainfd, new_client_id);
+    if (!status) {
+      TraceLog(LOG_ERROR, "NET: Didn't receive full client id");
+    }
+    if (new_client_id == 0) {
+      TraceLog(LOG_ERROR, "GAME: Received client id is 0");
+    }
+    client_id = new_client_id;
+  } break;
+  case NetworkEvents::VoteReady: {
+    uint32_t ready_players; // FIXME: PASS TO GAME
+    bool status = read_uint32(mainfd, ready_players);
+    if (!status) {
+      TraceLog(LOG_ERROR, "NET: Couldn't receive ready players");
+    }
+  } break;
+  case NetworkEvents::PlayerMovement:
+    TraceLog(LOG_WARNING, "NET: %s received",
+             network_event_to_string(event).c_str());
+    break;
+  case NetworkEvents::ShootBullets: {
+    uint32_t value; // FIXME: PASS TO GAME
+    bool status = read_uint32(mainfd, value);
+    if (!status) {
+      TraceLog(LOG_ERROR, "NET: Couldn't receive ready players");
+    }
+  } break;
+  case NetworkEvents::GetRoomList: {
+    json rooms_json; // FIXME: PASS TO GAME
+    bool status = read_json(mainfd, rooms_json, -1);
+    if (!status) {
+      TraceLog(LOG_ERROR, "NET: Couldn't receive json of rooms");
+      return;
+    }
+  } break;
+  case NetworkEvents::JoinRoom:
+    break;
+  case NetworkEvents::LeaveRoom:
+    break;
+  case NetworkEvents::UpdateGameState: {
+    json game_state_json; // FIXME: PASS TO GAME
+    bool status = read_json(mainfd, game_state_json, -1);
+    if (!status) {
+      TraceLog(LOG_ERROR, "NET: Couldn't receive json of game state");
+      return;
+    }
+  } break;
+  case NetworkEvents::UpdateRoomState: {
+    json room_state_json; // FIXME: PASS TO GAME
+    bool status = read_json(mainfd, room_state_json, -1);
+    if (!status) {
+      TraceLog(LOG_ERROR, "NET: Couldn't receive json of room state");
+      return;
+    }
+  } break;
+  case NetworkEvents::UpdatePlayers: {
+    json players_json; // FIXME: PASS TO GAME
+    bool status = read_json(mainfd, players_json, -1);
+    if (!status) {
+      TraceLog(LOG_ERROR, "NET: Couldn't receive json of players");
+      return;
+    }
+  } break;
+  case NetworkEvents::UpdateAsteroids: {
+    json asteroids_json; // FIXME: PASS TO GAME
+    bool status = read_json(mainfd, asteroids_json, -1);
+    if (!status) {
+      TraceLog(LOG_ERROR, "NET: Couldn't receive json of players");
+      return;
+    }
+  } break;
+  case NetworkEvents::UpdateBullets: {
+    json bullets_json; // FIXME: PASS TO GAME
+    bool status = read_json(mainfd, bullets_json, -1);
+    if (!status) {
+      TraceLog(LOG_ERROR, "NET: Couldn't receive json of players");
+      return;
+    }
+  } break;
+  default:
+    TraceLog(LOG_WARNING, "Unknown NetworkEvent received");
+    break;
+  }
+}
 
 bool ClientNetworkManager::get_new_client_id(uint32_t &client_id) {
   bool status;

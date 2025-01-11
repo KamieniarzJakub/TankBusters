@@ -200,7 +200,8 @@ void Server::handle_connection(Client client) {
     for (int n = 0; n < nfds; n++) {
       if (events[n].events & EPOLLOUT) {
         // if game/round end
-        // FIXME: send GAME END
+        // FIXME: send END ROUND
+        // FIXME: send START ROUND
 
         handleUpdateAsteroids(client);
         handleUpdatePlayers(client);
