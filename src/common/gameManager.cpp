@@ -37,9 +37,9 @@ void GameManager::UpdateStatus() {
 
 void GameManager::UpdatePlayers(float frametime) {
   for (int i = 0; i < Constants::PLAYERS_MAX; i++) {
-    UpdatePlayer(&players[i], frametime);
+    UpdatePlayer(players[i], frametime);
     if (players[i].active && Shoot()) {
-      AddBullet(players[i], i);
+      AddBullet(players[i]);
     }
   }
 }
@@ -57,7 +57,7 @@ void GameManager::UpdateAsteroids(float frametime) {
   }
 }
 
-void GameManager::UpdateGame() {
+void GameManager::UpdateGameServer() { // FIXME: delete inputs
   UpdateStatus();
   // TraceLog(LOG_DEBUG, "Game status: %d", gameManager.status);
   if (status == GameStatus::GAME) {
@@ -172,11 +172,10 @@ void GameManager::SplitAsteroid(Vector2 position, Vector2 velocity, int size) {
   TraceLog(LOG_ERROR, "Failed to split an asteroid - no empty slots left");
 }
 
-bool GameManager::AddBullet(const Player &player, int player_number) {
-  // TODO: function signature refactoring
-  for (int i = player_number * Constants::BULLETS_PER_PLAYER;
-       i < (player_number + 1) * Constants::BULLETS_PER_PLAYER; i++) {
-    if (bullets[i].active)
+bool GameManager::AddBullet(const Player &player) {
+  for (size_t i = player.player_id * Constants::BULLETS_PER_PLAYER;
+       i < (player.player_id + 1) * Constants::BULLETS_PER_PLAYER; i++) {
+    if (bullets.at(i).active)
       continue;
 
     Vector2 offset = Vector2Rotate(Vector2{Constants::PLAYER_SIZE / 2.0f, 0.0f},
@@ -187,7 +186,7 @@ bool GameManager::AddBullet(const Player &player, int player_number) {
   }
 
   TraceLog(LOG_INFO, "Failed to shoot a bullet - player[%d]: no bullets left",
-           player_number);
+           player.player_id);
   return false;
 }
 

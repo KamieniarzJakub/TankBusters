@@ -13,6 +13,7 @@ struct GameManager {
   std::vector<Player> players;
   std::vector<Bullet> bullets;
 
+  uint32_t player_id;
   uint32_t room_id;
   GameStatus status;
   int _alive_players;
@@ -31,7 +32,7 @@ struct GameManager {
   void UpdatePlayers(float frametime);
   void UpdateBullets(float frametime);
   void UpdateAsteroids(float frametime);
-  void UpdateGame();
+  void UpdateGameServer();
 
   void AsteroidSpawner(double time);
 
@@ -39,7 +40,7 @@ struct GameManager {
 
   void AddAsteroid();
   void SplitAsteroid(Vector2 position, Vector2 velocity, int size);
-  bool AddBullet(const Player &player, int player_number);
+  bool AddBullet(const Player &player);
 
   void RestartLobby();
 

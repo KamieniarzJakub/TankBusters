@@ -6,14 +6,13 @@
 
 #include "gameManager.hpp"
 #include "graphicsManager.hpp"
-#include "roomManager.hpp"
+#include "networking.hpp"
 
 using namespace std::chrono;
 
 struct Game {
   GraphicsManager graphicsManager;
   ClientNetworkManager networkManager;
-  RoomManager roomManager;
 
   std::array<GameManager, 2> gameManagersPair;
   std::atomic_uint8_t game_manager_draw_idx = 0;
@@ -21,48 +20,45 @@ struct Game {
   std::array<std::vector<Room>, 2> roomsPair;
   std::atomic_uint8_t rooms_draw_idx = 0;
 
-  std::array<std::vector<Player>, 2> playersPair;
-  std::atomic_uint8_t players_draw_idx = 0;
-
-  std::array<std::vector<Asteroid>, 2> asteroidsPair;
-  std::atomic_uint8_t asteroids_draw_idx = 0;
-
-  std::array<std::vector<Bullet>, 2> bulletsPair;
-  std::atomic_uint8_t bullets_draw_idx = 0;
+  const std::chrono::milliseconds room_fetch_interval{5000};
+  std::chrono::steady_clock::time_point last_room_fetch =
+      std::chrono::steady_clock::time_point{};
+  uint8_t selected_room;
 
   inline uint8_t get_networks_idx(std::atomic_uint8_t &draw_idx) {
     return draw_idx.fetch_xor(true);
   }
 
+  GameManager &gameManager() {
+    return gameManagersPair.at(game_manager_draw_idx);
+  }
+  std::vector<Room> &rooms() { return roomsPair.at(rooms_draw_idx); }
+
   Game(const char *host, const char *port)
-      : graphicsManager(GraphicsManager()), networkManager(host, port),
-        roomManager(RoomManager(networkManager)),
+      : graphicsManager(GraphicsManager()),
+        networkManager(host, port, gameManagersPair, game_manager_draw_idx,
+                       roomsPair, rooms_draw_idx),
         gameManagersPair(std::array<GameManager, 2>()),
-        roomsPair(std::array<std::vector<Room>, 2>()),
-        playersPair(std::array<std::vector<Player>, 2>()),
-        asteroidsPair(std::array<std::vector<Asteroid>, 2>()),
-        bulletsPair(std::array<std::vector<Bullet>, 2>()) {}
+        roomsPair(std::array<std::vector<Room>, 2>()) {}
 
   void updateDrawFrame(void) {
 
     if (networkManager.room_id == 0) {
       // Queue network work
-      if (steady_clock::now() - roomManager.last_room_fetch >
-          roomManager.room_fetch_interval) {
+      if (steady_clock::now() - last_room_fetch > room_fetch_interval) {
         networkManager.todo.push([&]() {
-          bool status = networkManager.get_rooms(
-              roomsPair.at(get_networks_idx(rooms_draw_idx)));
+          bool status = networkManager.get_rooms(networkManager.rooms());
           if (status) {
             // Automatically change drawing to the other room
-            rooms_draw_idx.exchange(!rooms_draw_idx);
+            networkManager.flip_rooms();
           }
-          roomManager.last_room_fetch = steady_clock::now();
+          last_room_fetch = steady_clock::now();
           return status;
         });
       }
-      roomManager.setSelectedRoom(roomsPair.at(rooms_draw_idx));
+      setSelectedRoom(roomsPair.at(rooms_draw_idx));
     } else {
-      gameManagersPair.at(game_manager_draw_idx).UpdateGame();
+      UpdateGame(gameManager());
       if (gameManagersPair.at(game_manager_draw_idx).ReturnToRooms())
         networkManager.room_id = 0;
     }
@@ -74,13 +70,70 @@ struct Game {
     if (!networkManager.room_id) {
       graphicsManager.DrawRoomTitle();
       graphicsManager.DrawRoomSubTitle();
-      graphicsManager.DrawRooms(roomsPair.at(rooms_draw_idx),
-                                roomManager.selected_room);
+      graphicsManager.DrawRooms(roomsPair.at(rooms_draw_idx), selected_room);
       graphicsManager.DrawRoomBottomText();
     } else {
       graphicsManager.DrawGame(gameManagersPair.at(game_manager_draw_idx));
     }
 
     EndDrawing();
+  }
+
+  void UpdateGame(GameManager gameManager) {
+    gameManager.UpdateStatus();
+    // TraceLog(LOG_DEBUG, "Game status: %d", gameManager.status);
+    if (gameManager.status == GameStatus::GAME) {
+      float frametime = GetFrameTime();
+
+      gameManager.ManageCollisions();
+
+      auto &players = gameManager.players;
+      auto &player = players.at(gameManager.player_id);
+      UpdatePlayer(players.at(gameManager.player_id), frametime);
+      networkManager.todo.push([&]() {
+        return networkManager.send_movement(player.position, player.velocity,
+                                            player.rotation);
+      });
+
+      if (players.at(gameManager.player_id).active && Shoot()) {
+        if (gameManager.AddBullet(players.at(gameManager.player_id))) {
+          networkManager.todo.push(
+              [&]() { return networkManager.shoot_bullet(); });
+        }
+      }
+
+      gameManager.UpdateBullets(frametime);
+      gameManager.UpdateAsteroids(frametime);
+
+      // gameManager.AsteroidSpawner(GetTime());
+    } else if (gameManager.status == GameStatus::LOBBY) {
+      // if (gameManager.UpdateLobbyStatus()) {
+      // NewGame(GetReadyPlayers());
+      // RestartLobby();
+      // gameManager.UpdatePlayersLobby();
+    } else if (gameManager.status == GameStatus::END_OF_ROUND) {
+    }
+  }
+
+  void setSelectedRoom(const std::vector<Room> &rooms) {
+    if (IsKeyPressed(KEY_SPACE) &&
+        rooms.at(selected_room).players != Constants::PLAYERS_MAX) {
+      networkManager.todo.push([&]() {
+        bool status =
+            networkManager.join_room(rooms.at(selected_room).room_id,
+                                     networkManager.gameManager().player_id);
+        if (status) {
+          networkManager.flip_game_manager();
+        }
+        return status;
+      });
+    } else if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) {
+      selected_room--;
+      selected_room %= rooms.size();
+    } else if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) {
+      selected_room++;
+      selected_room %= rooms.size();
+    }
+    // TraceLog(LOG_DEBUG, "SELECTED ROOM: %d", selected_room);
   }
 };

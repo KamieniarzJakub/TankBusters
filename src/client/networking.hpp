@@ -1,3 +1,4 @@
+#pragma once
 #include "asteroid.hpp"
 #include "bullet.hpp"
 #include "gameManager.hpp"
@@ -20,13 +21,43 @@ struct ClientNetworkManager {
   uint32_t client_id = 0;
   uint32_t room_id = 0;
 
+  inline uint8_t get_networks_idx(std::atomic_uint8_t &draw_idx) {
+    return draw_idx.fetch_xor(true);
+  }
+
+  std::array<GameManager, 2> &gameManagersPair;
+  std::atomic_uint8_t &game_manager_draw_idx;
+  GameManager &gameManager() {
+    return gameManagersPair.at(get_networks_idx(game_manager_draw_idx));
+  }
+
+  void flip_game_manager() {
+    game_manager_draw_idx.store(
+        !game_manager_draw_idx.load()); // TODO: check concurrency
+  }
+
+  std::array<std::vector<Room>, 2> &roomsPair;
+  std::atomic_uint8_t &rooms_draw_idx;
+  std::vector<Room> &rooms() {
+    return roomsPair.at(get_networks_idx(rooms_draw_idx));
+  }
+
+  void flip_rooms() {
+    rooms_draw_idx.store(
+        !game_manager_draw_idx.load()); // TODO: check concurrency
+  }
+
   std::atomic_bool _stop = false;
   std::thread main_thread;
   LockingQueue<std::function<bool(void)>> todo;
   const char *connected_to_host;
   const char *connected_over_port;
 
-  ClientNetworkManager(const char *host, const char *port);
+  ClientNetworkManager(const char *host, const char *port,
+                       std::array<GameManager, 2> &gameManagersPair,
+                       std::atomic_uint8_t &game_manager_draw_idx,
+                       std::array<std::vector<Room>, 2> &roomsPair,
+                       std::atomic_uint8_t &rooms_draw_idx);
   ~ClientNetworkManager();
 
   // NOTE: If a function returns:
@@ -58,7 +89,7 @@ struct ClientNetworkManager {
 
   // Room
   bool get_rooms(std::vector<Room> &rooms);
-  bool join_room(uint32_t room_id);
+  bool join_room(uint32_t join_room_id, uint32_t &player_id);
   bool leave_room();
 
   // Fetching data from server

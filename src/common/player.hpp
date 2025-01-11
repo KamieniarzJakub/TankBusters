@@ -36,7 +36,7 @@ struct Player {
 
 Player AddPlayer(int i);
 
-void UpdatePlayer(Player *player, float frametime);
+void UpdatePlayer(Player &player, float frametime);
 
 bool Shoot();
 

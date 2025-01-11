@@ -309,6 +309,7 @@ void Server::handleVoteReady(Client &client) {
   try {
     GameRoom &gr = games[client.room_id];
     std::lock_guard<std::mutex> lgm(gr.gameRoomMutex);
+    gr.room.ready_players++;
     gr.gameManager.players[client.player_id].state = PlayerInfo::READY;
     ready_players = gr.gameManager.GetReadyPlayers();
   } catch (const std::out_of_range &ex) {
@@ -378,7 +379,7 @@ void Server::handleShootBullet(Client &client) {
     GameRoom &gr = games[client.room_id];
     std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
     const Player &p = gr.gameManager.players[client.player_id];
-    status = gr.gameManager.AddBullet(p, p.player_id);
+    status = gr.gameManager.AddBullet(p);
   } catch (const std::out_of_range &ex) {
     status = false;
   }

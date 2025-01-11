@@ -21,6 +21,7 @@ struct GameRoom {
   std::vector<uint32_t> clients;
   std::mutex gameRoomMutex;
   // FIXME: update game state during game
+  std::thread thread;
 };
 
 struct Server {
