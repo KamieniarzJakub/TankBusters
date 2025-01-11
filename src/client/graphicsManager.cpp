@@ -216,11 +216,12 @@ void GraphicsManager::DrawRoomSubTitle() {
   const char *text = "ROOMS:";
   Vector2 origin =
       MeasureTextEx(font, text, Constants::TEXT_SIZE, Constants::TEXT_SPACING);
-  DrawTextPro(player_font, text,
-              Vector2{(float)Constants::screenWidth / 2,
-                      Constants::screenHeight / 2 - 2 * Constants::TEXT_OFFSET},
-              Vector2{origin.x / 2, origin.y / 2}, 0, Constants::TEXT_SIZE,
-              Constants::TEXT_SPACING, RAYWHITE);
+  DrawTextPro(
+      player_font, text,
+      Vector2{(float)Constants::screenWidth / 2,
+              (float)Constants::screenHeight / 2 - 2 * Constants::TEXT_OFFSET},
+      Vector2{origin.x / 2, origin.y / 2}, 0, Constants::TEXT_SIZE,
+      Constants::TEXT_SPACING, RAYWHITE);
 }
 
 void GraphicsManager::DrawRoomBottomText() {
