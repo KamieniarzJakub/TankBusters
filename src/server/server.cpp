@@ -414,7 +414,7 @@ void Server::handleJoinRoom(Client &client) {
     if (status) {
       gr.room.players++;
       gr.clients.push_back(client.client_id);
-      // gr.gameManager.AddNewPlayer(); // FIXME: IMPLEMENT
+      gr.gameManager = GameManager(gr.room.room_id, gr.room.players);
     }
   } catch (const std::out_of_range &ex) {
     status = false;
@@ -443,7 +443,7 @@ void Server::handleLeaveRoom(Client &client) {
         _ = true;
         if (gr.room.players > 0) {
           gr.room.players--;
-          // gr.gameManager.DeletePlayer(); // FIXME: IMPLEMENT
+          gr.gameManager = GameManager(gr.room.room_id, gr.room.players);
         }
         break;
       }
@@ -457,7 +457,20 @@ void Server::handleLeaveRoom(Client &client) {
              client.room_id, client.client_id, client.fd_main);
     client_error(client);
   }
-  serverSetEvent(client, NetworkEvents::LeaveRoom);
+
+  // broadcast who left
+  try {
+    auto &gr = games.at(client.room_id);
+    std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
+    for (auto c : gr.clients) {
+      auto &broadcast_client = clients.at(c);
+      client.todo.push([&]() {
+        serverSetEvent(broadcast_client, NetworkEvents::LeaveRoom);
+        return write_uint32(broadcast_client.fd_main, client.player_id);
+      });
+    }
+  } catch (const std::out_of_range &ex) {
+  }
 }
 
 void Server::handleUpdateGameState(Client &client) {

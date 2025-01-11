@@ -265,10 +265,27 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
     TraceLog(LOG_WARNING, "NET: %s received",
              network_event_to_string(event).c_str());
     break;
-  case NetworkEvents::LeaveRoom:
-    TraceLog(LOG_WARNING, "NET: %s received",
-             network_event_to_string(event).c_str());
-    break;
+  case NetworkEvents::LeaveRoom: {
+    uint32_t player_id_that_left;
+    bool status = read_uint32(mainfd, player_id_that_left);
+    if (!status) {
+      return;
+    }
+
+    for (auto &r : rooms()) {
+      r.players--;
+      for (auto &p : gameManager().players) {
+        if (p.state == PlayerInfo::READY) {
+          r.ready_players--;
+        }
+        p.state = PlayerInfo::NONE;
+      }
+    }
+
+    flip_rooms();
+    flip_game_manager(); // FIXME: ENDED HERE
+
+  } break;
   case NetworkEvents::UpdateGameState: {
     json game_state_json;
     bool status = read_json(mainfd, game_state_json, -1);
@@ -609,6 +626,12 @@ bool ClientNetworkManager::leave_room() {
 
   status = expectEvent(mainfd, NetworkEvents::LeaveRoom);
   if (!status) {
+    return false;
+  }
+
+  uint32_t my_player_id;
+  status = read_uint32(mainfd, my_player_id);
+  if (!status || my_player_id != gameManager().player_id) {
     return false;
   }
 

@@ -57,27 +57,27 @@ void GameManager::UpdateAsteroids(float frametime) {
   }
 }
 
-void GameManager::UpdateGameServer() { // FIXME: delete inputs
-  UpdateStatus();
-  // TraceLog(LOG_DEBUG, "Game status: %d", gameManager.status);
-  if (status == GameStatus::GAME) {
-    float frametime = GetFrameTime();
-
-    ManageCollisions();
-
-    UpdatePlayers(frametime);
-    UpdateBullets(frametime);
-    UpdateAsteroids(frametime);
-
-    AsteroidSpawner(GetTime());
-  } else {
-    if (UpdateLobbyStatus()) {
-      NewGame(GetReadyPlayers());
-      RestartLobby();
-    }
-    UpdatePlayersLobby();
-  }
-}
+// void GameManager::UpdateGameServer() { // FIXME: delete inputs
+//   UpdateStatus();
+//   // TraceLog(LOG_DEBUG, "Game status: %d", gameManager.status);
+//   if (status == GameStatus::GAME) {
+//     float frametime = GetFrameTime();
+//
+//     ManageCollisions();
+//
+//     UpdatePlayers(frametime);
+//     UpdateBullets(frametime);
+//     UpdateAsteroids(frametime);
+//
+//     AsteroidSpawner(GetTime());
+//   } else {
+//     if (UpdateLobbyStatus()) {
+//       NewGame(GetReadyPlayers());
+//       RestartLobby();
+//     }
+//     UpdatePlayersLobby();
+//   }
+// }
 
 void GameManager::AsteroidSpawner(double time) {
   if (time > _spawnerTime + Constants::ASTEROID_SPAWN_DELAY) {

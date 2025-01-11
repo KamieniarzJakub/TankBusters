@@ -106,12 +106,11 @@ struct Game {
       gameManager.UpdateAsteroids(frametime);
 
       // gameManager.AsteroidSpawner(GetTime());
-    } else if (gameManager.status == GameStatus::LOBBY) {
-      // if (gameManager.UpdateLobbyStatus()) {
-      // NewGame(GetReadyPlayers());
-      // RestartLobby();
-      // gameManager.UpdatePlayersLobby();
-    } else if (gameManager.status == GameStatus::END_OF_ROUND) {
+    } else { // Lobby or end of Round
+      if (gameManager.UpdateLobbyStatus()) {
+        // NewGame(GetReadyPlayers());
+        gameManager.RestartLobby();
+      }
     }
   }
 

@@ -1,5 +1,7 @@
 #pragma once
+#include "lockingQueue.hpp"
 #include <ctime>
+#include <functional>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -10,6 +12,7 @@ struct Client {
   size_t room_id = 0;
   std::time_t last_response;
   int epd;
+  LockingQueue<std::function<bool(void)>> todo;
 
   const char *signature();
 };
