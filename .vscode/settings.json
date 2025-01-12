@@ -71,6 +71,24 @@
 		"sstream": "cpp",
 		"stop_token": "cpp",
 		"thread": "cpp",
-		"valarray": "cpp"
+		"valarray": "cpp",
+		"strstream": "cpp",
+		"cfenv": "cpp",
+		"charconv": "cpp",
+		"chrono": "cpp",
+		"complex": "cpp",
+		"condition_variable": "cpp",
+		"list": "cpp",
+		"set": "cpp",
+		"source_location": "cpp",
+		"format": "cpp",
+		"fstream": "cpp",
+		"future": "cpp",
+		"mutex": "cpp",
+		"shared_mutex": "cpp",
+		"stdfloat": "cpp",
+		"text_encoding": "cpp",
+		"typeindex": "cpp",
+		"variant": "cpp"
 	}
 }
