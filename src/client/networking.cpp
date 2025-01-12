@@ -597,6 +597,10 @@ bool ClientNetworkManager::join_room(uint32_t join_room_id,
       TraceLog(LOG_ERROR, "NET: Couldn't read player id");
       return false;
     }
+
+    TraceLog(LOG_INFO, "GAME: Joined room_id=%lu, player_id=%lu", join_room_id,
+             player_id);
+
     return true;
   } else {
     return false;

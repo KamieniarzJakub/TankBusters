@@ -436,12 +436,18 @@ void Server::handleJoinRoom(Client &client) {
     {
       auto &gr = games.at(room_id);
       std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
-      auto player_id = get_next_available_player_id(gr);
-      status = player_id != UINT32_MAX;
+      status = gr.room.status == GameStatus::LOBBY;
       if (status) {
-        client.player_id = player_id;
-        gr.clients.push_back(client.client_id);
-        gr.gameManager = GameManager(gr.room.room_id, gr.room.players);
+        auto player_id = get_next_available_player_id(gr);
+        status = player_id != UINT32_MAX;
+        if (status) {
+          client.player_id = player_id;
+          gr.room.players.at(player_id).state = PlayerInfo::NOT_READY;
+          gr.clients.push_back(client.client_id);
+          gr.gameManager = GameManager(gr.room.room_id, gr.room.players);
+        }
+        TraceLog(LOG_INFO, json(gr.room).dump().c_str());
+        TraceLog(LOG_INFO, "Client player id=%lu", client.player_id);
       }
     }
     client.room_id = room_id;
@@ -458,7 +464,7 @@ void Server::handleJoinRoom(Client &client) {
     client_error(client);
   }
 
-  status = write_uint32(client.fd_main, (uint32_t)status * client.player_id);
+  status = write_uint32(client.fd_main, client.player_id);
   if (!status) {
     TraceLog(LOG_WARNING, "Couldn't send player id to client_id=%ld,fd=%d",
              client.client_id, client.fd_main);
@@ -738,10 +744,15 @@ void Server::handle_network_event(Client &client, uint32_t event) {
 }
 
 void Server::disconnect_client(Client &client) {
-  // FIXME: disconnecting a faulty connection sometimes crashes server
   if (client.fd_main > 2) {
     // No info for client
-    todos.erase(client.client_id);
+    {
+      std::lock_guard<std::mutex> lc(clients_mutex);
+      try {
+        todos.erase(client.client_id);
+      } catch (const std::out_of_range &ex) {
+      }
+    }
 
     shutdown(client.fd_main, SHUT_RDWR);
     close(client.fd_main);
@@ -768,7 +779,6 @@ std::map<uint32_t, Room> Server::get_available_rooms() {
 
 // FIXME: Replace most of disconnect client with this
 bool Server::delete_client(size_t client_id) {
-
   std::lock_guard<std::mutex> lc(clients_mutex);
   if (auto c = clients.find(client_id); c != clients.end()) {
     handleLeaveRoom(c->second);
@@ -790,11 +800,14 @@ bool Server::delete_client(size_t client_id) {
 }
 
 uint32_t Server::get_next_available_player_id(GameRoom &gr) {
-  for (Player &player : gr.gameManager.players) {
+  uint32_t player_id = 0;
+  for (PlayerShortInfo &player : gr.room.players) {
     if (player.state == PlayerInfo::NONE) {
       player.state = PlayerInfo::NOT_READY;
-      return player.player_id;
+      TraceLog(LOG_INFO, "Next player id: %lu", player_id);
+      return player_id;
     }
+    player_id++;
   }
 
   return -1;

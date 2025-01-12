@@ -24,7 +24,7 @@ NLOHMANN_JSON_SERIALIZE_ENUM(PlayerConnection,
                               {Connected, "Connected"}})
 
 struct Player {
-  PlayerInfo state = PlayerInfo::NONE;
+  PlayerInfo state = PlayerInfo::NONE; // FIXME: delete field
   bool active = false;
   Vector2 position;
   Vector2 velocity;

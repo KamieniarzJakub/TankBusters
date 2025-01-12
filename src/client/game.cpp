@@ -53,10 +53,12 @@ struct Game {
         last_room_fetch = steady_clock::now();
         TraceLog(LOG_INFO, "NET: push fetch rooms");
         networkManager.todo.push([&]() {
-          bool status = networkManager.get_rooms(networkManager.rooms());
+          std::map<uint32_t, Room> update_rooms;
+          bool status = networkManager.get_rooms(update_rooms);
           if (status) {
-            // Automatically change drawing to the other room
+            networkManager.rooms() = update_rooms;
             networkManager.flip_rooms();
+            networkManager.rooms() = update_rooms;
           }
           return status;
         });
@@ -102,8 +104,8 @@ struct Game {
             return status;
           });
         }
-        TraceLog(LOG_INFO,
-                 json(rooms().at(networkManager.room_id)).dump().c_str());
+        // TraceLog(LOG_INFO,
+        //          json(rooms().at(networkManager.room_id)).dump().c_str());
         graphicsManager.DrawTitle(rooms().at(networkManager.room_id));
         graphicsManager.DrawLobbyPlayers(gameManager());
         graphicsManager.DrawReadyMessage();
@@ -126,8 +128,23 @@ struct Game {
       UpdatePlayer(players.at(gameManager().player_id), frametime);
       TraceLog(LOG_INFO, "NET: push send movement");
       networkManager.todo.push([&]() {
-        return networkManager.send_movement(player.position, player.velocity,
-                                            player.rotation);
+        // networkmanager.gamemanager().player_id = player_id;
+        //       networkmanager.rooms()
+        //           .at(networkmanager.room_id)
+        //           .players.at(player_id)
+        //           .state = playerinfo::not_ready;
+        //       networkmanager.flip_rooms();
+        //       // networkmanager.gamemanager().player_id =
+        //       networkmanager.flip_game_manager();
+        //       networkmanager.gamemanager().player_id = player_id;
+        //       networkmanager.rooms()
+        //           .at(networkmanager.room_id)
+        //           .players.at(player_id)
+        //           .state = playerinfo::not_ready;
+
+        bool status = networkManager.send_movement(
+            player.position, player.velocity, player.rotation);
+        return status;
       });
 
       if (players.at(gameManager().player_id).active && Shoot()) {
@@ -166,10 +183,25 @@ struct Game {
         TraceLog(LOG_INFO, "NET: push join room");
         networkManager.todo.push([&]() {
           try {
-            bool status = networkManager.join_room(
-                selected_room.room_id, networkManager.gameManager().player_id);
+            uint32_t player_id;
+            bool status =
+                networkManager.join_room(selected_room.room_id, player_id);
             if (status) {
+              networkManager.gameManager().player_id = player_id;
+              networkManager.rooms()
+                  .at(networkManager.room_id)
+                  .players.at(player_id)
+                  .state = PlayerInfo::NOT_READY;
+              networkManager.flip_rooms();
+              // networkManager.gameManager().player_id =
               networkManager.flip_game_manager();
+              networkManager.gameManager().player_id = player_id;
+              networkManager.rooms()
+                  .at(networkManager.room_id)
+                  .players.at(player_id)
+                  .state = PlayerInfo::NOT_READY;
+              TraceLog(LOG_INFO, "GAME: room status: %s",
+                       json(rooms().at(networkManager.room_id)).dump().c_str());
             }
             return status;
           } catch (const std::out_of_range &ex) {
