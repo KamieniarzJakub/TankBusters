@@ -482,8 +482,7 @@ void Server::handleJoinRoom(Client &client) {
           client.player_id = player_id;
           gr.room.players.at(player_id).state = PlayerInfo::NOT_READY;
           gr.clients.push_back(client.client_id);
-          gr.gameManager = GameManager(read_room_id, gr.room.players); //
-          // FIXME:
+          gr.gameManager = GameManager(read_room_id, gr.room.players);
         }
         TraceLog(LOG_INFO, json(gr.room).dump().c_str());
         TraceLog(LOG_INFO, "Client player id=%lu", client.player_id);
@@ -540,18 +539,22 @@ void Server::handleJoinRoom(Client &client) {
 
 void Server::handleLeaveRoom(Client &client) {
   bool _ = false;
+  TraceLog(LOG_INFO, "1. Leave room %lu", client.client_id);
+  std::vector<uint32_t> client_ids;
   try {
     auto &gr = games.at(client.room_id);
     std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
     auto i = gr.clients.begin();
     for (; i != gr.clients.end(); i++) {
       if (*i == client.client_id) {
+        client_ids = gr.clients;
         // Found, remove client from GameRoom
         gr.clients.erase(i, i);
         _ = true;
         try {
           gr.room.players.at(client.player_id).state = PlayerInfo::NONE;
           gr.gameManager.players.at(client.player_id).active = false;
+          TraceLog(LOG_INFO, "2. Leave room %lu", client.client_id);
         } catch (const std::out_of_range &ex) {
         }
         break;
@@ -567,7 +570,23 @@ void Server::handleLeaveRoom(Client &client) {
     client_error(client);
     return;
   }
+  TraceLog(LOG_INFO, "3. Leave room %lu", client.client_id);
+  try {
+    auto except_client_id = client.client_id;
+    TraceLog(LOG_INFO, "2. Leave room %lu", client.client_id);
+    for (auto c : client_ids) {
+      if (c == except_client_id) {
+        continue;
+      }
+      TraceLog(LOG_INFO, "4. Leave room %lu", client.client_id);
 
+      todos.at(c).push([&](Client c1) {
+        bool status = sendUpdateRoomState(c1);
+        return status;
+      });
+    }
+  } catch (const std::out_of_range &ex) {
+  }
   serverSetEvent(client, NetworkEvents::LeaveRoom);
   bool status = write_uint32(client.fd_main, client.player_id);
   if (!status) {
@@ -578,19 +597,6 @@ void Server::handleLeaveRoom(Client &client) {
     client_error(client);
   }
 
-  try {
-    auto except_client_id = client.client_id;
-    auto &gr = games.at(except_client_id);
-    std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
-    for (auto c : gr.clients) {
-      if (c == except_client_id) {
-        continue;
-      }
-
-      todos.at(c).push([&](Client c1) { return sendUpdateRoomState(c1); });
-    }
-  } catch (const std::out_of_range &ex) {
-  }
   client.player_id = -1;
 }
 
@@ -636,6 +642,7 @@ bool Server::sendUpdateRoomState(Client &client) {
   try {
     json room_json = games.at(client.room_id).room;
     serverSetEvent(client, NetworkEvents::UpdateRoomState);
+    TraceLog(LOG_INFO, room_json.dump().c_str());
     bool status = write_json(client.fd_main, room_json);
     if (!status) {
       TraceLog(LOG_WARNING, "Couldn't send json of room to client_id=%ld,fd=%d",
