@@ -83,17 +83,17 @@ void GraphicsManager::DrawTitle(const Room &r) {
               Constants::TEXT_SPACING, RAYWHITE);
 }
 
-void GraphicsManager::DrawLobbyPlayers(const GameManager &gm) {
+void GraphicsManager::DrawLobbyPlayers(const Room &r) {
   for (int i = 0; i < Constants::PLAYERS_MAX; i++) {
     float margin = (i - 2) * 2 * Constants::TEXT_OFFSET;
     const char *text =
         TextFormat("%s PLAYER", Constants::PLAYER_NAMES[i].c_str());
     Vector2 origin = MeasureTextEx(font, text, Constants::TEXT_SIZE,
                                    Constants::TEXT_SPACING);
-    Color player_color = (gm.players[i].state == PlayerInfo::NONE)
+    Color player_color = (r.players[i].state == PlayerInfo::NONE)
                              ? Constants::NOT_CONNECTED_GRAY
                              : Constants::PLAYER_COLORS[i];
-    if (gm.players[i].state == PlayerInfo::NOT_READY)
+    if (r.players[i].state == PlayerInfo::NOT_READY)
       player_color.a = 50;
     DrawTextPro(font, text,
                 Vector2{(float)Constants::screenWidth / 2,
@@ -193,7 +193,7 @@ void GraphicsManager::DrawGame(GameManager gameManager, Room room) {
     DrawTime(gameManager, GetTime());
   } else {
     DrawTitle(room);
-    DrawLobbyPlayers(gameManager);
+    DrawLobbyPlayers(room);
     DrawReadyMessage();
     DrawTimer(gameManager);
   }

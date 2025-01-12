@@ -9,7 +9,8 @@ struct Client {
   size_t player_id = 0;
   size_t room_id = 0;
   std::time_t last_response;
-  int epd;
+  int epd = -1;
+  int todo_fd = -1;
 
   const char *signature();
 };

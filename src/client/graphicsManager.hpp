@@ -27,7 +27,7 @@ struct GraphicsManager {
   // lobby manager
   void DrawTimer(const GameManager &gm);
   void DrawTitle(const Room &r);
-  void DrawLobbyPlayers(const GameManager &gm);
+  void DrawLobbyPlayers(const Room &r);
   void DrawReadyMessage();
 
   // player

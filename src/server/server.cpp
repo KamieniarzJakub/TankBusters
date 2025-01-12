@@ -23,6 +23,7 @@
 #include "gameManager.hpp"
 #include "gameStatus.hpp"
 #include "jsonutils.hpp"
+#include "lockingQueue.hpp"
 #include "networkUtils.hpp"
 #include "player.hpp"
 #include "raylib.h"
@@ -61,8 +62,8 @@ Server::Server(in_port_t main_port) {
         gr.room =
             Room{game_id, std::vector<PlayerShortInfo>(Constants::PLAYERS_MAX),
                  GameStatus::LOBBY};
-        for (uint32_t i = 0; i < Constants::PLAYERS_MAX; i++) {
-          gr.room.players.at(i).player_id = i;
+        for (uint32_t j = 0; j < Constants::PLAYERS_MAX; j++) {
+          gr.room.players.at(j).player_id = j;
         }
         gr.gameManager = GameManager(game_id, gr.room.players);
       }
@@ -125,7 +126,7 @@ void Server::sendCheckConnection(Client &client) {
         "Couldn't write CheckConnection NetworkEvent to client_id=%ld,fd=%d",
         client.client_id, client.fd_main);
     disconnect_client(client);
-    std::terminate(); // end only this thread FIXME: kills everything
+    std::terminate();
     return;
   }
 
@@ -146,33 +147,26 @@ void Server::sendCheckConnection(Client &client) {
 }
 
 void Server::handle_connection(Client client) {
-  auto &todo = todos[client.client_id];
 
   const size_t MAX_EVENTS = 2;
   epoll_event ee, events[MAX_EVENTS];
   int epoll_fd = epoll_create1(0);
   if (epoll_fd == -1) {
-    TraceLog(LOG_ERROR, "Couldn't instantiate epoll for client_id=%ld,fd=%d",
+    TraceLog(LOG_ERROR, "Couldn't epoll_create for client_id=%ld,fd=%d",
              client.client_id, client.fd_main);
     disconnect_client(client);
     return;
   }
+  client.epd = epoll_fd;
+  TraceLog(LOG_INFO, "Epoll_create %d for client_id=%ld,fd=%d", epoll_fd,
+           client.client_id, client.fd_main);
 
   ee.events = EPOLLIN;
   ee.data.fd = client.fd_main;
   if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client.fd_main, &ee) == -1) {
     close(epoll_fd);
-    TraceLog(LOG_ERROR, "Couldn't instantiate epoll for client_id=%ld,fd=%d",
-             client.client_id, client.fd_main);
-    disconnect_client(client);
-    return;
-  }
-
-  ee.events = EPOLLIN;
-  ee.data.fd = todo.get_event_fd();
-  if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, todo.get_event_fd(), &ee) == -1) {
-    close(epoll_fd);
-    TraceLog(LOG_ERROR, "Couldn't instantiate epoll for client_id=%ld,fd=%d",
+    TraceLog(LOG_ERROR,
+             "Couldn't instantiate EPOLLIN for main_fd for client_id=%ld,fd=%d",
              client.client_id, client.fd_main);
     disconnect_client(client);
     return;
@@ -180,18 +174,6 @@ void Server::handle_connection(Client client) {
 
   std::time(&client.last_response); // Set last response to current time
   while (client.fd_main > 2) {
-    // FIXME: epoll add fd_main write when in game
-    // FIXME: epoll rm fd_main write when out of the game
-    // try {
-    //   const GameRoom &gr = games.at(client.room_id);
-    //   if (gr.gameManager.status == GAME) {
-    //     if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client.fd_main, &ee) == -1) {
-    //       continue;
-    //     }
-    //   }
-    //   catch (const std::out_of_range &ex) {
-    //     continue;
-    //   }
     int nfds = epoll_wait(epoll_fd, events, MAX_EVENTS,
                           Constants::CONNECTION_TIMEOUT_MILISECONDS);
     if (nfds == -1) { // EPOLL WAIT ERROR
@@ -204,16 +186,7 @@ void Server::handle_connection(Client client) {
       // sendCheckConnection(client); // FIXME:
     }
     for (int n = 0; n < nfds; n++) {
-      if (events[n].data.fd == todo.get_event_fd()) {
-        todo.pop()();
-
-        // handleUpdateAsteroids(client);
-        // handleUpdatePlayers(client);
-        // handleUpdateBullets(client);
-        // if game/round end
-        // FIXME: send END ROUND
-        // FIXME: send START ROUND
-      } else if (events[n].data.fd == client.fd_main) {
+      if (events[n].data.fd == client.fd_main) {
         uint32_t network_event;
         bool status = read_uint32(client.fd_main, network_event);
         if (status) {
@@ -229,6 +202,16 @@ void Server::handle_connection(Client client) {
           client_error(client);
           break;
         }
+      } else if (events[n].data.fd == client.todo_fd) {
+        auto f = todos.at(client.client_id).pop();
+        f(client);
+
+        // handleUpdateAsteroids(client);
+        // handleUpdatePlayers(client);
+        // handleUpdateBullets(client);
+        // if game/round end
+        // FIXME: send END ROUND
+        // FIXME: send START ROUND
       }
     }
   }
@@ -249,17 +232,17 @@ void Server::handleGetClientId(Client &client) {
   // 0 new client, 0> existing client reconnecting
   client.client_id = 0;
   // NOTE: This is essentially just one if and else
-  if (client_id > 0) {
-    std::lock_guard<std::mutex> lg(clients_mutex);
-    if (auto old_c = clients.find(client_id); old_c != clients.end()) {
-      if (old_c->second.fd_main == -1) { // if old client is disconnected
-        client.client_id = old_c->second.client_id;
-        client.player_id = old_c->second.fd_main;
-        client.room_id = old_c->second.room_id;
-        old_c->second.fd_main = client.fd_main;
-      }
-    }
-  }
+  // if (client_id > 0) {
+  //   std::lock_guard<std::mutex> lg(clients_mutex);
+  //   if (auto old_c = clients.find(client_id); old_c != clients.end()) {
+  //     if (old_c->second.fd_main == -1) { // if old client is disconnected
+  //       client.client_id = old_c->second.client_id;
+  //       client.player_id = old_c->second.fd_main;
+  //       client.room_id = old_c->second.room_id;
+  //       old_c->second.fd_main = client.fd_main;
+  //     }
+  //   }
+  // }
   if (client.client_id == 0) { // else
     client.client_id = _next_client_id++;
   }
@@ -270,6 +253,29 @@ void Server::handleGetClientId(Client &client) {
     c.client_id = client.client_id;
     c.fd_main = client.fd_main;
   }
+
+  TraceLog(LOG_ERROR, "Creating queue for client_id=%ld,fd=%d",
+           client.client_id, client.fd_main);
+
+  TraceLog(LOG_ERROR, "EPD=%d for client_id=%ld,fd=%d", client.epd,
+           client.client_id, client.fd_main);
+  auto &todo = todos[client.client_id]; // Create todo queue and add to epoll
+  epoll_event ee;
+  ee.events = EPOLLIN;
+  ee.data.fd = todo.get_event_fd();
+  if (epoll_ctl(client.epd, EPOLL_CTL_ADD, todo.get_event_fd(), &ee) == -1) {
+    close(client.epd);
+    TraceLog(
+        LOG_ERROR,
+        "Couldn't instantiate EPOLLIN for eventfd=%d for client_id=%ld,fd=%d",
+        todo.get_event_fd(), client.client_id, client.fd_main);
+    disconnect_client(client);
+    return;
+  }
+  client.todo_fd = todo.get_event_fd();
+
+  TraceLog(LOG_ERROR, "Added queue for client_id=%ld,fd=%d", client.client_id,
+           client.fd_main);
 
   status = write_uint32(client.fd_main, NetworkEvents::GetClientId);
   if (!status) {
@@ -319,7 +325,8 @@ void Server::handleVoteReady(Client &client) {
     json player_short_infos_json;
     {
       std::lock_guard<std::mutex> lgm(gr.gameRoomMutex);
-      client.player_id = get_next_available_player_id(gr);
+      // client.player_id = get_next_available_player_id(gr);
+      gr.room.players.at(client.player_id).state = PlayerInfo::READY;
       gr.gameManager.players[client.player_id].active = true;
       player_short_infos_json = gr.room.players;
     }
@@ -335,7 +342,6 @@ void Server::handleVoteReady(Client &client) {
     status = false;
   }
 
-  // broadcast who left
   try {
     auto &gr = games.at(client.room_id);
     std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
@@ -343,10 +349,9 @@ void Server::handleVoteReady(Client &client) {
       if (c == client.client_id) {
         continue;
       }
-      auto &broadcast_client = clients.at(c);
-      todos.at(c).push([&]() {
-        serverSetEvent(broadcast_client, NetworkEvents::UpdateRoomState);
-        return write_uint32(broadcast_client.fd_main, client.player_id);
+      todos.at(c).push([&](Client c1) {
+        serverSetEvent(c1, NetworkEvents::UpdateRoomState);
+        return write_uint32(c1.fd_main, client.player_id);
       });
     }
   } catch (const std::out_of_range &ex) {
@@ -377,7 +382,7 @@ void Server::handlePlayerMovement(Client &client) {
   // FIXME: value checking
 
   try {
-    GameRoom &gr = games[client.room_id];
+    GameRoom &gr = games.at(client.room_id);
     std::lock_guard<std::mutex> lgm(gr.gameRoomMutex);
     Player &p = gr.gameManager.players[client.player_id];
     p.position = position;
@@ -402,7 +407,7 @@ void Server::handleShootBullet(Client &client) {
   bool status;
 
   try {
-    GameRoom &gr = games[client.room_id];
+    GameRoom &gr = games.at(client.room_id);
     std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
     const Player &p = gr.gameManager.players[client.player_id];
     status = gr.gameManager.AddBullet(p);
@@ -423,18 +428,20 @@ void Server::handleShootBullet(Client &client) {
 
 void Server::handleJoinRoom(Client &client) {
   bool status;
-  uint32_t room_id;
-  status = read_uint32(client.fd_main, room_id);
+  uint32_t read_room_id;
+  status = read_uint32(client.fd_main, read_room_id);
   if (!status) {
     TraceLog(LOG_WARNING,
              "Couldn't read room id to join from client_id=%ld,fd=%d",
              client.client_id, client.fd_main);
     client_error(client);
   }
+  TraceLog(LOG_INFO, "Received room id=%lu to join from client_id=%lu,fd=%d",
+           read_room_id, client.client_id, client.fd_main);
 
   try {
     {
-      auto &gr = games.at(room_id);
+      auto &gr = games.at(read_room_id);
       std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
       status = gr.room.status == GameStatus::LOBBY;
       if (status) {
@@ -444,20 +451,21 @@ void Server::handleJoinRoom(Client &client) {
           client.player_id = player_id;
           gr.room.players.at(player_id).state = PlayerInfo::NOT_READY;
           gr.clients.push_back(client.client_id);
-          gr.gameManager = GameManager(gr.room.room_id, gr.room.players);
+          // gr.gameManager = GameManager(read_room_id, gr.room.players); //
+          // FIXME:
         }
         TraceLog(LOG_INFO, json(gr.room).dump().c_str());
         TraceLog(LOG_INFO, "Client player id=%lu", client.player_id);
       }
     }
-    client.room_id = room_id;
+    client.room_id = read_room_id;
   } catch (const std::out_of_range &ex) {
     status = false;
   }
 
   serverSetEvent(client, NetworkEvents::JoinRoom);
 
-  status = write_uint32(client.fd_main, (uint32_t)status * room_id);
+  status = write_uint32(client.fd_main, (uint32_t)status * read_room_id);
   if (!status) {
     TraceLog(LOG_WARNING, "Couldn't send joined room id to client_id=%ld,fd=%d",
              client.client_id, client.fd_main);
@@ -473,14 +481,21 @@ void Server::handleJoinRoom(Client &client) {
 
   try {
     auto except_client_id = client.client_id;
-    auto &gr = games.at(except_client_id);
+    auto &gr = games.at(client.room_id);
     std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
+    std::cout << "Except c id" << except_client_id << std::endl;
+    std::cout << "Clients for room " << gr.room.room_id
+              << json(gr.clients).dump() << std::endl;
     for (auto c : gr.clients) {
       if (c == except_client_id) {
         continue;
       }
 
-      todos.at(c).push([&]() { return sendUpdateRoomState(clients.at(c)); });
+      TraceLog(LOG_INFO, "setting up updating rooms for %lu", c);
+      todos.at(c).push([&](Client c1) {
+        TraceLog(LOG_INFO, "updating rooms for %lu", c1.client_id);
+        return sendUpdateRoomState(c1);
+      });
     }
   } catch (const std::out_of_range &ex) {
   }
@@ -535,7 +550,7 @@ void Server::handleLeaveRoom(Client &client) {
         continue;
       }
 
-      todos.at(c).push([&]() { return sendUpdateRoomState(clients.at(c)); });
+      todos.at(c).push([&](Client c1) { return sendUpdateRoomState(c1); });
     }
   } catch (const std::out_of_range &ex) {
   }

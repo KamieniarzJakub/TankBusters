@@ -70,7 +70,7 @@ struct Game {
       if (gameManagersPair.at(game_manager_draw_idx).ReturnToRooms()) {
         TraceLog(LOG_INFO, "NET: push leave room");
         networkManager.todo.push([&]() {
-          bool status = networkManager.leave_room();
+          bool status = networkManager.leave_room(); // FIXME:
           if (status) {
             std::cout << json(roomsPair).dump() << std::endl;
 
@@ -117,6 +117,8 @@ struct Game {
             std::vector<PlayerShortInfo> player_status;
             bool status = networkManager.vote_ready(player_status);
             if (status) {
+              TraceLog(LOG_INFO, "GAME: player status %s",
+                       json(player_status).dump().c_str());
               networkManager.rooms().at(networkManager.room_id).players =
                   player_status;
               networkManager.flip_rooms();
@@ -130,7 +132,7 @@ struct Game {
         // TraceLog(LOG_INFO,
         //          json(rooms().at(networkManager.room_id)).dump().c_str());
         graphicsManager.DrawTitle(rooms().at(networkManager.room_id));
-        graphicsManager.DrawLobbyPlayers(gameManager());
+        graphicsManager.DrawLobbyPlayers(rooms().at(networkManager.room_id));
         graphicsManager.DrawReadyMessage();
         graphicsManager.DrawTimer(gameManager());
       }
@@ -221,13 +223,14 @@ struct Game {
               bool status = networkManager.fetch_room_state(room);
 
               if (status) {
-                TraceLog(LOG_INFO, "GAME: room %s", json(room).dump().c_str());
+                // TraceLog(LOG_INFO, "GAME: room %s",
+                // json(room).dump().c_str());
 
                 networkManager.rooms().at(networkManager.room_id) = room;
                 networkManager.flip_rooms();
                 networkManager.rooms().at(networkManager.room_id) = room;
 
-                std::cout << json(roomsPair).dump() << std::endl;
+                // std::cout << json(roomsPair).dump() << std::endl;
                 // TraceLog(LOG_INFO, "GAME: room status: %s",
                 //          json(networkManager.rooms().at(networkManager.room_id))
                 //              .dump()

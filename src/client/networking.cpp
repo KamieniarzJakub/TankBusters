@@ -317,7 +317,8 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
     }
 
     try {
-      gameManager() = game_state_json.template get<GameManager>();
+      gameManager() =
+          game_state_json.template get<GameManager>(); // FIXME: proper update
       auto &draw_gm_mgr = gameManagersPair.at(game_manager_draw_idx);
       gameManager().players = draw_gm_mgr.players;
       gameManager().asteroids = draw_gm_mgr.asteroids;

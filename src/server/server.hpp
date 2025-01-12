@@ -41,7 +41,7 @@ struct Server {
   std::map<uint32_t, Client> clients;
   std::atomic_uint32_t _next_client_id = 1;
 
-  std::map<uint32_t, LockingQueue<std::function<bool(void)>>> todos;
+  std::map<uint32_t, LockingQueue<std::function<bool(Client)>>> todos;
 
   Server(in_port_t main_port);
   ~Server();
