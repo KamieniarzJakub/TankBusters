@@ -343,11 +343,11 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
     for (auto r = rooms().begin(); r != rooms().end(); r++) {
       if (r->first == room_id) {
         try {
-          auto room = room_state_json.template get<Room>();
+          auto room =
+              room_state_json.template get<Room>(); // FIXME: proper update
           rooms() = roomsPair.at(rooms_draw_idx);
           rooms().at(room_id) = room;
-          // at_room_id(rooms(), room_id) = room;
-          flip_game_manager();
+          flip_rooms();
           rooms().at(room_id) = room;
         } catch (json::exception &ex) {
           TraceLog(LOG_ERROR,
