@@ -4,6 +4,7 @@
 #include "bullet.hpp"
 #include "gameStatus.hpp"
 #include "player.hpp"
+#include "room.hpp"
 #include <raylib.h>
 #include <raymath.h>
 #include <vector>
@@ -23,10 +24,11 @@ struct GameManager {
   float new_round_timer;
 
   GameManager();
-  GameManager(uint32_t room_id, uint32_t player_number);
+  GameManager(uint32_t room_id, std::vector<PlayerShortInfo> playerInfos);
   ~GameManager();
 
-  void NewGame(int players_in_game = 0);
+  // void NewGame(int players_in_game = 0);
+  void NewGame(std::vector<PlayerShortInfo> playerInfos);
 
   void UpdateStatus();
   void UpdatePlayers(float frametime);
@@ -46,9 +48,10 @@ struct GameManager {
 
   void UpdatePlayersLobby();
 
-  bool UpdateLobbyStatus();
   bool ReturnToRooms();
-  size_t GetReadyPlayers() const;
+  size_t
+  GetReadyPlayers(const std::vector<PlayerShortInfo> &player_infos) const;
+  bool UpdateLobbyStatus(const std::vector<PlayerShortInfo> &player_infos);
   size_t GetConnectedPlayers(PlayerConnection pc);
 };
 

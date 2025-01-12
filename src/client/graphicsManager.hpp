@@ -26,7 +26,7 @@ struct GraphicsManager {
 
   // lobby manager
   void DrawTimer(const GameManager &gm);
-  void DrawTitle(const GameManager &gm);
+  void DrawTitle(const Room &r);
   void DrawLobbyPlayers(const GameManager &gm);
   void DrawReadyMessage();
 
@@ -40,11 +40,12 @@ struct GraphicsManager {
   void DrawBullet(const Bullet &bullet);
 
   // Game
-  void DrawGame(GameManager gameManager);
+  void DrawGame(GameManager gameManager, Room room);
 
   // Room
   void DrawRoomTitle();
   void DrawRoomSubTitle();
   void DrawRoomBottomText();
-  void DrawRooms(const std::vector<Room> &rooms, int selected);
+  void DrawRooms(const std::map<uint32_t, Room> &rooms,
+                 uint32_t selected_room_id);
 };

@@ -36,9 +36,9 @@ struct ClientNetworkManager {
         !game_manager_draw_idx.load()); // TODO: check concurrency
   }
 
-  std::array<std::vector<Room>, 2> &roomsPair;
+  std::array<std::map<uint32_t, Room>, 2> &roomsPair;
   std::atomic_uint8_t &rooms_draw_idx;
-  std::vector<Room> &rooms() {
+  std::map<uint32_t, Room> &rooms() {
     return roomsPair.at(get_networks_idx(rooms_draw_idx));
   }
 
@@ -56,7 +56,7 @@ struct ClientNetworkManager {
   ClientNetworkManager(const char *host, const char *port,
                        std::array<GameManager, 2> &gameManagersPair,
                        std::atomic_uint8_t &game_manager_draw_idx,
-                       std::array<std::vector<Room>, 2> &roomsPair,
+                       std::array<std::map<uint32_t, Room>, 2> &roomsPair,
                        std::atomic_uint8_t &rooms_draw_idx);
   ~ClientNetworkManager();
 
@@ -83,13 +83,12 @@ struct ClientNetworkManager {
 
   // Player
   bool get_new_client_id(uint32_t &new_client_id);
-  bool vote_ready(uint32_t &ready_players);
-  bool vote_ready(std::vector<Player> &players);
+  bool vote_ready(std::vector<PlayerShortInfo> &players);
   bool send_movement(Vector2 position, Vector2 velocity, float rotation);
   bool shoot_bullet();
 
   // Room
-  bool get_rooms(std::vector<Room> &rooms);
+  bool get_rooms(std::map<uint32_t, Room> &rooms);
   bool join_room(uint32_t join_room_id, uint32_t &player_id);
   bool leave_room();
 

@@ -47,10 +47,11 @@ struct Server {
   ~Server();
 
   void listen_for_connections();
-  std::vector<Room> get_available_rooms();
+  std::map<uint32_t, Room> get_available_rooms();
   void new_client(Client client);
   bool delete_client(size_t client_id);
   Client *find_client(size_t client_id);
+  uint32_t get_next_available_player_id(GameRoom &gr);
 
   void handle_connection(Client client);
   void handle_game_logic();
@@ -81,4 +82,6 @@ struct Server {
   void handleStreamPlayerMovement(Client &client);
   void handleStreamShootBullet(Client &client);
   void sendCheckConnection(Client &client);
+
+  bool sendUpdateRoomState(Client &client);
 };

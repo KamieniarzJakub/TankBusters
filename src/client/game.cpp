@@ -4,10 +4,12 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <iostream>
 
 #include "gameManager.hpp"
 #include "graphicsManager.hpp"
 #include "networking.hpp"
+#include "room.hpp"
 
 using namespace std::chrono;
 
@@ -18,13 +20,14 @@ struct Game {
   std::array<GameManager, 2> gameManagersPair;
   std::atomic_uint8_t game_manager_draw_idx = 0;
 
-  std::array<std::vector<Room>, 2> roomsPair;
+  std::array<std::map<uint32_t, Room>, 2> roomsPair;
   std::atomic_uint8_t rooms_draw_idx = 0;
 
   const std::chrono::milliseconds room_fetch_interval{5000};
   std::chrono::steady_clock::time_point last_room_fetch =
       std::chrono::steady_clock::time_point{};
-  uint8_t selected_room;
+  uint8_t selected_room_index = 0;
+  Room selected_room{};
 
   inline uint8_t get_networks_idx(std::atomic_uint8_t &draw_idx) {
     return draw_idx.fetch_xor(true);
@@ -33,14 +36,14 @@ struct Game {
   GameManager &gameManager() {
     return gameManagersPair.at(game_manager_draw_idx);
   }
-  std::vector<Room> &rooms() { return roomsPair.at(rooms_draw_idx); }
+  std::map<uint32_t, Room> &rooms() { return roomsPair.at(rooms_draw_idx); }
 
   Game(const char *host, const char *port)
       : graphicsManager(GraphicsManager()),
         networkManager(host, port, gameManagersPair, game_manager_draw_idx,
                        roomsPair, rooms_draw_idx),
         gameManagersPair(std::array<GameManager, 2>()),
-        roomsPair(std::array<std::vector<Room>, 2>()) {}
+        roomsPair(std::array<std::map<uint32_t, Room>, 2>()) {}
 
   void updateDrawFrame(void) {
     if (networkManager.room_id == 0) {
@@ -58,9 +61,9 @@ struct Game {
           return status;
         });
       }
-      setSelectedRoom(roomsPair.at(rooms_draw_idx));
+      setSelectedRoom();
     } else {
-      UpdateGame(gameManager());
+      UpdateGame();
       if (gameManagersPair.at(game_manager_draw_idx).ReturnToRooms()) {
         TraceLog(LOG_INFO, "NET: push leave room");
         networkManager.todo.push([&]() { return networkManager.leave_room(); });
@@ -74,7 +77,7 @@ struct Game {
     if (!networkManager.room_id) {
       graphicsManager.DrawRoomTitle();
       graphicsManager.DrawRoomSubTitle();
-      graphicsManager.DrawRooms(rooms(), selected_room);
+      graphicsManager.DrawRooms(rooms(), selected_room_index);
       graphicsManager.DrawRoomBottomText();
     } else {
       // graphicsManager.DrawGame(gameManagersPair.at(game_manager_draw_idx));
@@ -91,14 +94,17 @@ struct Game {
         if (IsKeyPressed(KEY_SPACE)) {
           TraceLog(LOG_INFO, "NET: push vote ready");
           networkManager.todo.push([&]() {
-            bool status = networkManager.vote_ready(gameManager().players);
+            bool status = networkManager.vote_ready(
+                networkManager.rooms().at(networkManager.room_id).players);
             if (status) {
               networkManager.flip_game_manager();
             }
             return status;
           });
         }
-        graphicsManager.DrawTitle(gameManager());
+        TraceLog(LOG_INFO,
+                 json(rooms().at(networkManager.room_id)).dump().c_str());
+        graphicsManager.DrawTitle(rooms().at(networkManager.room_id));
         graphicsManager.DrawLobbyPlayers(gameManager());
         graphicsManager.DrawReadyMessage();
         graphicsManager.DrawTimer(gameManager());
@@ -137,23 +143,31 @@ struct Game {
 
       // gameManager.AsteroidSpawner(GetTime());
     } else { // Lobby or end of Round
-      if (gameManager().UpdateLobbyStatus()) {
+      if (gameManager().UpdateLobbyStatus(
+              rooms().at(networkManager.room_id).players)) {
         // NewGame(GetReadyPlayers());
         gameManager().RestartLobby();
       }
     }
   }
 
-  void setSelectedRoom(const std::vector<Room> &rooms) {
+  void setSelectedRoom() {
+    uint8_t iter = 0;
+    for (auto r : rooms()) {
+      if (selected_room_index == iter++) {
+        selected_room = r.second;
+        break;
+      }
+    }
+
     try {
       if (IsKeyPressed(KEY_SPACE) &&
-          rooms.at(selected_room).players != Constants::PLAYERS_MAX) {
+          get_X_players(selected_room.players, PlayerInfo::NONE) > 0) {
         TraceLog(LOG_INFO, "NET: push join room");
         networkManager.todo.push([&]() {
           try {
             bool status = networkManager.join_room(
-                rooms.at(selected_room).room_id,
-                networkManager.gameManager().player_id);
+                selected_room.room_id, networkManager.gameManager().player_id);
             if (status) {
               networkManager.flip_game_manager();
             }
@@ -163,11 +177,11 @@ struct Game {
           }
         });
       } else if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) {
-        selected_room--;
-        selected_room %= rooms.size();
+        selected_room_index--;
+        selected_room_index %= rooms().size();
       } else if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) {
-        selected_room++;
-        selected_room %= rooms.size();
+        selected_room_index++;
+        selected_room_index %= rooms().size();
       }
       // TraceLog(LOG_DEBUG, "SELECTED ROOM: %d", selected_room);
     } catch (const std::out_of_range &ex) {

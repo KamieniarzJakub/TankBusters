@@ -2,22 +2,25 @@
 #include "constants.hpp"
 #include "player.hpp"
 
-GameManager::GameManager() { NewGame(); }
+GameManager::GameManager() {
+  NewGame(std::vector<PlayerShortInfo>(Constants::PLAYERS_MAX));
+}
 
 GameManager::~GameManager() {}
 
-void GameManager::NewGame(int players_in_game) {
+void GameManager::NewGame(std::vector<PlayerShortInfo> playerInfos) {
   asteroids = std::vector<Asteroid>(Constants::ASTEROIDS_MAX, Asteroid());
   players.clear();
   players.reserve(Constants::PLAYERS_MAX);
   for (int i = 0; i < Constants::PLAYERS_MAX; i++) {
     players.push_back(AddPlayer(i));
+    players.at(i).active = playerInfos.at(i).state != PlayerInfo::NONE;
   }
   bullets = std::vector<Bullet>(
       Constants::BULLETS_PER_PLAYER * Constants::PLAYERS_MAX, Bullet());
   status = GameStatus::LOBBY;
   _spawnerTime = 0;
-  _alive_players = players_in_game;
+  _alive_players = GetReadyPlayers(playerInfos);
   startRoundTime = GetTime();
   endRoundTime = -1;
 }
@@ -199,17 +202,19 @@ void GameManager::UpdatePlayersLobby() {
   // TraceLog(LOG_DEBUG, "PLAYERS READY FOR NEW ROUND: %d", ready_players);
 }
 
-size_t GameManager::GetReadyPlayers() const {
+size_t GameManager::GetReadyPlayers(
+    const std::vector<PlayerShortInfo> &player_infos) const {
   size_t i = 0;
-  for (const auto &p : players) {
+  for (const auto &p : player_infos) {
     if (p.state == PlayerInfo::READY)
       i++;
   }
   return i;
 }
 
-bool GameManager::UpdateLobbyStatus() {
-  size_t ready_players = GetReadyPlayers();
+bool GameManager::UpdateLobbyStatus(
+    const std::vector<PlayerShortInfo> &player_infos) {
+  size_t ready_players = GetReadyPlayers(player_infos);
   if (ready_players > 2) {
     new_round_timer = new_round_timer > 0 ? new_round_timer : GetTime();
     if (new_round_timer > 0 &&
@@ -233,9 +238,10 @@ void GameManager::RestartLobby() {
   new_round_timer = -1;
 }
 
-GameManager::GameManager(uint32_t room_id, uint32_t player_number)
+GameManager::GameManager(uint32_t room_id,
+                         std::vector<PlayerShortInfo> playerInfos)
     : room_id(room_id) {
-  NewGame(player_number);
+  NewGame(playerInfos);
 }
 
 size_t GameManager::GetConnectedPlayers(PlayerConnection pc) {

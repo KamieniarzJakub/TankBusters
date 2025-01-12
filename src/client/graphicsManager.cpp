@@ -1,6 +1,8 @@
 #include "graphicsManager.hpp"
 #include "gameManager.hpp"
+#include "player.hpp"
 #include "resource_dir.hpp"
+#include "room.hpp"
 #include <raylib.h>
 
 GraphicsManager::GraphicsManager() {
@@ -69,9 +71,11 @@ void GraphicsManager::DrawTimer(const GameManager &gm) {
   }
 }
 
-void GraphicsManager::DrawTitle(const GameManager &gm) {
+void GraphicsManager::DrawTitle(const Room &r) {
   const char *text =
-      TextFormat("LOBBY[%d/%d]", gm.GetReadyPlayers(), Constants::PLAYERS_MAX);
+      TextFormat("LOBBY[%d/%d]",
+                 r.players.size() - get_X_players(r.players, PlayerInfo::NONE),
+                 Constants::PLAYERS_MAX);
   Vector2 origin = MeasureTextEx(font, text, Constants::TEXT_WIN_SIZE,
                                  Constants::TEXT_SPACING);
   DrawTextPro(font, text, Vector2{(float)Constants::screenWidth / 2, 0},
@@ -176,7 +180,7 @@ void GraphicsManager::DrawNewRoundCountdown(const GameManager &gm) {
       Constants::TEXT_SIZE, Constants::TEXT_SPACING, RAYWHITE);
 }
 
-void GraphicsManager::DrawGame(GameManager gameManager) {
+void GraphicsManager::DrawGame(GameManager gameManager, Room room) {
   if (gameManager.status == GameStatus::GAME ||
       gameManager.status == GameStatus::END_OF_ROUND) {
     DrawAsteroids(gameManager);
@@ -188,7 +192,7 @@ void GraphicsManager::DrawGame(GameManager gameManager) {
     }
     DrawTime(gameManager, GetTime());
   } else {
-    DrawTitle(gameManager);
+    DrawTitle(room);
     DrawLobbyPlayers(gameManager);
     DrawReadyMessage();
     DrawTimer(gameManager);
@@ -235,27 +239,31 @@ void GraphicsManager::DrawRoomBottomText() {
               Constants::TEXT_SPACING, RAYWHITE);
 }
 
-void GraphicsManager::DrawRooms(const std::vector<Room> &rooms, int selected) {
-  for (int i = 0; i < (int)rooms.size(); i++) {
+void GraphicsManager::DrawRooms(const std::map<uint32_t, Room> &rooms,
+                                uint32_t selected_room_index_not_id) {
+  uint32_t i = 0;
+  for (const auto &rp : rooms) {
+    const auto &room = rp.second;
     std::string room_status =
-        (rooms[i].status == GameStatus::GAME) ? "IN GAME" : "LOBBY";
+        (room.status == GameStatus::GAME) ? "IN GAME" : "LOBBY";
     Color room_color = Constants::NOT_CONNECTED_GRAY;
     float text_size = Constants::TEXT_SIZE;
     char active = ' ';
-    if (i == selected) {
+    if (selected_room_index_not_id == i) {
       room_color = Constants::PLAYER_COLORS[0];
       text_size *= 1.2;
       active = '>';
     }
 
-    if (rooms[i].players == Constants::PLAYERS_MAX) {
+    if (get_X_players(room.players, PlayerInfo::NONE) == 0) {
       room_status = "FULL";
       room_color.a = 50;
     }
     float margin = i * 2 * Constants::TEXT_OFFSET;
     const char *text = TextFormat(
         "%c %s[%d/%d] - %s", active, Constants::COOL_ROOM_NAMES[i].c_str(),
-        rooms[i].players, Constants::PLAYERS_MAX, room_status.c_str());
+        get_X_players(room.players, PlayerInfo::READY), Constants::PLAYERS_MAX,
+        room_status.c_str());
     Vector2 origin =
         MeasureTextEx(font, text, text_size, Constants::TEXT_SPACING);
 
@@ -264,5 +272,6 @@ void GraphicsManager::DrawRooms(const std::vector<Room> &rooms, int selected) {
                         (float)Constants::screenHeight / 2 + margin},
                 {origin.x / 2, origin.y / 2}, 0, text_size,
                 Constants::TEXT_SPACING, room_color);
+    i++;
   }
 }
