@@ -22,7 +22,7 @@ struct ClientNetworkManager {
   uint32_t room_id = 0;
 
   inline uint8_t get_networks_idx(std::atomic_uint8_t &draw_idx) {
-    return draw_idx.fetch_xor(true);
+    return !draw_idx.load();
   }
 
   std::array<GameManager, 2> &gameManagersPair;
@@ -32,8 +32,13 @@ struct ClientNetworkManager {
   }
 
   void flip_game_manager() {
-    game_manager_draw_idx.store(
-        !game_manager_draw_idx.load()); // TODO: check concurrency
+    std::cout << " flip gm: ";
+    std::cout << static_cast<int>(game_manager_draw_idx.load()) << " ";
+    uint8_t expected = game_manager_draw_idx.load();
+    while (
+        !game_manager_draw_idx.compare_exchange_strong(expected, !expected)) {
+    }
+    std::cout << static_cast<int>(game_manager_draw_idx.load()) << std::endl;
   }
 
   std::array<std::map<uint32_t, Room>, 2> &roomsPair;
@@ -43,8 +48,12 @@ struct ClientNetworkManager {
   }
 
   void flip_rooms() {
-    rooms_draw_idx.store(
-        !game_manager_draw_idx.load()); // TODO: check concurrency
+    std::cout << " flip rooms: ";
+    std::cout << static_cast<int>(rooms_draw_idx.load()) << " ";
+    uint8_t expected = rooms_draw_idx.load();
+    while (!rooms_draw_idx.compare_exchange_strong(expected, !expected)) {
+    }
+    std::cout << static_cast<int>(rooms_draw_idx.load()) << std::endl;
   }
 
   std::atomic_bool _stop = false;

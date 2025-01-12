@@ -347,6 +347,7 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
           rooms().at(room_id) = room;
           // at_room_id(rooms(), room_id) = room;
           flip_game_manager();
+          rooms().at(room_id) = room;
         } catch (json::exception &ex) {
           TraceLog(LOG_ERROR,
                    "JSON: Couldn't deserialize json into vector<Player>");
@@ -636,7 +637,7 @@ bool ClientNetworkManager::fetch_room_state(uint32_t fetch_room_id,
     return false;
 
   json room_json = json(Room());
-  status = read_json(mainfd, room_json, sizeof(room_json));
+  status = read_json(mainfd, room_json, -1);
   if (!status) {
     TraceLog(LOG_ERROR, "NET: Couldn't receive json of Room");
     return false;

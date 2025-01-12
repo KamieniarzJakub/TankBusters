@@ -9,6 +9,7 @@
 #include "gameManager.hpp"
 #include "graphicsManager.hpp"
 #include "networking.hpp"
+#include "player.hpp"
 #include "room.hpp"
 
 using namespace std::chrono;
@@ -30,7 +31,7 @@ struct Game {
   Room selected_room{};
 
   inline uint8_t get_networks_idx(std::atomic_uint8_t &draw_idx) {
-    return draw_idx.fetch_xor(true);
+    return !draw_idx.load();
   }
 
   GameManager &gameManager() {
@@ -68,7 +69,24 @@ struct Game {
       UpdateGame();
       if (gameManagersPair.at(game_manager_draw_idx).ReturnToRooms()) {
         TraceLog(LOG_INFO, "NET: push leave room");
-        networkManager.todo.push([&]() { return networkManager.leave_room(); });
+        networkManager.todo.push([&]() {
+          bool status = networkManager.leave_room();
+          if (status) {
+            std::cout << json(roomsPair).dump() << std::endl;
+
+            networkManager.rooms()
+                .at(networkManager.room_id)
+                .players.at(networkManager.gameManager().player_id)
+                .state = PlayerInfo::NONE;
+            networkManager.flip_rooms();
+            networkManager.rooms() = rooms();
+            networkManager.rooms()
+                .at(networkManager.room_id)
+                .players.at(networkManager.gameManager().player_id)
+                .state = PlayerInfo::NONE;
+          }
+          return status;
+        });
       }
     }
 
@@ -96,9 +114,14 @@ struct Game {
         if (IsKeyPressed(KEY_SPACE)) {
           TraceLog(LOG_INFO, "NET: push vote ready");
           networkManager.todo.push([&]() {
-            bool status = networkManager.vote_ready(
-                networkManager.rooms().at(networkManager.room_id).players);
+            std::vector<PlayerShortInfo> player_status;
+            bool status = networkManager.vote_ready(player_status);
             if (status) {
+              networkManager.rooms().at(networkManager.room_id).players =
+                  player_status;
+              networkManager.flip_rooms();
+              networkManager.rooms().at(networkManager.room_id).players =
+                  player_status;
               networkManager.flip_game_manager();
             }
             return status;
@@ -144,14 +167,17 @@ struct Game {
 
         bool status = networkManager.send_movement(
             player.position, player.velocity, player.rotation);
+        // FIXME: update game objects
         return status;
       });
 
       if (players.at(gameManager().player_id).active && Shoot()) {
         if (gameManager().AddBullet(players.at(gameManager().player_id))) {
           TraceLog(LOG_INFO, "NET: push shoot");
-          networkManager.todo.push(
-              [&]() { return networkManager.shoot_bullet(); });
+          networkManager.todo.push([&]() {
+            return networkManager.shoot_bullet();
+            // FIXME: update game objects
+          });
         }
       }
 
@@ -188,20 +214,25 @@ struct Game {
                 networkManager.join_room(selected_room.room_id, player_id);
             if (status) {
               networkManager.gameManager().player_id = player_id;
-              networkManager.rooms()
-                  .at(networkManager.room_id)
-                  .players.at(player_id)
-                  .state = PlayerInfo::NOT_READY;
-              networkManager.flip_rooms();
-              // networkManager.gameManager().player_id =
               networkManager.flip_game_manager();
               networkManager.gameManager().player_id = player_id;
-              networkManager.rooms()
-                  .at(networkManager.room_id)
-                  .players.at(player_id)
-                  .state = PlayerInfo::NOT_READY;
-              TraceLog(LOG_INFO, "GAME: room status: %s",
-                       json(rooms().at(networkManager.room_id)).dump().c_str());
+
+              Room room;
+              bool status = networkManager.fetch_room_state(room);
+
+              if (status) {
+                TraceLog(LOG_INFO, "GAME: room %s", json(room).dump().c_str());
+
+                networkManager.rooms().at(networkManager.room_id) = room;
+                networkManager.flip_rooms();
+                networkManager.rooms().at(networkManager.room_id) = room;
+
+                std::cout << json(roomsPair).dump() << std::endl;
+                // TraceLog(LOG_INFO, "GAME: room status: %s",
+                //          json(networkManager.rooms().at(networkManager.room_id))
+                //              .dump()
+                //              .c_str());
+              }
             }
             return status;
           } catch (const std::out_of_range &ex) {
