@@ -82,6 +82,11 @@ void ClientNetworkManager::perform_network_actions() {
     return;
   }
 
+  uint64_t a;
+  if (read(todo.get_event_fd(), &a, sizeof(a))) {
+    std::cout << "wtf" << std::endl;
+  }
+
   ee.events = EPOLLIN;
   ee.data.fd = todo.get_event_fd();
   if (epoll_ctl(epollfd, EPOLL_CTL_ADD, todo.get_event_fd(), &ee) == -1) {
@@ -317,13 +322,14 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
     }
 
     try {
+      TraceLog(LOG_INFO, "NET: received json of game state");
       gameManager() =
           game_state_json.template get<GameManager>(); // FIXME: proper update
       auto &draw_gm_mgr = gameManagersPair.at(game_manager_draw_idx);
+      flip_game_manager();
       gameManager().players = draw_gm_mgr.players;
       gameManager().asteroids = draw_gm_mgr.asteroids;
       gameManager().bullets = draw_gm_mgr.bullets;
-      flip_game_manager();
       return;
     } catch (json::exception &ex) {
       TraceLog(LOG_ERROR, "JSON: Couldn't deserialize json into GameManager");
@@ -343,6 +349,7 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
     for (auto r = rooms().begin(); r != rooms().end(); r++) {
       if (r->first == room_id) {
         try {
+          TraceLog(LOG_INFO, "NET: received json of room state");
           auto room =
               room_state_json.template get<Room>(); // FIXME: proper update
           rooms() = roomsPair.at(rooms_draw_idx);

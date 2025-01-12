@@ -115,6 +115,7 @@ struct Game {
           TraceLog(LOG_INFO, "NET: push vote ready");
           networkManager.todo.push([&]() {
             std::vector<PlayerShortInfo> player_status;
+            TraceLog(LOG_INFO, "NET: sending vote ready");
             bool status = networkManager.vote_ready(player_status);
             if (status) {
               TraceLog(LOG_INFO, "GAME: player status %s",

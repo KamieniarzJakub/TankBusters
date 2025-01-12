@@ -350,8 +350,14 @@ void Server::handleVoteReady(Client &client) {
         continue;
       }
       todos.at(c).push([&](Client c1) {
-        serverSetEvent(c1, NetworkEvents::UpdateRoomState);
-        return write_uint32(c1.fd_main, client.player_id);
+        bool status = sendUpdateRoomState(c1);
+        if (status) {
+          TraceLog(LOG_INFO, "send room updated for client_id=%lu",
+                   c1.client_id);
+          TraceLog(LOG_INFO, "send room client_id= %lu, %s", c1.client_id,
+                   json(gr.room).dump().c_str());
+        }
+        return status;
       });
     }
   } catch (const std::out_of_range &ex) {

@@ -1,5 +1,6 @@
 #pragma once
 #include <ctime>
+#include <string>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -12,5 +13,5 @@ struct Client {
   int epd = -1;
   int todo_fd = -1;
 
-  const char *signature();
+  const std::string signature();
 };
