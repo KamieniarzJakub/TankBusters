@@ -262,8 +262,8 @@ void GraphicsManager::DrawRooms(const std::map<uint32_t, Room> &rooms,
     float margin = i * 2 * Constants::TEXT_OFFSET;
     const char *text = TextFormat(
         "%c %s[%d/%d] - %s", active, Constants::COOL_ROOM_NAMES[i].c_str(),
-        get_X_players(room.players, PlayerInfo::READY), Constants::PLAYERS_MAX,
-        room_status.c_str());
+        room.players.size() - get_X_players(room.players, PlayerInfo::NONE),
+        Constants::PLAYERS_MAX, room_status.c_str());
     Vector2 origin =
         MeasureTextEx(font, text, text_size, Constants::TEXT_SPACING);
 
