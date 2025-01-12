@@ -91,8 +91,9 @@ void Server::listen_for_connections() {
       continue;
     }
 
-    Client client{client_main_fd};
-    std::thread(&Server::handle_connection, this, client).detach();
+    // Client client{client_main_fd};
+    std::thread(&Server::handle_connection, this, Client{client_main_fd})
+        .detach();
   }
 }
 
@@ -258,7 +259,10 @@ void Server::handleGetClientId(Client &client) {
   }
   {
     std::lock_guard<std::mutex> lg(clients_mutex);
-    clients[client_id] = client;
+    clients[client_id];
+    Client &c = clients.at(client_id);
+    c.client_id = client.client_id;
+    c.fd_main = client.fd_main;
   }
 
   status = write_uint32(client.fd_main, NetworkEvents::GetClientId);
@@ -464,7 +468,7 @@ void Server::handleLeaveRoom(Client &client) {
     std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
     for (auto c : gr.clients) {
       auto &broadcast_client = clients.at(c);
-      client.todo.push([&]() {
+      todos.at(c).push([&]() {
         serverSetEvent(broadcast_client, NetworkEvents::LeaveRoom);
         return write_uint32(broadcast_client.fd_main, client.player_id);
       });

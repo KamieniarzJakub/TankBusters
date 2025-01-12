@@ -6,12 +6,14 @@
 
 #include <atomic>
 #include <cstdint>
+#include <functional>
 #include <mutex>
 #include <thread>
 #include <vector>
 
 #include "client.hpp"
 #include "gameManager.hpp"
+#include "lockingQueue.hpp"
 #include "networkEvents.hpp"
 #include "room.hpp"
 
@@ -32,12 +34,15 @@ struct Server {
   std::atomic_bool _stop = false;
 
   std::mutex games_mutex;
-  std::map<size_t, GameRoom> games;
+  std::map<uint32_t, GameRoom> games;
   std::atomic_uint32_t _next_game_id = 1;
 
   std::mutex clients_mutex;
-  std::map<size_t, Client> clients;
+  std::map<uint32_t, Client> clients;
   std::atomic_uint32_t _next_client_id = 1;
+
+  std::map<uint32_t, LockingQueue<std::function<bool(void)>>> todos;
+  std::mutex todos_mutex;
 
   Server(in_port_t main_port);
   ~Server();

@@ -4,7 +4,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <error.h>
-#include <iostream>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <sys/epoll.h>
@@ -24,5 +23,5 @@ int main(int argc, char **argv) {
   signal(SIGINT, my_exit);
   signal(SIGPIPE, SIG_IGN);
   auto server = Server(main_port);
-  std::cout << "Server is running on localhost:" << argv[1] << std::endl;
+  TraceLog(LOG_INFO, "Server is running on localhost:%s", argv[1]);
 }
