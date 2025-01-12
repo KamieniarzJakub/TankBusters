@@ -1,8 +1,9 @@
+#include <raylib.h>
+#include <raymath.h>
+
 #include <atomic>
 #include <chrono>
 #include <cstdint>
-#include <raylib.h>
-#include <raymath.h>
 
 #include "gameManager.hpp"
 #include "graphicsManager.hpp"
@@ -42,7 +43,6 @@ struct Game {
         roomsPair(std::array<std::vector<Room>, 2>()) {}
 
   void updateDrawFrame(void) {
-
     if (networkManager.room_id == 0) {
       // Queue network work
       if (steady_clock::now() - last_room_fetch > room_fetch_interval) {
@@ -59,8 +59,11 @@ struct Game {
       setSelectedRoom(roomsPair.at(rooms_draw_idx));
     } else {
       UpdateGame(gameManager());
-      if (gameManagersPair.at(game_manager_draw_idx).ReturnToRooms())
-        networkManager.room_id = 0;
+      if (gameManagersPair.at(game_manager_draw_idx).ReturnToRooms()) {
+        networkManager.todo.push([&]() {
+          return networkManager.leave_room();
+        });
+      }
     }
 
     BeginDrawing();
@@ -106,7 +109,7 @@ struct Game {
       gameManager.UpdateAsteroids(frametime);
 
       // gameManager.AsteroidSpawner(GetTime());
-    } else { // Lobby or end of Round
+    } else {  // Lobby or end of Round
       if (gameManager.UpdateLobbyStatus()) {
         // NewGame(GetReadyPlayers());
         gameManager.RestartLobby();
