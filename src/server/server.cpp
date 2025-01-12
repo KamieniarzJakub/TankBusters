@@ -768,10 +768,10 @@ std::map<uint32_t, Room> Server::get_available_rooms() {
 
 // FIXME: Replace most of disconnect client with this
 bool Server::delete_client(size_t client_id) {
-  handleLeaveRoom(clients.at(client_id));
 
   std::lock_guard<std::mutex> lc(clients_mutex);
   if (auto c = clients.find(client_id); c != clients.end()) {
+    handleLeaveRoom(c->second);
     int res = shutdown(c->second.fd_main, SHUT_RDWR);
     if (res) {
       TraceLog(LOG_WARNING, "Failed shutdown for client: %lu",
