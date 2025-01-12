@@ -323,10 +323,12 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
       gameManager() =
           game_state_json.template get<GameManager>(); // FIXME: proper update
       auto &draw_gm_mgr = gameManagersPair.at(game_manager_draw_idx);
-      flip_game_manager();
       gameManager().players = draw_gm_mgr.players;
       gameManager().asteroids = draw_gm_mgr.asteroids;
       gameManager().bullets = draw_gm_mgr.bullets;
+      gameManager().player_id = draw_gm_mgr.player_id;
+      flip_game_manager();
+      gameManager() = gameManagersPair.at(game_manager_draw_idx);
       return;
     } catch (json::exception &ex) {
       TraceLog(LOG_ERROR, "JSON: Couldn't deserialize json into GameManager");

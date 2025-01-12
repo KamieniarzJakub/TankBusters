@@ -457,6 +457,32 @@ void Server::handleShootBullet(Client &client) {
   }
 }
 
+void Server::new_game(const Room r) {
+  // auto &gr = games.at(r.room_id);
+  // std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
+  //
+  // auto &game = gr.gameManager;
+  // game.UpdateStatus();
+  // game.status = GameStatus::GAME;
+  // // TraceLog(LOG_DEBUG, "Game status: %d", gameManager.status);
+  // if (game.status == GameStatus::LOBBY) {
+  //   return;
+  // } else if (game.status == GameStatus::GAME) {
+  //   float frametime = GetFrameTime();
+  //
+  //   game.ManageCollisions();
+  //
+  //   // UpdatePlayers(frametime); // FIXME:
+  //   game.UpdateBullets(frametime);
+  //   game.UpdateAsteroids(frametime);
+  //
+  //   game.AsteroidSpawner(GetTime());
+  // } else if (game.UpdateLobbyStatus(gr.room.players)) {
+  //   game.NewGame(gr.room.players);
+  //   game.RestartLobby();
+  // }
+}
+
 void Server::handleJoinRoom(Client &client) {
   bool status;
   uint32_t read_room_id;
@@ -482,7 +508,21 @@ void Server::handleJoinRoom(Client &client) {
           client.player_id = player_id;
           gr.room.players.at(player_id).state = PlayerInfo::NOT_READY;
           gr.clients.push_back(client.client_id);
-          gr.gameManager = GameManager(read_room_id, gr.room.players);
+          gr.gameManager = GameManager{gr.room.room_id, gr.room.players};
+          TraceLog(LOG_INFO, "1. NEW PLAYER");
+          if (gr.clients.size() >= 2) {
+            TraceLog(LOG_INFO, "2. NEW PLAYER");
+            gr.gameManager.new_round_timer = GetTime();
+            for (auto c : gr.clients) {
+              TraceLog(LOG_INFO, "3. NEW PLAYER");
+              todos.at(c).push([&](Client c1) {
+                TraceLog(LOG_INFO, "4. NEW PLAYER");
+                handleUpdateGameState(c1);
+                return true;
+              });
+            }
+            std::thread(&Server::new_game, this, gr.room).detach();
+          }
         }
         TraceLog(LOG_INFO, json(gr.room).dump().c_str());
         TraceLog(LOG_INFO, "Client player id=%lu", client.player_id);

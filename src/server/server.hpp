@@ -54,7 +54,6 @@ struct Server {
   uint32_t get_next_available_player_id(GameRoom &gr);
 
   void handle_connection(Client client);
-  void handle_game_logic();
   void handle_network_event(Client &client, uint32_t networkEvent);
   void client_error(Client &client);
   void disconnect_client(Client &client);
@@ -84,4 +83,5 @@ struct Server {
   void sendCheckConnection(Client &client);
 
   bool sendUpdateRoomState(Client &client);
+  void new_game(const Room r);
 };

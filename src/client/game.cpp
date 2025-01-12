@@ -48,6 +48,7 @@ struct Game {
         roomsPair(std::array<std::map<uint32_t, Room>, 2>()) {}
 
   void updateDrawFrame(void) {
+    TraceLog(LOG_INFO, "udf");
     if (networkManager.room_id == 0) {
       // Queue network work
       if (steady_clock::now() - last_room_fetch >
@@ -66,8 +67,7 @@ struct Game {
         });
       }
       setSelectedRoom();
-    } else {
-      UpdateGame();
+    } else if (gameManager().status == GameStatus::LOBBY) {
       if (gameManagersPair.at(game_manager_draw_idx).ReturnToRooms()) {
         TraceLog(LOG_INFO, "NET: push leave room");
         networkManager.todo.push([&]() {
@@ -85,8 +85,7 @@ struct Game {
           return status;
         });
       }
-      if (gameManager().status == GameStatus::LOBBY &&
-          rooms().at(networkManager.room_id)
+      if (rooms().at(networkManager.room_id)
                   .players.at(gameManager().player_id)
                   .state != PlayerInfo::READY &&
           IsKeyPressed(KEY_SPACE)) {
@@ -108,6 +107,8 @@ struct Game {
           return status;
         });
       }
+    } else {
+      UpdateGame();
     }
 
     BeginDrawing();
@@ -143,12 +144,14 @@ struct Game {
   }
 
   void UpdateGame() {
+    TraceLog(LOG_INFO, "0. Game status: %d", gameManager().status);
     gameManager().UpdateStatus();
-    // TraceLog(LOG_DEBUG, "Game status: %d", gameManager.status);
+    TraceLog(LOG_INFO, "1. Game status: %d", gameManager().status);
     if (gameManager().status == GameStatus::GAME) {
       float frametime = GetFrameTime();
 
       gameManager().ManageCollisions();
+      TraceLog(LOG_INFO, "2. Game status: %d", gameManager().status);
 
       auto &players = gameManager().players;
       auto &player = players.at(gameManager().player_id);
@@ -190,11 +193,15 @@ struct Game {
 
       // gameManager.AsteroidSpawner(GetTime());
     } else { // Lobby or end of Round
+      TraceLog(LOG_INFO, "3. Game status: %d", gameManager().status);
       if (gameManager().UpdateLobbyStatus(
               rooms().at(networkManager.room_id).players)) {
+        TraceLog(LOG_INFO, "4. Game status: %d", gameManager().status);
         // NewGame(GetReadyPlayers());
         gameManager().RestartLobby();
+        TraceLog(LOG_INFO, "5. Game status: %d", gameManager().status);
       }
+      TraceLog(LOG_INFO, "6. Game status: %d", gameManager().status);
     }
   }
 
