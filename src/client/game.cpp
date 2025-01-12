@@ -46,7 +46,7 @@ struct Game {
     if (networkManager.room_id == 0) {
       // Queue network work
       if (steady_clock::now() - last_room_fetch >
-          room_fetch_interval) {  // TODO: use timerfd
+          room_fetch_interval) { // TODO: use timerfd
         last_room_fetch = steady_clock::now();
         TraceLog(LOG_INFO, "NET: push fetch rooms");
         networkManager.todo.push([&]() {
@@ -74,72 +74,104 @@ struct Game {
     if (!networkManager.room_id) {
       graphicsManager.DrawRoomTitle();
       graphicsManager.DrawRoomSubTitle();
-      graphicsManager.DrawRooms(roomsPair.at(rooms_draw_idx), selected_room);
+      graphicsManager.DrawRooms(rooms(), selected_room);
       graphicsManager.DrawRoomBottomText();
     } else {
-      graphicsManager.DrawGame(gameManagersPair.at(game_manager_draw_idx));
+      // graphicsManager.DrawGame(gameManagersPair.at(game_manager_draw_idx));
+      if (gameManager().status == GameStatus::GAME) {
+        graphicsManager.DrawAsteroids(gameManager());
+        graphicsManager.DrawPlayers(gameManager());
+        graphicsManager.DrawBullets(gameManager());
+        graphicsManager.DrawTime(gameManager(), GetTime());
+      } else if (gameManager().status == GameStatus::END_OF_ROUND) {
+        graphicsManager.DrawWinnerText(gameManager());
+        graphicsManager.DrawNewRoundCountdown(gameManager());
+        graphicsManager.DrawTime(gameManager(), GetTime());
+      } else {
+        if (IsKeyPressed(KEY_SPACE)) {
+          TraceLog(LOG_INFO, "NET: push vote ready");
+          networkManager.todo.push([&]() {
+            bool status = networkManager.vote_ready(gameManager().players);
+            if (status) {
+              networkManager.flip_game_manager();
+            }
+            return status;
+          });
+        }
+        graphicsManager.DrawTitle(gameManager());
+        graphicsManager.DrawLobbyPlayers(gameManager());
+        graphicsManager.DrawReadyMessage();
+        graphicsManager.DrawTimer(gameManager());
+      }
     }
-
     EndDrawing();
   }
 
-  void UpdateGame(GameManager gameManager) {
-    gameManager.UpdateStatus();
+  void UpdateGame() {
+    gameManager().UpdateStatus();
     // TraceLog(LOG_DEBUG, "Game status: %d", gameManager.status);
-    if (gameManager.status == GameStatus::GAME) {
+    if (gameManager().status == GameStatus::GAME) {
       float frametime = GetFrameTime();
 
-      gameManager.ManageCollisions();
+      gameManager().ManageCollisions();
 
-      auto &players = gameManager.players;
-      auto &player = players.at(gameManager.player_id);
-      UpdatePlayer(players.at(gameManager.player_id), frametime);
+      auto &players = gameManager().players;
+      auto &player = players.at(gameManager().player_id);
+      UpdatePlayer(players.at(gameManager().player_id), frametime);
       TraceLog(LOG_INFO, "NET: push send movement");
       networkManager.todo.push([&]() {
         return networkManager.send_movement(player.position, player.velocity,
                                             player.rotation);
       });
 
-      if (players.at(gameManager.player_id).active && Shoot()) {
-        if (gameManager.AddBullet(players.at(gameManager.player_id))) {
+      if (players.at(gameManager().player_id).active && Shoot()) {
+        if (gameManager().AddBullet(players.at(gameManager().player_id))) {
           TraceLog(LOG_INFO, "NET: push shoot");
           networkManager.todo.push(
               [&]() { return networkManager.shoot_bullet(); });
         }
       }
 
-      gameManager.UpdateBullets(frametime);
-      gameManager.UpdateAsteroids(frametime);
+      gameManager().UpdateBullets(frametime);
+      gameManager().UpdateAsteroids(frametime);
 
       // gameManager.AsteroidSpawner(GetTime());
-    } else {  // Lobby or end of Round
-      if (gameManager.UpdateLobbyStatus()) {
+    } else { // Lobby or end of Round
+      if (gameManager().UpdateLobbyStatus()) {
         // NewGame(GetReadyPlayers());
-        gameManager.RestartLobby();
+        gameManager().RestartLobby();
       }
     }
   }
 
   void setSelectedRoom(const std::vector<Room> &rooms) {
-    if (IsKeyPressed(KEY_SPACE) &&
-        rooms.at(selected_room).players != Constants::PLAYERS_MAX) {
-      TraceLog(LOG_INFO, "NET: push join room");
-      networkManager.todo.push([&]() {
-        bool status =
-            networkManager.join_room(rooms.at(selected_room).room_id,
-                                     networkManager.gameManager().player_id);
-        if (status) {
-          networkManager.flip_game_manager();
-        }
-        return status;
-      });
-    } else if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) {
-      selected_room--;
-      selected_room %= rooms.size();
-    } else if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) {
-      selected_room++;
-      selected_room %= rooms.size();
+    try {
+      if (IsKeyPressed(KEY_SPACE) &&
+          rooms.at(selected_room).players != Constants::PLAYERS_MAX) {
+        TraceLog(LOG_INFO, "NET: push join room");
+        networkManager.todo.push([&]() {
+          try {
+            bool status = networkManager.join_room(
+                rooms.at(selected_room).room_id,
+                networkManager.gameManager().player_id);
+            if (status) {
+              networkManager.flip_game_manager();
+            }
+            return status;
+          } catch (const std::out_of_range &ex) {
+            return false;
+          }
+        });
+      } else if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) {
+        selected_room--;
+        selected_room %= rooms.size();
+      } else if (IsKeyPressed(KEY_DOWN) || IsKeyPressed(KEY_S)) {
+        selected_room++;
+        selected_room %= rooms.size();
+      }
+      // TraceLog(LOG_DEBUG, "SELECTED ROOM: %d", selected_room);
+    } catch (const std::out_of_range &ex) {
+      return;
     }
-    // TraceLog(LOG_DEBUG, "SELECTED ROOM: %d", selected_room);
   }
 };

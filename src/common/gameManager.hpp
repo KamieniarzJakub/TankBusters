@@ -48,7 +48,7 @@ struct GameManager {
 
   bool UpdateLobbyStatus();
   bool ReturnToRooms();
-  size_t GetReadyPlayers();
+  size_t GetReadyPlayers() const;
   size_t GetConnectedPlayers(PlayerConnection pc);
 };
 

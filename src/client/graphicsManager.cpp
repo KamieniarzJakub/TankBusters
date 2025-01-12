@@ -71,7 +71,7 @@ void GraphicsManager::DrawTimer(const GameManager &gm) {
 
 void GraphicsManager::DrawTitle(const GameManager &gm) {
   const char *text =
-      TextFormat("LOBBY[%d/%d]", gm.players.size(), Constants::PLAYERS_MAX);
+      TextFormat("LOBBY[%d/%d]", gm.GetReadyPlayers(), Constants::PLAYERS_MAX);
   Vector2 origin = MeasureTextEx(font, text, Constants::TEXT_WIN_SIZE,
                                  Constants::TEXT_SPACING);
   DrawTextPro(font, text, Vector2{(float)Constants::screenWidth / 2, 0},

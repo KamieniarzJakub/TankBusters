@@ -199,9 +199,9 @@ void GameManager::UpdatePlayersLobby() {
   // TraceLog(LOG_DEBUG, "PLAYERS READY FOR NEW ROUND: %d", ready_players);
 }
 
-size_t GameManager::GetReadyPlayers() {
+size_t GameManager::GetReadyPlayers() const {
   size_t i = 0;
-  for (auto &p : players) {
+  for (const auto &p : players) {
     if (p.state == PlayerInfo::READY)
       i++;
   }

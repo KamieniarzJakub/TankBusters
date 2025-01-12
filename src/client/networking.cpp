@@ -32,10 +32,8 @@ ClientNetworkManager::ClientNetworkManager(
     std::array<std::vector<Room>, 2> &roomsPair,
     std::atomic_uint8_t &rooms_draw_idx)
     : gameManagersPair(gameManagersPair),
-      game_manager_draw_idx(game_manager_draw_idx),
-      roomsPair(roomsPair),
-      rooms_draw_idx(rooms_draw_idx),
-      connected_to_host(host),
+      game_manager_draw_idx(game_manager_draw_idx), roomsPair(roomsPair),
+      rooms_draw_idx(rooms_draw_idx), connected_to_host(host),
       connected_over_port(port) {
   mainfd = connect_to(host, port);
   if (mainfd < 0) {
@@ -96,13 +94,13 @@ void ClientNetworkManager::perform_network_actions() {
   while (!this->_stop) {
     int nfds = epoll_wait(epollfd, events, MAX_EVENTS,
                           Constants::CONNECTION_TIMEOUT_MILISECONDS);
-    if (nfds == -1) {  // EPOLL WAIT ERROR
+    if (nfds == -1) { // EPOLL WAIT ERROR
       TraceLog(LOG_ERROR, "NET: Epoll wait error");
       close(epollfd);
       shutdown(mainfd, SHUT_RDWR);
       close(mainfd);
       return;
-    } else if (nfds == 0) {  // EPOLL WAIT TIMEOUT
+    } else if (nfds == 0) { // EPOLL WAIT TIMEOUT
       // RECONNECT
       // shutdown(mainfd, SHUT_RDWR);
       // close(mainfd);
@@ -145,7 +143,8 @@ bool ClientNetworkManager::reconnect(const char *host, const char *port,
       shutdown(mainfd, SHUT_RDWR);
       close(mainfd);
     }
-    if (status) break;
+    if (status)
+      break;
 
     using namespace std::chrono_literals;
     std::this_thread::sleep_for(std::chrono::milliseconds(distrib(gen)));
@@ -191,197 +190,215 @@ bool ClientNetworkManager::reconnect(const char *host, const char *port,
 
 void ClientNetworkManager::handle_network_event(uint32_t event) {
   switch ((NetworkEvents)event) {
-    case NetworkEvents::NoEvent:
-      TraceLog(LOG_WARNING, "NET: %s received",
+  case NetworkEvents::NoEvent:
+    TraceLog(LOG_WARNING, "NET: %s received",
+             network_event_to_string(event).c_str());
+    break;
+  case NetworkEvents::Disconnect:
+    TraceLog(LOG_WARNING, "NET: %s received",
+             network_event_to_string(event).c_str());
+    break;
+  case NetworkEvents::CheckConnection: {
+    if (!write_uint32(mainfd, NetworkEvents::CheckConnection)) {
+      TraceLog(LOG_WARNING, "NET: Cannot send %s",
                network_event_to_string(event).c_str());
-      break;
-    case NetworkEvents::Disconnect:
-      TraceLog(LOG_WARNING, "NET: %s received",
-               network_event_to_string(event).c_str());
-      break;
-    case NetworkEvents::CheckConnection: {
-      if (!write_uint32(mainfd, NetworkEvents::CheckConnection)) {
-        TraceLog(LOG_WARNING, "NET: Cannot send %s",
-                 network_event_to_string(event).c_str());
-        return;
-      }
-      break;
+      return;
     }
-    case NetworkEvents::EndRound:
-      gameManager().status = GameStatus::LOBBY;
-      flip_game_manager();
-      break;
-    case NetworkEvents::StartRound:
-      gameManager().status = GameStatus::GAME;
-      flip_game_manager();
-      break;
-    case NetworkEvents::GetClientId: {
-      uint32_t new_client_id;
-      bool status = read_uint32(mainfd, new_client_id);
-      if (!status) {
-        TraceLog(LOG_ERROR, "NET: Didn't receive full client id");
-        return;
-      }
-      if (new_client_id == 0) {
-        TraceLog(LOG_ERROR, "GAME: Received client id is 0");
-        return;
-      }
-      client_id = new_client_id;
-    } break;
-    case NetworkEvents::VoteReady: {
-      uint32_t ready_players;
-      bool status = read_uint32(mainfd, ready_players);
-      if (!status) {
-        TraceLog(LOG_ERROR, "NET: Couldn't receive ready players");
-        return;
-      }
-      rooms().at(room_id).ready_players = ready_players;
-      flip_rooms();
-    } break;
-    case NetworkEvents::PlayerMovement:
-      TraceLog(LOG_WARNING, "NET: %s received",
-               network_event_to_string(event).c_str());
-      break;
-    case NetworkEvents::ShootBullets: {
-      TraceLog(LOG_WARNING, "NET: %s received",
-               network_event_to_string(event).c_str());
-      // uint32_t value;
-      // bool status = read_uint32(mainfd, value);
-      // if (!status) {
-      //   TraceLog(LOG_ERROR, "NET: Couldn't receive whether bullet was shot");
-      //   return;
-      // }
-    } break;
-    case NetworkEvents::GetRoomList: {
-      json rooms_json;
-      bool status = read_json(mainfd, rooms_json, -1);
-      if (!status) {
-        TraceLog(LOG_ERROR, "NET: Couldn't receive json of rooms");
-        return;
-      }
-      try {
-        rooms() = rooms_json.template get<std::vector<Room>>();
-        flip_rooms();
-        return;
-      } catch (json::exception &ex) {
-        TraceLog(LOG_ERROR,
-                 "JSON: Couldn't deserialize json into vector<Room>");
-        return;
-      }
-    } break;
-    case NetworkEvents::JoinRoom:
-      TraceLog(LOG_WARNING, "NET: %s received",
-               network_event_to_string(event).c_str());
-      break;
-    case NetworkEvents::LeaveRoom: {
-      uint32_t player_id_that_left;
-      bool status = read_uint32(mainfd, player_id_that_left);
-      if (!status) {
-        return;
-      }
+    break;
+  }
+  case NetworkEvents::EndRound:
+    gameManager().status = GameStatus::LOBBY;
+    flip_game_manager();
+    break;
+  case NetworkEvents::StartRound:
+    gameManager().status = GameStatus::GAME;
+    flip_game_manager();
+    break;
+  case NetworkEvents::GetClientId: {
+    uint32_t new_client_id;
+    bool status = read_uint32(mainfd, new_client_id);
+    if (!status) {
+      TraceLog(LOG_ERROR, "NET: Didn't receive full client id");
+      return;
+    }
+    if (new_client_id == 0) {
+      TraceLog(LOG_ERROR, "GAME: Received client id is 0");
+      return;
+    }
+    client_id = new_client_id;
+  } break;
+  case NetworkEvents::VoteReady: {
+    bool status = expectEvent(mainfd, NetworkEvents::VoteReady);
+    if (!status) {
+      return;
+    }
 
-      for (auto &r : rooms()) {
-        r.players--;
-        for (auto &p : gameManager().players) {
-          if (p.state == PlayerInfo::READY) {
-            r.ready_players--;
-          }
-          p.state = PlayerInfo::NONE;
+    json players_json;
+    status = read_json(mainfd, players_json, -1);
+    if (!status) {
+      TraceLog(LOG_ERROR, "NET: Couldn't receive json of players");
+      return;
+    }
+    try {
+      gameManager().players = players_json.template get<std::vector<Player>>();
+    } catch (json::exception &ex) {
+      TraceLog(LOG_ERROR,
+               "JSON: Couldn't deserialize json into vector<Player>");
+      return;
+    }
+    flip_game_manager();
+    // uint32_t ready_players;
+    // bool status = read_uint32(mainfd, ready_players);
+    // if (!status) {
+    //   TraceLog(LOG_ERROR, "NET: Couldn't receive ready players");
+    //   return;
+    // }
+    // rooms().at(room_id).ready_players = ready_players;
+    // flip_rooms();
+  } break;
+  case NetworkEvents::PlayerMovement:
+    TraceLog(LOG_WARNING, "NET: %s received",
+             network_event_to_string(event).c_str());
+    break;
+  case NetworkEvents::ShootBullets: {
+    TraceLog(LOG_WARNING, "NET: %s received",
+             network_event_to_string(event).c_str());
+    // uint32_t value;
+    // bool status = read_uint32(mainfd, value);
+    // if (!status) {
+    //   TraceLog(LOG_ERROR, "NET: Couldn't receive whether bullet was shot");
+    //   return;
+    // }
+  } break;
+  case NetworkEvents::GetRoomList: {
+    json rooms_json;
+    bool status = read_json(mainfd, rooms_json, -1);
+    if (!status) {
+      TraceLog(LOG_ERROR, "NET: Couldn't receive json of rooms");
+      return;
+    }
+    try {
+      rooms() = rooms_json.template get<std::vector<Room>>();
+      flip_rooms();
+      return;
+    } catch (json::exception &ex) {
+      TraceLog(LOG_ERROR, "JSON: Couldn't deserialize json into vector<Room>");
+      return;
+    }
+  } break;
+  case NetworkEvents::JoinRoom:
+    TraceLog(LOG_WARNING, "NET: %s received",
+             network_event_to_string(event).c_str());
+    break;
+  case NetworkEvents::LeaveRoom: {
+    uint32_t player_id_that_left;
+    bool status = read_uint32(mainfd, player_id_that_left);
+    if (!status) {
+      return;
+    }
+
+    for (auto &r : rooms()) {
+      r.players--;
+      for (auto &p : gameManager().players) {
+        if (p.state == PlayerInfo::READY) {
+          r.ready_players--;
         }
+        p.state = PlayerInfo::NONE;
       }
+    }
 
-      flip_rooms();
-      flip_game_manager();  // FIXME: ENDED HERE
+    flip_rooms();
+    flip_game_manager(); // FIXME: ENDED HERE
 
-    } break;
-    case NetworkEvents::UpdateGameState: {
-      json game_state_json;
-      bool status = read_json(mainfd, game_state_json, -1);
-      if (!status) {
-        TraceLog(LOG_ERROR, "NET: Couldn't receive json of game state");
-        return;
-      }
+  } break;
+  case NetworkEvents::UpdateGameState: {
+    json game_state_json;
+    bool status = read_json(mainfd, game_state_json, -1);
+    if (!status) {
+      TraceLog(LOG_ERROR, "NET: Couldn't receive json of game state");
+      return;
+    }
 
-      try {
-        gameManager() = game_state_json.template get<GameManager>();
-        auto &draw_gm_mgr = gameManagersPair.at(game_manager_draw_idx);
-        gameManager().players = draw_gm_mgr.players;
-        gameManager().asteroids = draw_gm_mgr.asteroids;
-        gameManager().bullets = draw_gm_mgr.bullets;
-        flip_game_manager();
-        return;
-      } catch (json::exception &ex) {
-        TraceLog(LOG_ERROR, "JSON: Couldn't deserialize json into GameManager");
-        return;
-      }
-    } break;
-    case NetworkEvents::UpdateRoomState: {
-      TraceLog(LOG_WARNING, "NET: %s received",
-               network_event_to_string(event).c_str());
-      // json room_state_json;
-      // bool status = read_json(mainfd, room_state_json, -1);
-      // if (!status) {
-      //   TraceLog(LOG_ERROR, "NET: Couldn't receive json of room state");
-      //   return;
-      // }
-    } break;
-    case NetworkEvents::UpdatePlayers: {
-      json players_json;
-      bool status = read_json(mainfd, players_json, -1);
-      if (!status) {
-        TraceLog(LOG_ERROR, "NET: Couldn't receive json of players");
-        return;
-      }
-      try {
-        auto players = players_json.template get<std::vector<Player>>();
-        gameManager() = gameManagersPair.at(game_manager_draw_idx);
-        gameManager().players = players;
-        flip_game_manager();
-      } catch (json::exception &ex) {
-        TraceLog(LOG_ERROR,
-                 "JSON: Couldn't deserialize json into vector<Player>");
-        return;
-      }
-    } break;
-    case NetworkEvents::UpdateAsteroids: {
-      json asteroids_json;
-      bool status = read_json(mainfd, asteroids_json, -1);
-      if (!status) {
-        TraceLog(LOG_ERROR, "NET: Couldn't receive json of players");
-        return;
-      }
-      try {
-        auto asteroids = asteroids_json.template get<std::vector<Asteroid>>();
-        gameManager() = gameManagersPair.at(game_manager_draw_idx);
-        gameManager().asteroids = asteroids;
-        flip_game_manager();
-      } catch (json::exception &ex) {
-        TraceLog(LOG_ERROR,
-                 "JSON: Couldn't deserialize json into vector<Asteroid>");
-        return;
-      }
-    } break;
-    case NetworkEvents::UpdateBullets: {
-      json bullets_json;
-      bool status = read_json(mainfd, bullets_json, -1);
-      if (!status) {
-        TraceLog(LOG_ERROR, "NET: Couldn't receive json of players");
-        return;
-      }
-      try {
-        auto bullets = bullets_json.template get<std::vector<Bullet>>();
-        gameManager() = gameManagersPair.at(game_manager_draw_idx);
-        gameManager().bullets = bullets;
-        flip_game_manager();
-      } catch (json::exception &ex) {
-        TraceLog(LOG_ERROR,
-                 "JSON: Couldn't deserialize json into vector<Bullet>");
-        return;
-      }
-    } break;
-    default:
-      TraceLog(LOG_WARNING, "Unknown NetworkEvent received");
-      break;
+    try {
+      gameManager() = game_state_json.template get<GameManager>();
+      auto &draw_gm_mgr = gameManagersPair.at(game_manager_draw_idx);
+      gameManager().players = draw_gm_mgr.players;
+      gameManager().asteroids = draw_gm_mgr.asteroids;
+      gameManager().bullets = draw_gm_mgr.bullets;
+      flip_game_manager();
+      return;
+    } catch (json::exception &ex) {
+      TraceLog(LOG_ERROR, "JSON: Couldn't deserialize json into GameManager");
+      return;
+    }
+  } break;
+  case NetworkEvents::UpdateRoomState: {
+    TraceLog(LOG_WARNING, "NET: %s received",
+             network_event_to_string(event).c_str());
+    // json room_state_json;
+    // bool status = read_json(mainfd, room_state_json, -1);
+    // if (!status) {
+    //   TraceLog(LOG_ERROR, "NET: Couldn't receive json of room state");
+    //   return;
+    // }
+  } break;
+  case NetworkEvents::UpdatePlayers: {
+    json players_json;
+    bool status = read_json(mainfd, players_json, -1);
+    if (!status) {
+      TraceLog(LOG_ERROR, "NET: Couldn't receive json of players");
+      return;
+    }
+    try {
+      auto players = players_json.template get<std::vector<Player>>();
+      gameManager() = gameManagersPair.at(game_manager_draw_idx);
+      gameManager().players = players;
+      flip_game_manager();
+    } catch (json::exception &ex) {
+      TraceLog(LOG_ERROR,
+               "JSON: Couldn't deserialize json into vector<Player>");
+      return;
+    }
+  } break;
+  case NetworkEvents::UpdateAsteroids: {
+    json asteroids_json;
+    bool status = read_json(mainfd, asteroids_json, -1);
+    if (!status) {
+      TraceLog(LOG_ERROR, "NET: Couldn't receive json of players");
+      return;
+    }
+    try {
+      auto asteroids = asteroids_json.template get<std::vector<Asteroid>>();
+      gameManager() = gameManagersPair.at(game_manager_draw_idx);
+      gameManager().asteroids = asteroids;
+      flip_game_manager();
+    } catch (json::exception &ex) {
+      TraceLog(LOG_ERROR,
+               "JSON: Couldn't deserialize json into vector<Asteroid>");
+      return;
+    }
+  } break;
+  case NetworkEvents::UpdateBullets: {
+    json bullets_json;
+    bool status = read_json(mainfd, bullets_json, -1);
+    if (!status) {
+      TraceLog(LOG_ERROR, "NET: Couldn't receive json of players");
+      return;
+    }
+    try {
+      auto bullets = bullets_json.template get<std::vector<Bullet>>();
+      gameManager() = gameManagersPair.at(game_manager_draw_idx);
+      gameManager().bullets = bullets;
+      flip_game_manager();
+    } catch (json::exception &ex) {
+      TraceLog(LOG_ERROR,
+               "JSON: Couldn't deserialize json into vector<Bullet>");
+      return;
+    }
+  } break;
+  default:
+    TraceLog(LOG_WARNING, "Unknown NetworkEvent received");
+    break;
   }
 }
 
@@ -435,7 +452,7 @@ bool ClientNetworkManager::get_rooms(std::vector<Room> &rooms) {
   }
 
   json rooms_json;
-  status = read_json(mainfd, rooms_json, -1);  // TODO: replace -1 with real max
+  status = read_json(mainfd, rooms_json, -1); // TODO: replace -1 with real max
   if (!status) {
     TraceLog(LOG_ERROR, "NET: Couldn't receive json of vector<Rooms>");
     return false;
@@ -590,7 +607,8 @@ bool ClientNetworkManager::fetch_room_state(uint32_t fetch_room_id,
 
   bool status;
   status = setEvent(mainfd, NetworkEvents::UpdateRoomState);
-  if (!status) return false;
+  if (!status)
+    return false;
 
   status = write_uint32(mainfd, fetch_room_id);
   if (!status) {
@@ -599,7 +617,8 @@ bool ClientNetworkManager::fetch_room_state(uint32_t fetch_room_id,
   }
 
   status = expectEvent(mainfd, NetworkEvents::UpdateRoomState);
-  if (!status) return false;
+  if (!status)
+    return false;
 
   json room_json = json(Room());
   status = read_json(mainfd, room_json, sizeof(room_json));
@@ -658,7 +677,8 @@ bool ClientNetworkManager::send_movement(Vector2 position, Vector2 velocity,
   }
 
   bool status = setEvent(mainfd, NetworkEvents::PlayerMovement);
-  if (!status) return false;
+  if (!status)
+    return false;
 
   status = write_json(mainfd, movement);
   if (!status) {
@@ -681,7 +701,8 @@ bool ClientNetworkManager::fetch_game_state(GameManager &gameManager) {
 
   bool status;
   status = setEvent(mainfd, NetworkEvents::UpdateGameState);
-  if (!status) return false;
+  if (!status)
+    return false;
 
   // status = write_uint32(fd, room_id);
   // if (!status) {
@@ -690,7 +711,8 @@ bool ClientNetworkManager::fetch_game_state(GameManager &gameManager) {
   // }
 
   status = expectEvent(mainfd, NetworkEvents::UpdateGameState);
-  if (!status) return false;
+  if (!status)
+    return false;
 
   json game_json = json(GameManager());
   status = read_json(mainfd, game_json, sizeof(game_json));
@@ -716,7 +738,8 @@ bool ClientNetworkManager::fetch_players(std::vector<Player> &players) {
 
   bool status;
   status = setEvent(mainfd, NetworkEvents::UpdatePlayers);
-  if (!status) return false;
+  if (!status)
+    return false;
 
   // TODO: Possibly unnecessary
   // status = write_uint32(fd, room_id);
@@ -726,7 +749,8 @@ bool ClientNetworkManager::fetch_players(std::vector<Player> &players) {
   // }
 
   status = expectEvent(mainfd, NetworkEvents::UpdatePlayers);
-  if (!status) return false;
+  if (!status)
+    return false;
 
   json players_json =
       json(std::vector<Player>(Constants::PLAYERS_MAX, Player()));
@@ -753,7 +777,8 @@ bool ClientNetworkManager::fetch_asteroids(std::vector<Asteroid> &asteroids) {
 
   bool status;
   status = setEvent(mainfd, NetworkEvents::UpdateAsteroids);
-  if (!status) return false;
+  if (!status)
+    return false;
 
   // TODO: Possibly unnecessary
   // status = write_uint32(fd, room_id);
@@ -763,7 +788,8 @@ bool ClientNetworkManager::fetch_asteroids(std::vector<Asteroid> &asteroids) {
   // }
 
   status = expectEvent(mainfd, NetworkEvents::UpdateAsteroids);
-  if (!status) return false;
+  if (!status)
+    return false;
 
   json asteroids_json =
       json(std::vector<Asteroid>(Constants::ASTEROIDS_MAX, Asteroid()));
@@ -791,7 +817,8 @@ bool ClientNetworkManager::fetch_bullets(std::vector<Bullet> &bullets) {
 
   bool status;
   status = setEvent(mainfd, NetworkEvents::UpdateBullets);
-  if (!status) return false;
+  if (!status)
+    return false;
 
   // TODO: Possibly unnecessary
   // status = write_uint32(fd, room_id);
@@ -801,7 +828,8 @@ bool ClientNetworkManager::fetch_bullets(std::vector<Bullet> &bullets) {
   // }
 
   status = expectEvent(mainfd, NetworkEvents::UpdateBullets);
-  if (!status) return false;
+  if (!status)
+    return false;
 
   json bullets_json = json(std::vector<Bullet>(
       Constants::BULLETS_PER_PLAYER * Constants::PLAYERS_MAX, Bullet()));
@@ -823,10 +851,12 @@ bool ClientNetworkManager::fetch_bullets(std::vector<Bullet> &bullets) {
 bool ClientNetworkManager::shoot_bullet() {
   bool status;
   status = setEvent(mainfd, NetworkEvents::ShootBullets);
-  if (!status) return false;
+  if (!status)
+    return false;
 
   status = expectEvent(mainfd, NetworkEvents::ShootBullets);
-  if (!status) return false;
+  if (!status)
+    return false;
 
   uint32_t bullet_shot;
   status = read_uint32(mainfd, bullet_shot);
@@ -843,14 +873,43 @@ bool ClientNetworkManager::shoot_bullet() {
   return status;
 }
 
+bool ClientNetworkManager::vote_ready(std::vector<Player> &players) {
+  bool status;
+
+  status = setEvent(mainfd, NetworkEvents::VoteReady);
+  if (!status)
+    return false;
+
+  status = expectEvent(mainfd, NetworkEvents::VoteReady);
+  if (!status)
+    return false;
+
+  json players_json;
+  status = read_json(mainfd, players_json, -1);
+  if (!status) {
+    TraceLog(LOG_ERROR, "NET: Couldn't receive json of players");
+    return false;
+  }
+  try {
+    players = players_json.template get<std::vector<Player>>();
+  } catch (json::exception &ex) {
+    TraceLog(LOG_ERROR, "JSON: Couldn't deserialize json into vector<Player>");
+    return false;
+  }
+
+  return status;
+}
+
 bool ClientNetworkManager::vote_ready(uint32_t &ready_players) {
   bool status;
 
   status = setEvent(mainfd, NetworkEvents::VoteReady);
-  if (!status) return false;
+  if (!status)
+    return false;
 
   status = expectEvent(mainfd, NetworkEvents::VoteReady);
-  if (!status) return false;
+  if (!status)
+    return false;
 
   status = read_uint32(mainfd, ready_players);
   if (!status) {
@@ -863,7 +922,8 @@ bool ClientNetworkManager::vote_ready(uint32_t &ready_players) {
 bool ClientNetworkManager::handle_end_round(uint32_t &winner_player_id) {
   bool status;
   status = expectEvent(mainfd, NetworkEvents::EndRound);
-  if (!status) return false;
+  if (!status)
+    return false;
 
   status = read_uint32(mainfd, winner_player_id);
   if (!status) {
@@ -878,7 +938,8 @@ bool ClientNetworkManager::handle_connection_check() {
   bool status;
 
   status = expectEvent(mainfd, NetworkEvents::CheckConnection);
-  if (!status) return false;
+  if (!status)
+    return false;
 
   status = setEvent(mainfd, NetworkEvents::CheckConnection);
   return status;

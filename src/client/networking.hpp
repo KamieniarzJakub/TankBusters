@@ -84,6 +84,7 @@ struct ClientNetworkManager {
   // Player
   bool get_new_client_id(uint32_t &new_client_id);
   bool vote_ready(uint32_t &ready_players);
+  bool vote_ready(std::vector<Player> &players);
   bool send_movement(Vector2 position, Vector2 velocity, float rotation);
   bool shoot_bullet();
 
