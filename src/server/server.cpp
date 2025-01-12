@@ -135,7 +135,7 @@ void Server::sendCheckConnection(Client &client) {
 }
 
 void Server::handle_connection(Client client) {
-  todos[client.client_id];
+  auto &todo = todos[client.client_id];
 
   const size_t MAX_EVENTS = 2;
   epoll_event ee, events[MAX_EVENTS];
@@ -147,7 +147,7 @@ void Server::handle_connection(Client client) {
     return;
   }
 
-  ee.events = EPOLLIN | EPOLLOUT;
+  ee.events = EPOLLIN;
   ee.data.fd = client.fd_main;
   if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client.fd_main, &ee) == -1) {
     close(epoll_fd);
@@ -157,16 +157,15 @@ void Server::handle_connection(Client client) {
     return;
   }
 
-  // ee.events = EPOLLOUT;
-  // ee.data.fd = client.fd_main;
-  // if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client.fd_main, &ee) == -1) {
-  //   close(epoll_fd);
-  //   TraceLog(LOG_ERROR,
-  //            "Couldn't instantiate epoll for client_id=%ld,streamfd=%d",
-  //            client.client_id, client.fd_main);
-  //   disconnect_client(client);
-  //   return;
-  // }
+  ee.events = EPOLLIN;
+  ee.data.fd = todo.get_event_fd();
+  if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, todo.get_event_fd(), &ee) == -1) {
+    close(epoll_fd);
+    TraceLog(LOG_ERROR, "Couldn't instantiate epoll for client_id=%ld,fd=%d",
+             client.client_id, client.fd_main);
+    disconnect_client(client);
+    return;
+  }
 
   std::time(&client.last_response);  // Set last response to current time
   while (client.fd_main > 2) {
@@ -194,15 +193,8 @@ void Server::handle_connection(Client client) {
       // sendCheckConnection(client); // FIXME:
     }
     for (int n = 0; n < nfds; n++) {
-      if (events[n].events & EPOLLOUT) {
-        try {
-          if (!todos.at(client.client_id).isEmpty()) {
-            auto f = todos.at(client.client_id).pop();
-            f();
-          }
-
-        } catch (const std::out_of_range &ex) {
-        }
+      if (events[n].data.fd == todo.get_event_fd()) {
+        todo.pop()();
 
         // handleUpdateAsteroids(client);
         // handleUpdatePlayers(client);
@@ -210,7 +202,7 @@ void Server::handle_connection(Client client) {
         // if game/round end
         // FIXME: send END ROUND
         // FIXME: send START ROUND
-      } else if (events[n].events & EPOLLIN) {
+      } else if (events[n].data.fd == client.fd_main) {
         uint32_t network_event;
         bool status = read_uint32(client.fd_main, network_event);
         if (status) {
@@ -420,7 +412,8 @@ void Server::handleJoinRoom(Client &client) {
       status = gr.room.players < Constants::PLAYERS_MAX &&
                gr.clients.size() < Constants::PLAYERS_MAX;
       if (status) {
-        gr.room.players++;
+        client.player_id = gr.room.players++;  // FIXME: what if one client
+                                               // leaves, another connects?
         gr.clients.push_back(client.client_id);
         gr.gameManager = GameManager(gr.room.room_id, gr.room.players);
       }
@@ -435,6 +428,13 @@ void Server::handleJoinRoom(Client &client) {
   status = write_uint32(client.fd_main, (uint32_t)status * room_id);
   if (!status) {
     TraceLog(LOG_WARNING, "Couldn't send joined room id to client_id=%ld,fd=%d",
+             client.client_id, client.fd_main);
+    client_error(client);
+  }
+
+  status = write_uint32(client.fd_main, (uint32_t)status * client.player_id);
+  if (!status) {
+    TraceLog(LOG_WARNING, "Couldn't send player id to client_id=%ld,fd=%d",
              client.client_id, client.fd_main);
     client_error(client);
   }
@@ -466,6 +466,17 @@ void Server::handleLeaveRoom(Client &client) {
              "client_id=%ld,fd=%d",
              client.room_id, client.client_id, client.fd_main);
     client_error(client);
+    return;
+  }
+
+  serverSetEvent(client, NetworkEvents::LeaveRoom);
+  bool status = write_uint32(client.fd_main, client.player_id);
+  if (!status) {
+    TraceLog(LOG_WARNING,
+             "Couldn't send leaving room confirmation to "
+             "client_id=%ld,fd=%d",
+             client.room_id, client.client_id, client.fd_main);
+    client_error(client);
   }
 
   // broadcast who left
@@ -473,6 +484,9 @@ void Server::handleLeaveRoom(Client &client) {
     auto &gr = games.at(client.room_id);
     std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
     for (auto c : gr.clients) {
+      if (c == client.client_id) {
+        continue;
+      }
       auto &broadcast_client = clients.at(c);
       todos.at(c).push([&]() {
         serverSetEvent(broadcast_client, NetworkEvents::LeaveRoom);

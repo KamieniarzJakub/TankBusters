@@ -45,14 +45,16 @@ struct Game {
   void updateDrawFrame(void) {
     if (networkManager.room_id == 0) {
       // Queue network work
-      if (steady_clock::now() - last_room_fetch > room_fetch_interval) {
+      if (steady_clock::now() - last_room_fetch >
+          room_fetch_interval) {  // TODO: use timerfd
+        last_room_fetch = steady_clock::now();
+        TraceLog(LOG_INFO, "NET: push fetch rooms");
         networkManager.todo.push([&]() {
           bool status = networkManager.get_rooms(networkManager.rooms());
           if (status) {
             // Automatically change drawing to the other room
             networkManager.flip_rooms();
           }
-          last_room_fetch = steady_clock::now();
           return status;
         });
       }
@@ -60,9 +62,8 @@ struct Game {
     } else {
       UpdateGame(gameManager());
       if (gameManagersPair.at(game_manager_draw_idx).ReturnToRooms()) {
-        networkManager.todo.push([&]() {
-          return networkManager.leave_room();
-        });
+        TraceLog(LOG_INFO, "NET: push leave room");
+        networkManager.todo.push([&]() { return networkManager.leave_room(); });
       }
     }
 
@@ -93,6 +94,7 @@ struct Game {
       auto &players = gameManager.players;
       auto &player = players.at(gameManager.player_id);
       UpdatePlayer(players.at(gameManager.player_id), frametime);
+      TraceLog(LOG_INFO, "NET: push send movement");
       networkManager.todo.push([&]() {
         return networkManager.send_movement(player.position, player.velocity,
                                             player.rotation);
@@ -100,6 +102,7 @@ struct Game {
 
       if (players.at(gameManager.player_id).active && Shoot()) {
         if (gameManager.AddBullet(players.at(gameManager.player_id))) {
+          TraceLog(LOG_INFO, "NET: push shoot");
           networkManager.todo.push(
               [&]() { return networkManager.shoot_bullet(); });
         }
@@ -120,6 +123,7 @@ struct Game {
   void setSelectedRoom(const std::vector<Room> &rooms) {
     if (IsKeyPressed(KEY_SPACE) &&
         rooms.at(selected_room).players != Constants::PLAYERS_MAX) {
+      TraceLog(LOG_INFO, "NET: push join room");
       networkManager.todo.push([&]() {
         bool status =
             networkManager.join_room(rooms.at(selected_room).room_id,
