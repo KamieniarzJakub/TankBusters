@@ -32,19 +32,25 @@ public:
 
   void push(T item) {
     std::cout << "push " << efd << std::endl;
-    std::unique_lock<std::mutex> lock(mutex);
-    queue.push(item);
+    {
+      std::unique_lock<std::mutex> lock(mutex);
+      queue.push(item);
+    }
     const uint64_t one = 1;
     write(efd, &one, sizeof(one));
+    std::cout << "push written " << efd << std::endl;
   }
 
   T pop() {
     std::cout << "pop " << efd << std::endl;
-    std::unique_lock<std::mutex> lock(mutex);
+    {
+      std::unique_lock<std::mutex> lock(mutex);
+    }
     uint64_t one;
     read(efd, &one, sizeof(one));
     T item = queue.front();
     queue.pop();
+    std::cout << "pop read " << efd << std::endl;
     return item;
   }
 };

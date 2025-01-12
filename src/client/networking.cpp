@@ -82,11 +82,6 @@ void ClientNetworkManager::perform_network_actions() {
     return;
   }
 
-  uint64_t a;
-  if (read(todo.get_event_fd(), &a, sizeof(a))) {
-    std::cout << "wtf" << std::endl;
-  }
-
   ee.events = EPOLLIN;
   ee.data.fd = todo.get_event_fd();
   if (epoll_ctl(epollfd, EPOLL_CTL_ADD, todo.get_event_fd(), &ee) == -1) {
@@ -98,8 +93,10 @@ void ClientNetworkManager::perform_network_actions() {
   }
 
   while (!this->_stop) {
+    TraceLog(LOG_INFO, "NET: waiting on epoll");
     int nfds = epoll_wait(epollfd, events, MAX_EVENTS,
                           Constants::CONNECTION_TIMEOUT_MILISECONDS);
+    TraceLog(LOG_INFO, "NET: unwait epoll");
     if (nfds == -1) { // EPOLL WAIT ERROR
       TraceLog(LOG_ERROR, "NET: Epoll wait error");
       close(epollfd);
@@ -337,7 +334,6 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
     }
   } break;
   case NetworkEvents::UpdateRoomState: {
-
     // TraceLog(LOG_WARNING, "NET: %s received",
     //          network_event_to_string(event).c_str());
     json room_state_json;
@@ -346,22 +342,23 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
       TraceLog(LOG_ERROR, "NET: Couldn't receive json of room state");
       return;
     }
-    for (auto r = rooms().begin(); r != rooms().end(); r++) {
-      if (r->first == room_id) {
-        try {
-          TraceLog(LOG_INFO, "NET: received json of room state");
-          auto room =
-              room_state_json.template get<Room>(); // FIXME: proper update
-          rooms() = roomsPair.at(rooms_draw_idx);
-          rooms().at(room_id) = room;
-          flip_rooms();
-          rooms().at(room_id) = room;
-        } catch (json::exception &ex) {
-          TraceLog(LOG_ERROR,
-                   "JSON: Couldn't deserialize json into vector<Player>");
-        }
-      }
+    // for (auto r = rooms().begin(); r != rooms().end(); r++) {
+    // if (r->first == room_id) {
+    try {
+      TraceLog(LOG_INFO, "NET: received json of room state");
+      auto room = room_state_json.template get<Room>(); // FIXME: proper update
+      rooms() = roomsPair.at(rooms_draw_idx);
+      rooms().at(room_id) = room;
+      flip_rooms();
+      rooms().at(room_id) = room;
+      TraceLog(LOG_INFO, "Finished update room state 1");
+    } catch (json::exception &ex) {
+      TraceLog(LOG_ERROR,
+               "JSON: Couldn't deserialize json into vector<Player>");
+    } catch (const std::out_of_range &ex) {
     }
+    // }
+    TraceLog(LOG_INFO, "Finished update room state 2");
   } break;
   case NetworkEvents::UpdatePlayers: {
     json players_json;
@@ -685,6 +682,8 @@ bool ClientNetworkManager::leave_room() {
   }
 
   this->room_id = 0;
+  TraceLog(LOG_INFO, "left");
+
   return true;
 }
 

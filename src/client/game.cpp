@@ -7,6 +7,7 @@
 #include <iostream>
 
 #include "gameManager.hpp"
+#include "gameStatus.hpp"
 #include "graphicsManager.hpp"
 #include "networking.hpp"
 #include "player.hpp"
@@ -70,20 +71,39 @@ struct Game {
       if (gameManagersPair.at(game_manager_draw_idx).ReturnToRooms()) {
         TraceLog(LOG_INFO, "NET: push leave room");
         networkManager.todo.push([&]() {
-          bool status = networkManager.leave_room(); // FIXME:
+          bool status = networkManager.leave_room();
           if (status) {
             std::cout << json(roomsPair).dump() << std::endl;
 
-            networkManager.rooms()
-                .at(networkManager.room_id)
-                .players.at(networkManager.gameManager().player_id)
-                .state = PlayerInfo::NONE;
+            std::map<uint32_t, Room> rooms;
+            networkManager.get_rooms(rooms);
+
+            networkManager.rooms() = rooms;
             networkManager.flip_rooms();
-            networkManager.rooms() = rooms();
-            networkManager.rooms()
-                .at(networkManager.room_id)
-                .players.at(networkManager.gameManager().player_id)
-                .state = PlayerInfo::NONE;
+            networkManager.rooms() = rooms;
+          }
+          return status;
+        });
+      }
+      if (gameManager().status == GameStatus::LOBBY &&
+          rooms().at(networkManager.room_id)
+                  .players.at(gameManager().player_id)
+                  .state != PlayerInfo::READY &&
+          IsKeyPressed(KEY_SPACE)) {
+        TraceLog(LOG_INFO, "NET: push vote ready");
+        networkManager.todo.push([&]() {
+          std::vector<PlayerShortInfo> player_status;
+          TraceLog(LOG_INFO, "NET: sending vote ready");
+          bool status = networkManager.vote_ready(player_status);
+          if (status) {
+            TraceLog(LOG_INFO, "GAME: player status %s",
+                     json(player_status).dump().c_str());
+            networkManager.rooms().at(networkManager.room_id).players =
+                player_status;
+            networkManager.flip_rooms();
+            networkManager.rooms().at(networkManager.room_id).players =
+                player_status;
+            // networkManager.flip_game_manager();
           }
           return status;
         });
@@ -111,25 +131,6 @@ struct Game {
         graphicsManager.DrawNewRoundCountdown(gameManager());
         graphicsManager.DrawTime(gameManager(), GetTime());
       } else {
-        if (IsKeyPressed(KEY_SPACE)) {
-          TraceLog(LOG_INFO, "NET: push vote ready");
-          networkManager.todo.push([&]() {
-            std::vector<PlayerShortInfo> player_status;
-            TraceLog(LOG_INFO, "NET: sending vote ready");
-            bool status = networkManager.vote_ready(player_status);
-            if (status) {
-              TraceLog(LOG_INFO, "GAME: player status %s",
-                       json(player_status).dump().c_str());
-              networkManager.rooms().at(networkManager.room_id).players =
-                  player_status;
-              networkManager.flip_rooms();
-              networkManager.rooms().at(networkManager.room_id).players =
-                  player_status;
-              networkManager.flip_game_manager();
-            }
-            return status;
-          });
-        }
         // TraceLog(LOG_INFO,
         //          json(rooms().at(networkManager.room_id)).dump().c_str());
         graphicsManager.DrawTitle(rooms().at(networkManager.room_id));
