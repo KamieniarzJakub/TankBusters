@@ -148,9 +148,9 @@ void GraphicsManager::DrawBullets(const GameManager &gm) {
   }
 }
 
-void GraphicsManager::DrawTime(const GameManager &gm) {
+void GraphicsManager::DrawTime(const GameManager &gm, const Room &r) {
   auto time = steady_clock::now();
-  if (gm.status == GameStatus::END_OF_ROUND)
+  if (r.status == GameStatus::END_OF_ROUND)
     time = gm.endRoundTime;
 
   const char *text = TextFormat("%00.2f", time - gm.startRoundTime);
@@ -194,22 +194,22 @@ void GraphicsManager::DrawNewRoundCountdown(const GameManager &gm) {
       Constants::TEXT_SIZE, Constants::TEXT_SPACING, RAYWHITE);
 }
 
-void GraphicsManager::DrawGame(GameManager gameManager, Room room) {
-  if (gameManager.status == GameStatus::GAME ||
-      gameManager.status == GameStatus::END_OF_ROUND) {
-    DrawAsteroids(gameManager);
-    DrawPlayers(gameManager);
-    DrawBullets(gameManager);
-    if (gameManager.status == GameStatus::END_OF_ROUND) {
-      DrawWinnerText(gameManager);
-      DrawNewRoundCountdown(gameManager);
-    }
-    DrawTime(gameManager);
-  } else {
+void GraphicsManager::DrawGame(const GameManager &gameManager,
+                               const Room &room) {
+  if (room.status == GameStatus::LOBBY) {
     DrawTitle(room);
     DrawLobbyPlayers(room);
     DrawReadyMessage();
     DrawTimer(gameManager.game_start_time);
+  } else {
+    DrawAsteroids(gameManager);
+    DrawPlayers(gameManager);
+    DrawBullets(gameManager);
+    if (room.status == GameStatus::END_OF_ROUND) {
+      DrawWinnerText(gameManager);
+      DrawNewRoundCountdown(gameManager);
+    }
+    DrawTime(gameManager, room);
   }
 }
 
@@ -253,11 +253,11 @@ void GraphicsManager::DrawRoomBottomText() {
               Constants::TEXT_SPACING, RAYWHITE);
 }
 
-void GraphicsManager::DrawRooms(const std::map<uint32_t, Room> &rooms,
+void GraphicsManager::DrawRooms(const std::vector<Room> &rooms,
                                 uint32_t selected_room_index_not_id) {
   uint32_t i = 0;
   for (const auto &rp : rooms) {
-    const auto &room = rp.second;
+    const auto &room = rp;
     std::string room_status =
         (room.status == GameStatus::GAME) ? "IN GAME" : "LOBBY";
     Color room_color = Constants::NOT_CONNECTED_GRAY;

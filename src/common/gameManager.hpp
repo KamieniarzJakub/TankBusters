@@ -2,7 +2,6 @@
 
 #include "asteroid.hpp"
 #include "bullet.hpp"
-#include "gameStatus.hpp"
 #include "player.hpp"
 #include "room.hpp"
 #include <chrono>
@@ -20,8 +19,7 @@ struct GameManager {
 
   uint32_t player_id;
   uint32_t room_id;
-  GameStatus status;
-  int _alive_players;
+  // int _alive_players;
   time_point<steady_clock> _spawnerTime;
   time_point<steady_clock> startRoundTime;
   time_point<steady_clock> endRoundTime;
@@ -30,11 +28,11 @@ struct GameManager {
   uint32_t game_start_time;
 
   GameManager();
-  GameManager(uint32_t room_id, std::vector<PlayerShortInfo> playerInfos);
+  GameManager(uint32_t room_id, std::vector<PlayerIdState> playerInfos);
   ~GameManager();
 
   // void NewGame(int players_in_game = 0);
-  void NewGame(std::vector<PlayerShortInfo> playerInfos);
+  void NewGame(std::vector<PlayerIdState> playerInfos);
 
   void UpdateStatus();
   void UpdateGameServer();
@@ -53,11 +51,10 @@ struct GameManager {
 
   void UpdatePlayersLobby();
 
-  bool ReturnToRooms();
-  size_t
-  GetReadyPlayers(const std::vector<PlayerShortInfo> &player_infos) const;
+  size_t GetReadyPlayers(const std::vector<PlayerIdState> &player_infos) const;
   // bool UpdateLobbyStatus(const std::vector<PlayerShortInfo> &player_infos);
 };
 
+bool ReturnToRooms();
 void to_json(json &j, const GameManager &gm);
 void from_json(const json &j, GameManager &gm);

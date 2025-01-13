@@ -6,12 +6,12 @@
 using namespace std::chrono;
 
 GameManager::GameManager() {
-  NewGame(std::vector<PlayerShortInfo>(Constants::PLAYERS_MAX));
+  NewGame(std::vector<PlayerIdState>(Constants::PLAYERS_MAX));
 }
 
 GameManager::~GameManager() {}
 
-void GameManager::NewGame(std::vector<PlayerShortInfo> playerInfos) {
+void GameManager::NewGame(std::vector<PlayerIdState> playerInfos) {
   asteroids = std::vector<Asteroid>(Constants::ASTEROIDS_MAX, Asteroid());
   players.clear();
   players.reserve(Constants::PLAYERS_MAX);
@@ -21,35 +21,34 @@ void GameManager::NewGame(std::vector<PlayerShortInfo> playerInfos) {
   }
   bullets = std::vector<Bullet>(
       Constants::BULLETS_PER_PLAYER * Constants::PLAYERS_MAX, Bullet());
-  status = GameStatus::LOBBY;
   _spawnerTime = time_point<steady_clock>(0s);
-  _alive_players = GetReadyPlayers(playerInfos);
+  // _alive_players = GetReadyPlayers(playerInfos);
   startRoundTime = steady_clock::now();
   endRoundTime = time_point<steady_clock>(0s);
 }
 
-void GameManager::UpdateStatus() {
-  if (_alive_players > 1) {
-    status = GameStatus::GAME;
-    endRoundTime = steady_clock::now();
-  } else if (endRoundTime.time_since_epoch().count() > 0) {
-    status = GameStatus::END_OF_ROUND;
-    if (steady_clock::now() - endRoundTime >= Constants::NEW_ROUND_WAIT_TIME)
-      endRoundTime = time_point<steady_clock>(0s);
-  } else {
-    status = GameStatus::LOBBY;
-  }
-}
+// void GameManager::UpdateStatus() {
+//   if (_alive_players > 1) {
+//     status = GameStatus::GAME;
+//     endRoundTime = steady_clock::now();
+//   } else if (endRoundTime.time_since_epoch().count() > 0) {
+//     status = GameStatus::END_OF_ROUND;
+//     if (steady_clock::now() - endRoundTime >= Constants::NEW_ROUND_WAIT_TIME)
+//       endRoundTime = time_point<steady_clock>(0s);
+//   } else {
+//     status = GameStatus::LOBBY;
+//   }
+// }
 
-void GameManager::UpdatePlayers(duration<double> frametime) {
-  exit(1); // DO NOT USE
-  for (int i = 0; i < Constants::PLAYERS_MAX; i++) {
-    CheckMovementUpdatePlayer(players[i], frametime);
-    if (players[i].active && Shoot()) {
-      AddBullet(players[i]);
-    }
-  }
-}
+// void GameManager::UpdatePlayers(duration<double> frametime) {
+//   exit(1); // DO NOT USE
+//   for (int i = 0; i < Constants::PLAYERS_MAX; i++) {
+//     CheckMovementUpdatePlayer(players[i], frametime);
+//     if (players[i].active && Shoot()) {
+//       AddBullet(players[i]);
+//     }
+//   }
+// }
 
 void GameManager::UpdateBullets(duration<double> frametime) {
   for (int i = 0; i < Constants::PLAYERS_MAX * Constants::BULLETS_PER_PLAYER;
@@ -127,7 +126,7 @@ void GameManager::ManageCollisions() {
                                     players[l].position,
                                     Constants::PLAYER_SIZE / 3.0f)) {
             players[l].active = false;
-            _alive_players--;
+            // _alive_players--;
             bullets[k].active = false;
             break;
           }
@@ -141,7 +140,7 @@ void GameManager::ManageCollisions() {
                                 Constants::PLAYER_SIZE / 3.0f,
                                 asteroids[i].position, asteroids[i].size)) {
         players[j].active = false;
-        _alive_players--;
+        // _alive_players--;
         asteroids[i].active = false;
         SplitAsteroid(asteroids[i].position, asteroids[i].velocity,
                       float(asteroids[i].size) /
@@ -211,7 +210,7 @@ void GameManager::UpdatePlayersLobby() {
 }
 
 size_t GameManager::GetReadyPlayers(
-    const std::vector<PlayerShortInfo> &player_infos) const {
+    const std::vector<PlayerIdState> &player_infos) const {
   size_t i = 0;
   for (const auto &p : player_infos) {
     if (p.state == PlayerInfo::READY)
@@ -233,9 +232,8 @@ size_t GameManager::GetReadyPlayers(
 //   return false;
 // }
 
-bool GameManager::ReturnToRooms() {
-  return (status == GameStatus::LOBBY &&
-          (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_BACKSPACE)));
+bool ReturnToRooms() {
+  return ((IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_BACKSPACE)));
 }
 
 void GameManager::RestartLobby() {
@@ -246,7 +244,7 @@ void GameManager::RestartLobby() {
 }
 
 GameManager::GameManager(uint32_t room_id,
-                         std::vector<PlayerShortInfo> playerInfos)
+                         std::vector<PlayerIdState> playerInfos)
     : room_id(room_id) {
   NewGame(playerInfos);
 }
@@ -254,8 +252,7 @@ GameManager::GameManager(uint32_t room_id,
 void to_json(json &j, const GameManager &gm) {
   j = json{
       {"room_id", gm.room_id},
-      {"status", gm.status},
-      {"alive_players", gm._alive_players},
+      // {"alive_players", gm._alive_players},
       // {"new_round_timer", gm.new_round_timer}
   };
   // asteroids, players, bullets omitted
@@ -263,7 +260,6 @@ void to_json(json &j, const GameManager &gm) {
 
 void from_json(const json &j, GameManager &gm) {
   j.at("room_id").get_to(gm.room_id);
-  j.at("status").get_to(gm.status);
-  j.at("alive_players").get_to(gm._alive_players);
+  // j.at("alive_players").get_to(gm._alive_players);
   // j.at("new_round_timer").get_to(gm.new_round_timer);
 }

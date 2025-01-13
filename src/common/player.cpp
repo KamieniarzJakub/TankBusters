@@ -13,7 +13,7 @@ Player AddPlayer(int i) {
   return player;
 }
 
-void REALLYJUSTUPDATEPLAYER(Player &player, duration<double> frametime) {
+void CalculateUpdatePlayerMovement(Player &player, duration<double> frametime) {
 
   // Apply damping to velocity
   player.velocity =

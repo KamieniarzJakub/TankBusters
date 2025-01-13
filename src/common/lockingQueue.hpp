@@ -3,7 +3,6 @@
 #include <sys/eventfd.h>
 #include <unistd.h>
 
-#include <iostream>
 #include <mutex>
 #include <queue>
 #include <stdexcept>
@@ -20,7 +19,6 @@ public:
     if (efd == -1) {
       throw std::runtime_error{"Eventfd LockingQueue"};
     }
-    std::cout << "Eventfd " << efd << std::endl;
   }
   ~LockingQueue() {
     while (!queue.empty()) {

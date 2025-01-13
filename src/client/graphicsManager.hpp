@@ -18,37 +18,31 @@ struct GraphicsManager {
   GraphicsManager();
   ~GraphicsManager();
 
-  // game manager
-  void DrawAsteroids(const GameManager &gm);
-  void DrawPlayers(const GameManager &gm);
-  void DrawBullets(const GameManager &gm);
-  void DrawTime(const GameManager &gm);
-  void DrawWinnerText(const GameManager &gm);
-  void DrawNewRoundCountdown(const GameManager &gm);
+  // Draw main menu
+  void DrawRoomTitle();
+  void DrawRoomSubTitle();
+  void DrawRoomBottomText();
+  void DrawRooms(const std::vector<Room> &rooms,
+                 uint32_t selected_room_index_not_id);
 
-  // lobby manager
+  // Draw lobby
   void DrawTimer(uint32_t t);
   void DrawTitle(const Room &r);
   void DrawLobbyPlayers(const Room &r);
   void DrawReadyMessage();
   void DrawExitLobbyMessage();
+  void DrawTime(const GameManager &gm, const Room &r);
 
-  // player
+  // Draw Game
+  void DrawGame(const GameManager &gameManager, const Room &room);
+  void DrawAsteroids(const GameManager &gm);
+  void DrawPlayers(const GameManager &gm);
+  void DrawBullets(const GameManager &gm);
   void DrawPlayer(const Player &player);
-
-  // asteroids
   void DrawAsteroid(const Asteroid &asteroid);
-
-  // bullet
   void DrawBullet(const Bullet &bullet);
 
-  // Game
-  void DrawGame(GameManager gameManager, Room room);
-
-  // Room
-  void DrawRoomTitle();
-  void DrawRoomSubTitle();
-  void DrawRoomBottomText();
-  void DrawRooms(const std::map<uint32_t, Room> &rooms,
-                 uint32_t selected_room_id);
+  // Draw new round after game
+  void DrawWinnerText(const GameManager &gm);
+  void DrawNewRoundCountdown(const GameManager &gm);
 };

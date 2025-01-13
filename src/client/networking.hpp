@@ -19,7 +19,6 @@ struct ClientNetworkManager {
   int mainfd;
   int epollfd;
   uint32_t client_id = 0;
-  uint32_t room_id = 0;
 
   inline uint8_t get_networks_idx(std::atomic_uint8_t &draw_idx) {
     return !draw_idx.load();
@@ -27,34 +26,24 @@ struct ClientNetworkManager {
 
   std::array<GameManager, 2> &gameManagersPair;
   std::atomic_uint8_t &game_manager_draw_idx;
-  GameManager &gameManager() {
+  inline GameManager &gameManager() {
     return gameManagersPair.at(get_networks_idx(game_manager_draw_idx));
   }
+  void flip_game_manager();
 
-  void flip_game_manager() {
-    std::cout << " flip gm: ";
-    std::cout << static_cast<int>(game_manager_draw_idx.load()) << " ";
-    uint8_t expected = game_manager_draw_idx.load();
-    while (
-        !game_manager_draw_idx.compare_exchange_strong(expected, !expected)) {
-    }
-    std::cout << static_cast<int>(game_manager_draw_idx.load()) << std::endl;
-  }
-
-  std::array<std::map<uint32_t, Room>, 2> &roomsPair;
+  std::array<std::map<uint32_t, Room>, 2> &roomsMapPair;
   std::atomic_uint8_t &rooms_draw_idx;
-  std::map<uint32_t, Room> &rooms() {
-    return roomsPair.at(get_networks_idx(rooms_draw_idx));
+  inline std::map<uint32_t, Room> &rooms() {
+    return roomsMapPair.at(get_networks_idx(rooms_draw_idx));
   }
+  void flip_rooms();
 
-  void flip_rooms() {
-    std::cout << " flip rooms: ";
-    std::cout << static_cast<int>(rooms_draw_idx.load()) << " ";
-    uint8_t expected = rooms_draw_idx.load();
-    while (!rooms_draw_idx.compare_exchange_strong(expected, !expected)) {
-    }
-    std::cout << static_cast<int>(rooms_draw_idx.load()) << std::endl;
+  std::array<Room, 2> &joinedRoomPair;
+  std::atomic_uint8_t &joined_room_draw_idx;
+  Room &joinedRoom() {
+    return joinedRoomPair.at(get_networks_idx(joined_room_draw_idx));
   }
+  void flip_joined_room();
 
   std::atomic_bool _stop = false;
   std::thread main_thread;
@@ -65,8 +54,10 @@ struct ClientNetworkManager {
   ClientNetworkManager(const char *host, const char *port,
                        std::array<GameManager, 2> &gameManagersPair,
                        std::atomic_uint8_t &game_manager_draw_idx,
-                       std::array<std::map<uint32_t, Room>, 2> &roomsPair,
-                       std::atomic_uint8_t &rooms_draw_idx);
+                       std::array<std::map<uint32_t, Room>, 2> &roomsMapPair,
+                       std::atomic_uint8_t &rooms_map_draw_idx,
+                       std::array<Room, 2> &joinedRoomPair,
+                       std::atomic_uint8_t &joined_room_draw_idx);
   ~ClientNetworkManager();
 
   // NOTE: If a function returns:
@@ -92,9 +83,10 @@ struct ClientNetworkManager {
 
   // Player
   bool get_new_client_id(uint32_t &new_client_id);
-  bool vote_ready(std::vector<PlayerShortInfo> &players);
+  bool vote_ready(std::vector<PlayerIdState> &players);
   bool send_movement(Vector2 position, Vector2 velocity, float rotation);
   bool shoot_bullet();
+  bool readGameState();
 
   // Room
   bool get_rooms(std::map<uint32_t, Room> &rooms);
@@ -102,6 +94,7 @@ struct ClientNetworkManager {
   bool leave_room();
 
   // Fetching data from server
+  bool fetch_room_state();
   bool fetch_room_state(Room &room);
   bool fetch_room_state(uint32_t fetch_room_id, Room &room);
   bool fetch_game_state(GameManager &gameManager);
