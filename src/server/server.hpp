@@ -80,7 +80,7 @@ struct Server {
   void handleStreamUpdateAsteroids(Client &client);
   void handleStreamPlayerMovement(Client &client);
   void handleStreamShootBullet(Client &client);
-  void sendCheckConnection(Client &client);
+  bool sendCheckConnection(Client &client);
 
   bool sendUpdateRoomState(Client &client);
   void new_game(const Room r);

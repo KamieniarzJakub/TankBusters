@@ -12,7 +12,6 @@
 
 #include <cstdint>
 #include <ctime>
-#include <exception>
 #include <map>
 #include <mutex>
 #include <nlohmann/json.hpp>
@@ -110,7 +109,7 @@ void Server::client_error(Client &client) {
   disconnect_client(client);
 }
 
-void Server::sendCheckConnection(Client &client) {
+bool Server::sendCheckConnection(Client &client) {
   // Set socket timeouts
   struct timeval tv;
   size_t tvs = sizeof(tv);
@@ -128,17 +127,17 @@ void Server::sendCheckConnection(Client &client) {
         "Couldn't write CheckConnection NetworkEvent to client_id=%ld,fd=%d",
         client.client_id, client.fd_main);
     disconnect_client(client);
-    std::terminate();
-    return;
+    return false;
   }
 
   // Expect pong
   status = read_uint32(client.fd_main, network_event);
   if (status) {
-    TraceLog(LOG_INFO, "Received NetworkEvent %s from client_id=%ld,fd=%d",
+    TraceLog(LOG_INFO, "%s not received from client_id=%ld,fd=%d",
              network_event_to_string(network_event).c_str(), client.client_id,
              client.fd_main);
-    handle_network_event(client, network_event);
+    disconnect_client(client);
+    return false;
   }
 
   // Reset to no timeout
@@ -146,11 +145,12 @@ void Server::sendCheckConnection(Client &client) {
   setsockopt(client.fd_main, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, tvs);
   setsockopt(client.fd_main, SOL_SOCKET, SO_SNDTIMEO, (const char *)&tv, tvs);
   std::time(&client.last_response); // Set last response to current time
+  return true;
 }
 
 void Server::handle_connection(Client client) {
 
-  const size_t MAX_EVENTS = 2;
+  const size_t MAX_EVENTS = 3;
   epoll_event ee, events[MAX_EVENTS];
   int epoll_fd = epoll_create1(0);
   if (epoll_fd == -1) {
@@ -160,10 +160,10 @@ void Server::handle_connection(Client client) {
     return;
   }
   client.epd = epoll_fd;
-  TraceLog(LOG_INFO, "Epoll_create %d for client_id=%ld,fd=%d", epoll_fd,
-           client.client_id, client.fd_main);
+  // TraceLog(LOG_INFO, "Epoll_create %d for client_id=%ld,fd=%d", epoll_fd,
+  //          client.client_id, client.fd_main);
 
-  ee.events = EPOLLIN;
+  ee.events = EPOLLIN | EPOLLRDHUP | EPOLLERR;
   ee.data.fd = client.fd_main;
   if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client.fd_main, &ee) == -1) {
     close(epoll_fd);
@@ -185,10 +185,16 @@ void Server::handle_connection(Client client) {
       disconnect_client(client);
       return;
     } else if (nfds == 0) { // EPOLL WAIT TIMEOUT
-      // sendCheckConnection(client); // FIXME:
+      if (!sendCheckConnection(client)) {
+        break;
+      }
     }
     for (int n = 0; n < nfds; n++) {
-      if (events[n].data.fd == client.fd_main) {
+      if (events[n].events & (EPOLLRDHUP | EPOLLERR | EPOLLHUP)) {
+        disconnect_client(client);
+        break;
+      } else if (events[n].data.fd ==
+                 client.fd_main) { // EPOLLIN on client.main_fd
         uint32_t network_event;
         bool status = read_uint32(client.fd_main, network_event);
         if (status) {
@@ -204,7 +210,7 @@ void Server::handle_connection(Client client) {
           client_error(client);
           break;
         }
-      } else if (events[n].data.fd == client.todo_fd) {
+      } else if (events[n].data.fd == client.todo_fd) { // Something on queue
         auto f = todos.at(client.client_id).pop();
         f(client);
 
@@ -217,9 +223,6 @@ void Server::handle_connection(Client client) {
       }
     }
   }
-
-  close(epoll_fd);
-  disconnect_client(client);
 }
 
 void Server::handleGetClientId(Client &client) {
@@ -988,12 +991,28 @@ void Server::handle_network_event(Client &client, uint32_t event) {
 }
 
 void Server::disconnect_client(Client &client) {
+  if (client.epd > 0) {
+    close(client.epd);
+  }
   if (client.fd_main > 2) {
     // No info for client
     {
-      std::lock_guard<std::mutex> lc(clients_mutex);
       try {
-        todos.erase(client.client_id);
+        {
+          std::lock_guard<std::mutex> lc(clients_mutex);
+          todos.erase(client.client_id);
+          clients.erase(client.client_id);
+        }
+        {
+          auto &g = games.at(client.room_id);
+          std::lock_guard<std::mutex> lr(g.gameRoomMutex);
+
+          auto i =
+              std::remove(g.clients.begin(), g.clients.end(), client.client_id);
+          g.clients.erase(i, g.clients.end());
+          TraceLog(LOG_INFO, "Disconnected lient_id=%ld,fd=%d",
+                   client.client_id, client.fd_main);
+        }
       } catch (const std::out_of_range &ex) {
       }
     }

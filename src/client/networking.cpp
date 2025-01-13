@@ -61,7 +61,8 @@ ClientNetworkManager::~ClientNetworkManager() {
   if (main_thread.joinable()) {
     main_thread.join();
   }
-  disconnect();
+  shutdown(mainfd, SHUT_RDWR);
+  close(mainfd);
 }
 
 void ClientNetworkManager::flip_game_manager() {
