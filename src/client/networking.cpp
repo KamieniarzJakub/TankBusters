@@ -261,14 +261,21 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
 
   break;
   case NetworkEvents::ShootBullets: {
-    TraceLog(LOG_WARNING, "NET: %s received",
-             network_event_to_string(event).c_str());
-    // uint32_t value;
-    // bool status = read_uint32(mainfd, value);
-    // if (!status) {
-    //   TraceLog(LOG_ERROR, "NET: Couldn't receive whether bullet was shot");
-    //   return;
-    // }
+    // TraceLog(LOG_WARNING, "NET: %s received",
+    //          network_event_to_string(event).c_str());
+    uint32_t value;
+    bool status = read_uint32(mainfd, value);
+    if (!status) {
+      TraceLog(LOG_ERROR, "NET: Couldn't receive who shot the bullet");
+      return;
+    }
+    try {
+      gameManager() = gameManagersPair.at(game_manager_draw_idx);
+      gameManager().AddBullet(gameManager().players.at(value));
+      flip_game_manager();
+      gameManager().bullets = gameManager().bullets;
+    } catch (const std::out_of_range &ex) {
+    }
   } break;
   case NetworkEvents::GetRoomList: {
     json rooms_json;
@@ -862,28 +869,30 @@ bool ClientNetworkManager::fetch_bullets(std::vector<Bullet> &bullets) {
 }
 
 bool ClientNetworkManager::shoot_bullet() {
-  bool status;
-  status = setEvent(mainfd, NetworkEvents::ShootBullets);
-  if (!status)
-    return false;
+  // Just return ok when msg sent
+  return setEvent(mainfd, NetworkEvents::ShootBullets);
 
-  status = expectEvent(mainfd, NetworkEvents::ShootBullets);
-  if (!status)
-    return false;
-
-  uint32_t bullet_shot;
-  status = read_uint32(mainfd, bullet_shot);
-  if (!status) {
-    TraceLog(LOG_ERROR, "NET: Couldn't receive whether bullet was shot");
-    return false;
-  }
-
-  status = (bullet_shot > 0);
-  if (!status) {
-    TraceLog(LOG_ERROR,
-             "GAME: Couldn't shoot a bullet according to the server");
-  }
-  return status;
+  // bool status;
+  // status = setEvent(mainfd, NetworkEvents::ShootBullets);
+  // if (!status)
+  //   return false;
+  // status = expectEvent(mainfd, NetworkEvents::ShootBullets);
+  // if (!status)
+  //   return false;
+  //
+  // uint32_t bullet_shot;
+  // status = read_uint32(mainfd, bullet_shot);
+  // if (!status) {
+  //   TraceLog(LOG_ERROR, "NET: Couldn't receive whether bullet was shot");
+  //   return false;
+  // }
+  //
+  // status = (bullet_shot > 0);
+  // if (!status) {
+  //   TraceLog(LOG_ERROR,
+  //            "GAME: Couldn't shoot a bullet according to the server");
+  // }
+  // return status;
 }
 
 bool ClientNetworkManager::vote_ready(std::vector<PlayerShortInfo> &players) {

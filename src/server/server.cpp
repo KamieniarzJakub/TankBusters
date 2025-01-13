@@ -487,14 +487,30 @@ void Server::handleShootBullet(Client &client) {
     status = false;
   }
 
-  serverSetEvent(client, NetworkEvents::ShootBullets);
-
-  status = write_uint32(client.fd_main, (uint32_t)status);
   if (!status) {
-    TraceLog(LOG_WARNING,
-             "Couldn't send whether bullet was shot to client_id=%ld,fd=%d",
-             client.client_id, client.fd_main);
-    client_error(client);
+    TraceLog(LOG_INFO, "Player id=%lu cannot shoot bullet", client.player_id);
+    return;
+  }
+
+  try {
+    auto &gr = games.at(client.room_id);
+    std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
+    for (auto c : gr.clients) {
+      todos.at(c).push([&](Client c1) {
+        serverSetEvent(c1, NetworkEvents::ShootBullets);
+
+        bool status = write_uint32(c1.fd_main, client.player_id);
+        if (!status) {
+          TraceLog(LOG_WARNING,
+                   "Couldn't send info about bullet shot by player_id=%lu to "
+                   "client_id=%ld,fd=%d",
+                   client.player_id, client.client_id, client.fd_main);
+          client_error(client);
+        }
+        return status;
+      });
+    }
+  } catch (const std::out_of_range &ex) {
   }
 }
 
@@ -574,9 +590,12 @@ void Server::new_game(const Room r) {
           // TraceLog(LOG_INFO, json(player).dump().c_str());
         }
 
-        // game.UpdateBullets(frametime);
+        // FIXME: ENDED HERE IMPLEMENT BULLETS
+
+        game.UpdateBullets(frametime);
         game.UpdateAsteroids(frametime);
-        if (game.AsteroidSpawner()) {
+        if (game.AsteroidSpawner()) { // FIXME: send only the asteroid that
+                                      // updated
           for (auto c : gr.clients) {
             todos.at(c).push([&](Client c1) {
               TraceLog(LOG_INFO, "Updating asteroids for client_id=%lu",

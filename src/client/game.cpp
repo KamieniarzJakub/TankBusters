@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <iostream>
 
+#include "bullet.hpp"
 #include "gameManager.hpp"
 #include "gameStatus.hpp"
 #include "graphicsManager.hpp"
@@ -179,17 +180,17 @@ struct Game {
         return status;
       });
 
-      if (players.at(gameManager().player_id).active && Shoot()) {
+      // if (players.at(gameManager().player_id).active && Shoot()) {
+      if (Shoot()) {
         if (gameManager().AddBullet(players.at(gameManager().player_id))) {
           networkManager.todo.push([&]() {
             TraceLog(LOG_INFO, "NET: sending shooting");
             return networkManager.shoot_bullet();
-            // FIXME: update game objects
           });
         }
       }
 
-      // gameManager().UpdateBullets(frametime);
+      gameManager().UpdateBullets(frametime);
       gameManager().UpdateAsteroids(frametime);
 
       // gameManager.AsteroidSpawner(GetTime());
