@@ -59,19 +59,19 @@ void GraphicsManager::DrawBullet(const Bullet &bullet) {
 
 void GraphicsManager::DrawTimer(uint32_t t) {
   // int time = Constants::LOBBY_READY_TIME - int(GetTime() - time);
-  const char *text = TextFormat("New round in %ld", (t - time(0)));
+  const char *text = TextFormat("New round in %ld", t);
   Vector2 origin =
       MeasureTextEx(font, text, Constants::TEXT_SIZE, Constants::TEXT_SPACING);
   DrawTextPro(font, text,
               Vector2{(float)Constants::screenWidth / 2,
-                      Constants::screenHeight - 2 * Constants::TEXT_OFFSET},
-              Vector2{origin.x / 2, 2 * origin.y}, 0, Constants::TEXT_SIZE,
+                      Constants::screenHeight - 3*Constants::TEXT_OFFSET},
+              Vector2{origin.x / 2, origin.y}, 0, Constants::TEXT_SIZE,
               Constants::TEXT_SPACING, RAYWHITE);
 }
 
 void GraphicsManager::DrawTitle(const Room &r) {
   const char *text =
-      TextFormat("LOBBY[%d/%d]",
+      TextFormat("%s[%d/%d]", Constants::COOL_ROOM_NAMES[r.room_id-1].c_str(), //FIXME: selected id
                  r.players.size() - get_X_players(r.players, PlayerInfo::NONE),
                  Constants::PLAYERS_MAX);
   Vector2 origin = MeasureTextEx(font, text, Constants::TEXT_WIN_SIZE,
@@ -108,6 +108,17 @@ void GraphicsManager::DrawReadyMessage() {
   DrawTextPro(font, text,
               Vector2{(float)Constants::screenWidth / 2,
                       Constants::screenHeight - Constants::TEXT_OFFSET},
+              Vector2{origin.x / 2, origin.y}, 0, Constants::TEXT_SIZE,
+              Constants::TEXT_SPACING, RAYWHITE);
+}
+
+void GraphicsManager::DrawExitLobbyMessage() {
+  const char *text = "Click [Enter] to exit lobby";
+  Vector2 origin =
+      MeasureTextEx(font, text, Constants::TEXT_SIZE, Constants::TEXT_SPACING);
+  DrawTextPro(font, text,
+              Vector2{(float)Constants::screenWidth / 2,
+                      Constants::screenHeight - 3*Constants::TEXT_OFFSET},
               Vector2{origin.x / 2, origin.y}, 0, Constants::TEXT_SIZE,
               Constants::TEXT_SPACING, RAYWHITE);
 }

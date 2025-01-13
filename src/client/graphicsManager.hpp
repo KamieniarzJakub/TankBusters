@@ -30,6 +30,7 @@ struct GraphicsManager {
   void DrawTitle(const Room &r);
   void DrawLobbyPlayers(const Room &r);
   void DrawReadyMessage();
+  void DrawExitLobbyMessage();
 
   // player
   void DrawPlayer(const Player &player);

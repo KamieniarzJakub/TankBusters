@@ -68,7 +68,6 @@ struct Game {
       }
       setSelectedRoom();
     } else if (gameManager().status == GameStatus::LOBBY) {
-      // std::cout << "TIMER: " << gameManager().new_round_timer << std::endl;
       if (gameManagersPair.at(game_manager_draw_idx).ReturnToRooms()) {
         TraceLog(LOG_INFO, "NET: push leave room");
         networkManager.todo.push([&]() {
@@ -138,7 +137,12 @@ struct Game {
         graphicsManager.DrawTitle(rooms().at(networkManager.room_id));
         graphicsManager.DrawLobbyPlayers(rooms().at(networkManager.room_id));
         graphicsManager.DrawReadyMessage();
-        graphicsManager.DrawTimer(gameManager().game_start_time);
+        long t = gameManager().game_start_time-time(0);
+        if(t>=0) {
+          graphicsManager.DrawTimer(t);
+        } else {
+          graphicsManager.DrawExitLobbyMessage();
+        }
       }
     }
     EndDrawing();
