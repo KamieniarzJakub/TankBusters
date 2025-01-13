@@ -212,11 +212,24 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
   case NetworkEvents::EndRound:
     gameManager().status = GameStatus::LOBBY;
     flip_game_manager();
+    gameManager().status = GameStatus::LOBBY;
     break;
   case NetworkEvents::StartRound:
     gameManager().status = GameStatus::GAME;
     flip_game_manager();
+    gameManager().status = GameStatus::GAME;
     break;
+  case NetworkEvents::NewGameSoon: {
+    uint32_t val;
+    bool status = read_uint32(mainfd, val);
+    if (!status) {
+      TraceLog(LOG_ERROR, "NET: Didn't receive game start time");
+      return;
+    }
+    gameManager().game_start_time = val;
+    flip_game_manager();
+    gameManager().game_start_time = val;
+  } break;
   case NetworkEvents::GetClientId: {
     uint32_t new_client_id;
     bool status = read_uint32(mainfd, new_client_id);

@@ -212,18 +212,18 @@ size_t GameManager::GetReadyPlayers(
   return i;
 }
 
-bool GameManager::UpdateLobbyStatus(
-    const std::vector<PlayerShortInfo> &player_infos) {
-  size_t ready_players = GetReadyPlayers(player_infos);
-  if (ready_players > 2) {
-    new_round_timer = new_round_timer > 0 ? new_round_timer : GetTime();
-    if (new_round_timer > 0 &&
-        int(GetTime() - new_round_timer) >= Constants::LOBBY_READY_TIME)
-      return true;
-  } else
-    new_round_timer = -1;
-  return false;
-}
+// bool GameManager::UpdateLobbyStatus(
+//     const std::vector<PlayerShortInfo> &player_infos) {
+//   size_t ready_players = GetReadyPlayers(player_infos);
+//   if (ready_players > 2) {
+//     new_round_timer = new_round_timer > 0 ? new_round_timer : GetTime();
+//     if (new_round_timer > 0 &&
+//         int(GetTime() - new_round_timer) >= Constants::LOBBY_READY_TIME)
+//       return true;
+//   } else
+//     new_round_timer = -1;
+//   return false;
+// }
 
 bool GameManager::ReturnToRooms() {
   return (status == GameStatus::LOBBY &&
@@ -235,7 +235,7 @@ void GameManager::RestartLobby() {
     p.state = PlayerInfo::NOT_READY;
     p.active = true;
   }
-  new_round_timer = -1;
+  // new_round_timer = -1;
 }
 
 GameManager::GameManager(uint32_t room_id,
@@ -255,13 +255,15 @@ size_t GameManager::GetConnectedPlayers(PlayerConnection pc) {
 }
 
 void to_json(json &j, const GameManager &gm) {
-  j = json{{"room_id", gm.room_id},
-           {"status", gm.status},
-           {"alive_players", gm._alive_players},
-           {"spawnerTime", gm._spawnerTime},
-           {"startRoundTime", gm.startRoundTime},
-           {"endRoundTime", gm.endRoundTime},
-           {"new_round_timer", gm.new_round_timer}};
+  j = json{
+      {"room_id", gm.room_id},
+      {"status", gm.status},
+      {"alive_players", gm._alive_players},
+      {"spawnerTime", gm._spawnerTime},
+      {"startRoundTime", gm.startRoundTime},
+      {"endRoundTime", gm.endRoundTime},
+      // {"new_round_timer", gm.new_round_timer}
+  };
   // asteroids, players, bullets omitted
 }
 
@@ -272,5 +274,5 @@ void from_json(const json &j, GameManager &gm) {
   j.at("spawnerTime").get_to(gm._spawnerTime);
   j.at("startRoundTime").get_to(gm.startRoundTime);
   j.at("endRoundTime").get_to(gm.endRoundTime);
-  j.at("new_round_timer").get_to(gm.new_round_timer);
+  // j.at("new_round_timer").get_to(gm.new_round_timer);
 }

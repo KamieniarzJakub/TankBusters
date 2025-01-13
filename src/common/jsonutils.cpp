@@ -7,19 +7,19 @@
 // returns true if ok
 bool write_uint32(int fd, uint32_t v) {
   uint32_t val = htonl(v);
-  TraceLog(LOG_INFO, "WRITING %lu", v);
+  // TraceLog(LOG_INFO, "WRITING %lu", v);
   ssize_t written = write(fd, &val, sizeof(val));
-  TraceLog(LOG_INFO, "WRITTEN %lu", v);
+  // TraceLog(LOG_INFO, "WRITTEN %lu", v);
   return written == sizeof(v);
 }
 
 // returns true if ok
 bool read_uint32(int fd, uint32_t &v) {
   uint32_t val = 0;
-  TraceLog(LOG_INFO, "READING 4 BYTES");
+  // TraceLog(LOG_INFO, "READING 4 BYTES");
   ssize_t readb = read(fd, &val, sizeof(val));
   v = ntohl(val);
-  TraceLog(LOG_INFO, "READ %lu", v);
+  // TraceLog(LOG_INFO, "READ %lu", v);
   return (readb == sizeof(uint32_t));
 }
 

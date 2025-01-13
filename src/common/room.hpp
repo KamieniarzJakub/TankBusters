@@ -20,7 +20,6 @@ struct Room {
 };
 
 // Room &at_room_id(std::vector<Room> &rooms, uint32_t room_id);
-uint32_t get_ready_players(const std::vector<PlayerShortInfo> &p);
 uint32_t get_X_players(const std::vector<PlayerShortInfo> &ps, PlayerInfo pi);
 
 void to_json(json &j, const Room &r);

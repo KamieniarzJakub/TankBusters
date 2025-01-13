@@ -4,6 +4,7 @@
 #include "gameManager.hpp"
 #include "player.hpp"
 #include "room.hpp"
+#include <cstdint>
 #include <raylib.h>
 
 struct GraphicsManager {
@@ -25,7 +26,7 @@ struct GraphicsManager {
   void DrawNewRoundCountdown(const GameManager &gm);
 
   // lobby manager
-  void DrawTimer(const GameManager &gm);
+  void DrawTimer(uint32_t t);
   void DrawTitle(const Room &r);
   void DrawLobbyPlayers(const Room &r);
   void DrawReadyMessage();

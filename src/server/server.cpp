@@ -310,6 +310,11 @@ void Server::handleGetRoomList(Client &client) {
   }
 }
 
+void Server::sendNewGameSoon(Client &client, uint32_t when) {
+  serverSetEvent(client, NetworkEvents::NewGameSoon);
+  write_uint32(client.fd_main, when);
+}
+
 void Server::handleVoteReady(Client &client) {
   bool status = write_uint32(client.fd_main, NetworkEvents::VoteReady);
   if (!status) {
@@ -329,6 +334,20 @@ void Server::handleVoteReady(Client &client) {
       gr.room.players.at(client.player_id).state = PlayerInfo::READY;
       gr.gameManager.players[client.player_id].active = true;
       player_short_infos_json = gr.room.players;
+      if (get_X_players(gr.room.players, READY) >= 2) {
+        TraceLog(LOG_INFO, "2. NEW PLAYER");
+        gr.gameManager.game_start_time = time(0) + Constants::LOBBY_READY_TIME;
+        for (auto c : gr.clients) {
+          TraceLog(LOG_INFO, "3. NEW PLAYER");
+          todos.at(c).push([&](Client c1) {
+            TraceLog(LOG_INFO, "4. NEW PLAYER");
+            sendNewGameSoon(c1, gr.gameManager.game_start_time);
+            // handleUpdateGameState(c1);
+            return true;
+          });
+        }
+        std::thread(&Server::new_game, this, gr.room).detach();
+      }
     }
     status = write_json(client.fd_main, player_short_infos_json);
     if (!status) {
@@ -343,16 +362,14 @@ void Server::handleVoteReady(Client &client) {
   }
 
   try {
-    auto except_client_id = client.client_id;
     auto &gr = games.at(client.room_id);
     std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
-    std::cout << "Except c id" << except_client_id << std::endl;
     std::cout << "Clients for room " << gr.room.room_id
               << json(gr.clients).dump() << std::endl;
     for (auto c : gr.clients) {
-      if (c == except_client_id) {
-        continue;
-      }
+      // if (c == except_client_id) {
+      //   continue;
+      // }
 
       TraceLog(LOG_INFO, "setting up updating rooms for %lu", c);
       todos.at(c).push([&](Client c1) {
@@ -458,29 +475,40 @@ void Server::handleShootBullet(Client &client) {
 }
 
 void Server::new_game(const Room r) {
-  // auto &gr = games.at(r.room_id);
-  // std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
-  //
-  // auto &game = gr.gameManager;
-  // game.UpdateStatus();
-  // game.status = GameStatus::GAME;
-  // // TraceLog(LOG_DEBUG, "Game status: %d", gameManager.status);
-  // if (game.status == GameStatus::LOBBY) {
-  //   return;
-  // } else if (game.status == GameStatus::GAME) {
-  //   float frametime = GetFrameTime();
-  //
-  //   game.ManageCollisions();
-  //
-  //   // UpdatePlayers(frametime); // FIXME:
-  //   game.UpdateBullets(frametime);
-  //   game.UpdateAsteroids(frametime);
-  //
-  //   game.AsteroidSpawner(GetTime());
-  // } else if (game.UpdateLobbyStatus(gr.room.players)) {
-  //   game.NewGame(gr.room.players);
-  //   game.RestartLobby();
-  // }
+  while ((games.at(r.room_id).gameManager.game_start_time - time(0)) >
+         0.1) { // TODO: thread sleep
+  }
+  TraceLog(LOG_INFO, "New round");
+  {
+    for (auto c : games.at(r.room_id).clients) {
+      todos.at(c).push([&](Client c1) {
+        serverSetEvent(c1, NetworkEvents::StartRound);
+        return true;
+      });
+    }
+
+    auto &gr = games.at(r.room_id);
+    std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
+
+    auto &game = gr.gameManager;
+    // game.UpdateStatus();
+    game.status = GameStatus::GAME;
+    // game.status = GameStatus::GAME;
+    // TraceLog(LOG_DEBUG, "Game status: %d", gameManager.status);
+    if (game.status == GameStatus::LOBBY) {
+      return;
+    } else if (game.status == GameStatus::GAME) {
+      float frametime = GetFrameTime();
+
+      game.ManageCollisions();
+
+      // UpdatePlayers(frametime); // FIXME:
+      game.UpdateBullets(frametime);
+      game.UpdateAsteroids(frametime);
+
+      game.AsteroidSpawner(GetTime());
+    }
+  }
 }
 
 void Server::handleJoinRoom(Client &client) {
@@ -510,19 +538,6 @@ void Server::handleJoinRoom(Client &client) {
           gr.clients.push_back(client.client_id);
           gr.gameManager = GameManager{gr.room.room_id, gr.room.players};
           TraceLog(LOG_INFO, "1. NEW PLAYER");
-          if (gr.clients.size() >= 2) {
-            TraceLog(LOG_INFO, "2. NEW PLAYER");
-            gr.gameManager.new_round_timer = GetTime();
-            for (auto c : gr.clients) {
-              TraceLog(LOG_INFO, "3. NEW PLAYER");
-              todos.at(c).push([&](Client c1) {
-                TraceLog(LOG_INFO, "4. NEW PLAYER");
-                handleUpdateGameState(c1);
-                return true;
-              });
-            }
-            std::thread(&Server::new_game, this, gr.room).detach();
-          }
         }
         TraceLog(LOG_INFO, json(gr.room).dump().c_str());
         TraceLog(LOG_INFO, "Client player id=%lu", client.player_id);

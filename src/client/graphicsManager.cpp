@@ -3,6 +3,7 @@
 #include "player.hpp"
 #include "resource_dir.hpp"
 #include "room.hpp"
+#include <cstdint>
 #include <raylib.h>
 
 GraphicsManager::GraphicsManager() {
@@ -56,19 +57,16 @@ void GraphicsManager::DrawBullet(const Bullet &bullet) {
              WHITE);
 }
 
-void GraphicsManager::DrawTimer(const GameManager &gm) {
-  if (gm.new_round_timer > 0) {
-    int time =
-        Constants::LOBBY_READY_TIME - int(GetTime() - gm.new_round_timer);
-    const char *text = TextFormat("New round in %d", int(time));
-    Vector2 origin = MeasureTextEx(font, text, Constants::TEXT_SIZE,
-                                   Constants::TEXT_SPACING);
-    DrawTextPro(font, text,
-                Vector2{(float)Constants::screenWidth / 2,
-                        Constants::screenHeight - 2 * Constants::TEXT_OFFSET},
-                Vector2{origin.x / 2, 2 * origin.y}, 0, Constants::TEXT_SIZE,
-                Constants::TEXT_SPACING, RAYWHITE);
-  }
+void GraphicsManager::DrawTimer(uint32_t t) {
+  // int time = Constants::LOBBY_READY_TIME - int(GetTime() - time);
+  const char *text = TextFormat("New round in %ld", (t - time(0)));
+  Vector2 origin =
+      MeasureTextEx(font, text, Constants::TEXT_SIZE, Constants::TEXT_SPACING);
+  DrawTextPro(font, text,
+              Vector2{(float)Constants::screenWidth / 2,
+                      Constants::screenHeight - 2 * Constants::TEXT_OFFSET},
+              Vector2{origin.x / 2, 2 * origin.y}, 0, Constants::TEXT_SIZE,
+              Constants::TEXT_SPACING, RAYWHITE);
 }
 
 void GraphicsManager::DrawTitle(const Room &r) {
@@ -195,7 +193,7 @@ void GraphicsManager::DrawGame(GameManager gameManager, Room room) {
     DrawTitle(room);
     DrawLobbyPlayers(room);
     DrawReadyMessage();
-    DrawTimer(gameManager);
+    DrawTimer(gameManager.game_start_time);
   }
 }
 

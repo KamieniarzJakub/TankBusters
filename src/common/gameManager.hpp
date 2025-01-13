@@ -7,6 +7,7 @@
 #include "room.hpp"
 #include <raylib.h>
 #include <raymath.h>
+#include <sys/types.h>
 #include <vector>
 
 struct GameManager {
@@ -21,7 +22,8 @@ struct GameManager {
   float _spawnerTime;
   float startRoundTime;
   float endRoundTime;
-  float new_round_timer;
+
+  uint32_t game_start_time;
 
   GameManager();
   GameManager(uint32_t room_id, std::vector<PlayerShortInfo> playerInfos);
@@ -51,7 +53,7 @@ struct GameManager {
   bool ReturnToRooms();
   size_t
   GetReadyPlayers(const std::vector<PlayerShortInfo> &player_infos) const;
-  bool UpdateLobbyStatus(const std::vector<PlayerShortInfo> &player_infos);
+  // bool UpdateLobbyStatus(const std::vector<PlayerShortInfo> &player_infos);
   size_t GetConnectedPlayers(PlayerConnection pc);
 };
 

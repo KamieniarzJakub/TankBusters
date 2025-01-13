@@ -84,4 +84,5 @@ struct Server {
 
   bool sendUpdateRoomState(Client &client);
   void new_game(const Room r);
+  void sendNewGameSoon(Client &client, uint32_t when);
 };
