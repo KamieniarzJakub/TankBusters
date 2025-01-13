@@ -1,14 +1,15 @@
 #pragma once
+#include <raylib.h>
+
+#include <cstdint>
+
 #include "asteroid.hpp"
 #include "bullet.hpp"
 #include "gameManager.hpp"
 #include "player.hpp"
 #include "room.hpp"
-#include <cstdint>
-#include <raylib.h>
 
 struct GraphicsManager {
-
   Texture player_texture;
   Font font;
   Font win_font;

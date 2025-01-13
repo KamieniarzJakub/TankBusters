@@ -157,6 +157,7 @@ void GraphicsManager::DrawTime(const GameManager &gm, double time) {
               Constants::TEXT_SPACING, RAYWHITE);
 }
 
+
 void GraphicsManager::DrawWinnerText(const GameManager &gm) {
   for (int i = 0; i < Constants::PLAYERS_MAX; i++) {
     if (gm.players[i].active) {
