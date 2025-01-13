@@ -137,8 +137,8 @@ struct Game {
         graphicsManager.DrawTitle(rooms().at(networkManager.room_id));
         graphicsManager.DrawLobbyPlayers(rooms().at(networkManager.room_id));
         graphicsManager.DrawReadyMessage();
-        long t = gameManager().game_start_time-time(0);
-        if(t>=0) {
+        long t = gameManager().game_start_time - time(0);
+        if (t >= 0) {
           graphicsManager.DrawTimer(t);
         } else {
           graphicsManager.DrawExitLobbyMessage();
@@ -151,48 +151,40 @@ struct Game {
   void UpdateGame() {
     // gameManager().UpdateStatus();
     if (gameManager().status == GameStatus::GAME) {
-      TraceLog(LOG_INFO, "Game", gameManager().status);
+      // TraceLog(LOG_INFO, "Game", gameManager().status);
       float frametime = GetFrameTime();
 
-      gameManager().ManageCollisions();
+      // gameManager().ManageCollisions();
 
       auto &players = gameManager().players;
       auto &player = players.at(gameManager().player_id);
-      UpdatePlayer(players.at(gameManager().player_id), frametime);
-      TraceLog(LOG_INFO, "NET: push send movement");
+      UpdatePlayer(player, frametime);
+      // for (auto &p : gameManager().players) {
+      //   if (p.player_id == gameManager().player_id) {
+      //     UpdatePlayer(player, frametime);
+      //   } else {
+      //     REALLYJUSTUPDATEPLAYER(p, frametime);
+      //   }
+      // }
       networkManager.todo.push([&]() {
-        // networkmanager.gamemanager().player_id = player_id;
-        //       networkmanager.rooms()
-        //           .at(networkmanager.room_id)
-        //           .players.at(player_id)
-        //           .state = playerinfo::not_ready;
-        //       networkmanager.flip_rooms();
-        //       // networkmanager.gamemanager().player_id =
-        //       networkmanager.flip_game_manager();
-        //       networkmanager.gamemanager().player_id = player_id;
-        //       networkmanager.rooms()
-        //           .at(networkmanager.room_id)
-        //           .players.at(player_id)
-        //           .state = playerinfo::not_ready;
-
+        TraceLog(LOG_INFO, "NET: sending movement");
         bool status = networkManager.send_movement(
             player.position, player.velocity, player.rotation);
-        // FIXME: update game objects
         return status;
       });
 
       if (players.at(gameManager().player_id).active && Shoot()) {
         if (gameManager().AddBullet(players.at(gameManager().player_id))) {
-          TraceLog(LOG_INFO, "NET: push shoot");
           networkManager.todo.push([&]() {
+            TraceLog(LOG_INFO, "NET: sending shooting");
             return networkManager.shoot_bullet();
             // FIXME: update game objects
           });
         }
       }
 
-      gameManager().UpdateBullets(frametime);
-      gameManager().UpdateAsteroids(frametime);
+      // gameManager().UpdateBullets(frametime);
+      // gameManager().UpdateAsteroids(frametime);
 
       // gameManager.AsteroidSpawner(GetTime());
     } else { // Lobby or end of Round

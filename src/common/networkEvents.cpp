@@ -18,6 +18,8 @@ const std::string network_event_to_string(NetworkEvents networkEvent) {
     return "EndRound";
   case NetworkEvents::StartRound:
     return "StartRound";
+  case NewGameSoon:
+    return "NewGameSoon";
   case NetworkEvents::GetClientId:
     return "GetClientId";
   case NetworkEvents::VoteReady:

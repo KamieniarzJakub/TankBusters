@@ -54,7 +54,6 @@ struct GameManager {
   size_t
   GetReadyPlayers(const std::vector<PlayerShortInfo> &player_infos) const;
   // bool UpdateLobbyStatus(const std::vector<PlayerShortInfo> &player_infos);
-  size_t GetConnectedPlayers(PlayerConnection pc);
 };
 
 void to_json(json &j, const GameManager &gm);

@@ -410,7 +410,7 @@ void Server::handlePlayerMovement(Client &client) {
   Vector2 position, velocity;
   float rotation;
   json movement;
-  bool status = read_json(client.fd_main, movement, -1); // FIXME: MAXSIZE
+  bool status = read_json(client.fd_main, movement, -1);
   if (!status) {
     TraceLog(LOG_ERROR, "NET: Couldn't receive json of movement");
     client_error(client);
@@ -426,16 +426,38 @@ void Server::handlePlayerMovement(Client &client) {
     client_error(client);
     return;
   }
-
-  // FIXME: value checking
-
   try {
-    GameRoom &gr = games.at(client.room_id);
-    std::lock_guard<std::mutex> lgm(gr.gameRoomMutex);
-    Player &p = gr.gameManager.players[client.player_id];
-    p.position = position;
-    p.velocity = velocity;
-    p.rotation = rotation;
+    auto &gr = games.at(client.room_id);
+    std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
+    auto &player = gr.gameManager.players.at(client.player_id);
+    player.position = position;
+    player.rotation = rotation;
+    player.velocity = velocity;
+
+    TraceLog(LOG_INFO, "client id movement %lu", client.client_id);
+    for (auto c : gr.clients) {
+      if (c == client.client_id)
+        continue;
+
+      TraceLog(LOG_INFO, "setting up update players for %lu", c);
+      todos.at(c).push([&](Client c1) {
+        TraceLog(LOG_INFO, "updating players for %lu", c1.client_id);
+        serverSetEvent(c1, NetworkEvents::PlayerMovement);
+        write_uint32(c1.fd_main, client.player_id);
+        TraceLog(LOG_INFO, "updating player %lu", client.player_id);
+
+        auto &player1 = gr.gameManager.players.at(client.player_id);
+
+        json movement1 = {{"position", player1.position},
+                          {"velocity", player1.velocity},
+                          {"rotation", player1.rotation},
+                          {"active", player1.active}};
+        write_json(c1.fd_main, movement1);
+        TraceLog(LOG_INFO, "updating movement for %lu, %s", c1.client_id,
+                 movement1.dump().c_str());
+        return true;
+      });
+    }
   } catch (const std::out_of_range &ex) {
   }
 }
@@ -483,30 +505,76 @@ void Server::new_game(const Room r) {
     for (auto c : games.at(r.room_id).clients) {
       todos.at(c).push([&](Client c1) {
         serverSetEvent(c1, NetworkEvents::StartRound);
+        handleUpdatePlayers(c1);
         return true;
       });
     }
+    GameStatus gs = GameStatus::GAME;
+    {
+      auto &gr = games.at(r.room_id);
+      std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
+      gr.gameManager.status = GameStatus::GAME;
+    }
 
-    auto &gr = games.at(r.room_id);
-    std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
-
-    auto &game = gr.gameManager;
     // game.UpdateStatus();
-    game.status = GameStatus::GAME;
     // game.status = GameStatus::GAME;
     // TraceLog(LOG_DEBUG, "Game status: %d", gameManager.status);
-    if (game.status == GameStatus::LOBBY) {
-      return;
-    } else if (game.status == GameStatus::GAME) {
-      float frametime = GetFrameTime();
+    while (gs == GameStatus::GAME) {
+      // TraceLog(LOG_INFO, "ROOM %lu is in game", r.room_id);
+      {
+        auto &gr = games.at(r.room_id);
+        std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
+        auto &game = gr.gameManager;
+        float frametime = GetFrameTime();
 
-      game.ManageCollisions();
+        // game.ManageCollisions();
 
-      // UpdatePlayers(frametime); // FIXME:
-      game.UpdateBullets(frametime);
-      game.UpdateAsteroids(frametime);
+        for (auto &player : game.players) {
 
-      game.AsteroidSpawner(GetTime());
+          // player.rotation += Constants::PLAYER_ROTATION_SPEED * frametime;
+
+          // if (IsKeyDown(KEY_UP) || IsKeyDown(KEY_W)) {
+          //   Vector2 direction = {cosf(DEG2RAD * player.rotation),
+          //                        sinf(DEG2RAD * player.rotation)};
+          //   player.velocity = Vector2Add(
+          //       player.velocity,
+          //       Vector2Scale(direction, Constants::PLAYER_ACCELERATION *
+          //       frametime));
+          // }
+
+          // Apply damping to velocity
+          // player.velocity = Vector2Scale(
+          //     player.velocity, (1 - Constants::PLAYER_DRAG / 1000.0f));
+
+          // Update position
+          // player.position = Vector2Add(
+          //     player.position, Vector2Scale(player.velocity, frametime));
+
+          // Keep player on the screen (wrap around)
+          if (player.position.x < 0)
+            player.position.x += Constants::screenWidth;
+          if (player.position.x > Constants::screenWidth)
+            player.position.x -= Constants::screenWidth;
+          if (player.position.y < 0)
+            player.position.y += Constants::screenHeight;
+          if (player.position.y > Constants::screenHeight)
+            player.position.y -= Constants::screenHeight;
+
+          // Update player color depending on the active state
+          player.player_color.a = player.active ? 255 : 25;
+          // TraceLog(LOG_INFO, json(player).dump().c_str());
+        }
+
+        // game.UpdateBullets(frametime);
+        // game.UpdateAsteroids(frametime);
+
+        // game.AsteroidSpawner(GetTime());
+        // TraceLog(LOG_INFO, json(game.players).dump().c_str());
+        // if (game._alive_players < 2) {
+        //   gs = GameStatus::END_OF_ROUND;
+        //   game.status = GameStatus::END_OF_ROUND;
+        // }
+      }
     }
   }
 }

@@ -6,11 +6,9 @@
 #include <unistd.h>
 
 #include <atomic>
-#include <chrono>
 #include <cstdint>
 #include <map>
 #include <nlohmann/json.hpp>
-#include <random>
 #include <room.hpp>
 #include <thread>
 
@@ -93,10 +91,10 @@ void ClientNetworkManager::perform_network_actions() {
   }
 
   while (!this->_stop) {
-    TraceLog(LOG_INFO, "NET: waiting on epoll");
+    // TraceLog(LOG_INFO, "NET: waiting on epoll");
     int nfds = epoll_wait(epollfd, events, MAX_EVENTS,
                           Constants::CONNECTION_TIMEOUT_MILISECONDS);
-    TraceLog(LOG_INFO, "NET: unwait epoll");
+    // TraceLog(LOG_INFO, "NET: unwait epoll");
     if (nfds == -1) { // EPOLL WAIT ERROR
       TraceLog(LOG_ERROR, "NET: Epoll wait error");
       close(epollfd);
@@ -132,65 +130,6 @@ void ClientNetworkManager::perform_network_actions() {
   close(epollfd);
 }
 
-bool ClientNetworkManager::reconnect(const char *host, const char *port,
-                                     uint32_t client_id) {
-  int retries = 3;
-  bool status = false;
-  std::random_device rd;
-  std::mt19937 gen(rd());
-  std::uniform_int_distribution<> distrib(1000, 5000);
-  do {
-    mainfd = connect_to(host, port);
-    status = mainfd < 0;
-    if (status) {
-      shutdown(mainfd, SHUT_RDWR);
-      close(mainfd);
-    }
-    if (status)
-      break;
-
-    using namespace std::chrono_literals;
-    std::this_thread::sleep_for(std::chrono::milliseconds(distrib(gen)));
-  } while (!status && retries-- > 0);
-
-  status = mainfd < 0;
-  if (!status) {
-    return false;
-  }
-
-  // Negotiate old client id
-  status = write_uint32(mainfd, NetworkEvents::GetClientId);
-  if (!status) {
-    TraceLog(LOG_ERROR, "NET: Cannot send GetClientId NetworkEvent");
-    return false;
-  }
-
-  // Try to get old id
-  status = write_uint32(mainfd, client_id);
-  if (!status) {
-    TraceLog(LOG_ERROR, "NET: Cannot send client_id");
-    return false;
-  }
-
-  status = expectEvent(mainfd, NetworkEvents::GetClientId);
-  if (!status) {
-    return false;
-  }
-
-  uint32_t new_client_id;
-  status = read_uint32(mainfd, new_client_id);
-  if (!status) {
-    TraceLog(LOG_ERROR, "NET: Didn't receive full client id");
-    return false;
-  }
-  if (new_client_id == 0) {
-    TraceLog(LOG_ERROR, "GAME: Received client id is 0");
-    return false;
-  }
-
-  return new_client_id == client_id;
-}
-
 void ClientNetworkManager::handle_network_event(uint32_t event) {
   switch ((NetworkEvents)event) {
   case NetworkEvents::NoEvent:
@@ -215,6 +154,7 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
     gameManager().status = GameStatus::LOBBY;
     break;
   case NetworkEvents::StartRound:
+    read_update_players();
     gameManager().status = GameStatus::GAME;
     flip_game_manager();
     gameManager().status = GameStatus::GAME;
@@ -269,10 +209,57 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
     // }
     // flip_game_manager();
   } break;
-  case NetworkEvents::PlayerMovement:
-    TraceLog(LOG_WARNING, "NET: %s received",
-             network_event_to_string(event).c_str());
-    break;
+  case NetworkEvents::PlayerMovement: {
+    uint32_t updated_player_id;
+    TraceLog(LOG_ERROR, "NET: updating movement");
+    if (!read_uint32(mainfd, updated_player_id)) {
+      TraceLog(LOG_ERROR, "NET: cannot read player id for updating movement",
+               updated_player_id);
+      return;
+    }
+
+    json movement;
+    Vector2 position, velocity;
+    float rotation;
+    bool active;
+    try {
+      if (!read_json(mainfd, movement, -1)) {
+        TraceLog(LOG_ERROR,
+                 "NET: cannot read player movement json for player_id=%lu",
+                 updated_player_id);
+        return;
+      }
+      position = movement.at("position");
+      velocity = movement.at("velocity");
+      rotation = movement.at("rotation");
+      active = movement.at("active");
+      // std::cout << json(gameManager().players).dump() << std::endl;
+      TraceLog(LOG_INFO, "NET: player_id=%lu, player_data=%s",
+               updated_player_id, movement.dump().c_str(),
+               network_event_to_string(event).c_str());
+    } catch (json::exception &ex) {
+      TraceLog(LOG_ERROR, "JSON: Couldn't serialize movement into json");
+      return;
+    }
+
+    try {
+      gameManager() = gameManagersPair.at(game_manager_draw_idx);
+      auto &player = gameManager().players.at(updated_player_id);
+      player.position = position;
+      player.velocity = velocity;
+      player.rotation = rotation;
+      player.active = active;
+      flip_game_manager();
+      gameManager() = gameManagersPair.at(game_manager_draw_idx);
+    } catch (const std::out_of_range &ex) {
+      TraceLog(LOG_ERROR, "JSON: updated player id ouf of range %lu",
+               updated_player_id);
+      return;
+    }
+
+  }
+
+  break;
   case NetworkEvents::ShootBullets: {
     TraceLog(LOG_WARNING, "NET: %s received",
              network_event_to_string(event).c_str());
@@ -376,22 +363,7 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
     TraceLog(LOG_INFO, "Finished update room state 2");
   } break;
   case NetworkEvents::UpdatePlayers: {
-    json players_json;
-    bool status = read_json(mainfd, players_json, -1);
-    if (!status) {
-      TraceLog(LOG_ERROR, "NET: Couldn't receive json of players");
-      return;
-    }
-    try {
-      auto players = players_json.template get<std::vector<Player>>();
-      gameManager() = gameManagersPair.at(game_manager_draw_idx);
-      gameManager().players = players;
-      flip_game_manager();
-    } catch (json::exception &ex) {
-      TraceLog(LOG_ERROR,
-               "JSON: Couldn't deserialize json into vector<Player>");
-      return;
-    }
+    read_update_players();
   } break;
   case NetworkEvents::UpdateAsteroids: {
     json asteroids_json;
@@ -705,6 +677,7 @@ bool ClientNetworkManager::leave_room() {
 bool ClientNetworkManager::send_movement(Vector2 position, Vector2 velocity,
                                          float rotation) {
   // TODO: bounds check
+  TraceLog(LOG_INFO, "NET: starting to send player movement");
   json movement;
   try {
     movement = {
@@ -715,8 +688,9 @@ bool ClientNetworkManager::send_movement(Vector2 position, Vector2 velocity,
   }
 
   bool status = setEvent(mainfd, NetworkEvents::PlayerMovement);
-  if (!status)
+  if (!status) {
     return false;
+  }
 
   status = write_json(mainfd, movement);
   if (!status) {
@@ -963,4 +937,22 @@ bool ClientNetworkManager::handle_connection_check() {
 
   status = setEvent(mainfd, NetworkEvents::CheckConnection);
   return status;
+}
+
+void ClientNetworkManager::read_update_players() {
+  json players_json;
+  bool status = read_json(mainfd, players_json, -1);
+  if (!status) {
+    TraceLog(LOG_ERROR, "NET: Couldn't receive json of players");
+    return;
+  }
+  try {
+    auto players = players_json.template get<std::vector<Player>>();
+    gameManager() = gameManagersPair.at(game_manager_draw_idx);
+    gameManager().players = players;
+    flip_game_manager();
+  } catch (json::exception &ex) {
+    TraceLog(LOG_ERROR, "JSON: Couldn't deserialize json into vector<Player>");
+    return;
+  }
 }

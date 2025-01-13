@@ -13,18 +13,7 @@ Player AddPlayer(int i) {
   return player;
 }
 
-void UpdatePlayer(Player &player, float frametime) {
-  int rot = (int)(IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D)) -
-            (int)(IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A));
-  player.rotation += rot * Constants::PLAYER_ROTATION_SPEED * frametime;
-
-  if (IsKeyDown(KEY_UP) || IsKeyDown(KEY_W)) {
-    Vector2 direction = {cosf(DEG2RAD * player.rotation),
-                         sinf(DEG2RAD * player.rotation)};
-    player.velocity = Vector2Add(
-        player.velocity,
-        Vector2Scale(direction, Constants::PLAYER_ACCELERATION * frametime));
-  }
+void REALLYJUSTUPDATEPLAYER(Player &player, float frametime) {
 
   // Apply damping to velocity
   player.velocity =
@@ -48,6 +37,22 @@ void UpdatePlayer(Player &player, float frametime) {
   player.player_color.a = player.active ? 255 : 25;
 }
 
+void UpdatePlayer(Player &player, float frametime) {
+  int rot = (int)(IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D)) -
+            (int)(IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A));
+  player.rotation += rot * Constants::PLAYER_ROTATION_SPEED * frametime;
+
+  if (IsKeyDown(KEY_UP) || IsKeyDown(KEY_W)) {
+    Vector2 direction = {cosf(DEG2RAD * player.rotation),
+                         sinf(DEG2RAD * player.rotation)};
+    player.velocity = Vector2Add(
+        player.velocity,
+        Vector2Scale(direction, Constants::PLAYER_ACCELERATION * frametime));
+  }
+
+  REALLYJUSTUPDATEPLAYER(player, frametime);
+}
+
 bool Shoot() {
   if (IsKeyPressed(KEY_SPACE))
     return true;
@@ -61,18 +66,15 @@ Vector2 GetPlayerSpawnPosition(int i) {
 
 void to_json(json &j, const Player &p) {
 
-  j = json{{"player_id", p.player_id}, {"state", p.state},
-           {"active", p.active},       {"position", p.position},
-           {"velocity", p.velocity},   {"rotation", p.rotation},
-           {"color", p.player_color},  {"connection", p.connection_state}};
+  j = json{{"player_id", p.player_id}, {"active", p.active},
+           {"position", p.position},   {"velocity", p.velocity},
+           {"rotation", p.rotation},   {"color", p.player_color}};
 }
 void from_json(const json &j, Player &p) {
   j.at("player_id").get_to(p.player_id);
-  j.at("state").get_to(p.state);
   j.at("active").get_to(p.active);
   j.at("velocity").get_to(p.velocity);
   j.at("position").get_to(p.position);
   j.at("rotation").get_to(p.rotation);
   j.at("color").get_to(p.player_color);
-  j.at("connection").get_to(p.connection_state);
 }

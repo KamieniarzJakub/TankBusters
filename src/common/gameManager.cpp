@@ -28,10 +28,11 @@ void GameManager::NewGame(std::vector<PlayerShortInfo> playerInfos) {
 void GameManager::UpdateStatus() {
   if (_alive_players > 1) {
     status = GameStatus::GAME;
-    endRoundTime = GetTime();
+    endRoundTime = GetTime(); // FIXME: gettime
   } else if (endRoundTime > 0) {
     status = GameStatus::END_OF_ROUND;
-    if (GetTime() - endRoundTime >= Constants::NEW_ROUND_WAIT_TIME)
+    if (GetTime() - endRoundTime >=
+        Constants::NEW_ROUND_WAIT_TIME) // FIXME: gettime
       endRoundTime = -1;
   } else {
     status = GameStatus::LOBBY;
@@ -196,7 +197,7 @@ bool GameManager::AddBullet(const Player &player) {
 void GameManager::UpdatePlayersLobby() {
   for (int i = 0; i < Constants::PLAYERS_MAX; i++) {
     if (IsKeyPressed(KEY_SPACE)) {
-      players[i].state = PlayerInfo::READY;
+      players[i].active = true;
     }
   }
   // TraceLog(LOG_DEBUG, "PLAYERS READY FOR NEW ROUND: %d", ready_players);
@@ -232,7 +233,6 @@ bool GameManager::ReturnToRooms() {
 
 void GameManager::RestartLobby() {
   for (auto &p : players) {
-    p.state = PlayerInfo::NOT_READY;
     p.active = true;
   }
   // new_round_timer = -1;
@@ -242,16 +242,6 @@ GameManager::GameManager(uint32_t room_id,
                          std::vector<PlayerShortInfo> playerInfos)
     : room_id(room_id) {
   NewGame(playerInfos);
-}
-
-size_t GameManager::GetConnectedPlayers(PlayerConnection pc) {
-  size_t n = 0;
-  for (auto &p : players) {
-    if (p.connection_state == pc) {
-      n++;
-    }
-  }
-  return n;
 }
 
 void to_json(json &j, const GameManager &gm) {

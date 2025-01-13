@@ -1,4 +1,5 @@
 #pragma once
+#include "raylib.h"
 #include <sys/eventfd.h>
 #include <unistd.h>
 
@@ -31,18 +32,17 @@ public:
   int get_event_fd() { return efd; }
 
   void push(T item) {
-    std::cout << "push " << efd << std::endl;
+    TraceLog(LOG_INFO, "NET: adding element to network queue");
     {
       std::unique_lock<std::mutex> lock(mutex);
       queue.push(item);
     }
     const uint64_t one = 1;
     write(efd, &one, sizeof(one));
-    std::cout << "push written " << efd << std::endl;
   }
 
   T pop() {
-    std::cout << "pop " << efd << std::endl;
+    TraceLog(LOG_INFO, "NET: popping element to network queue");
     {
       std::unique_lock<std::mutex> lock(mutex);
     }
@@ -50,7 +50,6 @@ public:
     read(efd, &one, sizeof(one));
     T item = queue.front();
     queue.pop();
-    std::cout << "pop read " << efd << std::endl;
     return item;
   }
 };

@@ -111,4 +111,5 @@ struct ClientNetworkManager {
 
   bool handle_end_round(uint32_t &winner_player_id);
   bool handle_connection_check();
+  void read_update_players();
 };
