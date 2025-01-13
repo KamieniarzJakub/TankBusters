@@ -42,8 +42,9 @@ void GameManager::UpdateStatus() {
 }
 
 void GameManager::UpdatePlayers(duration<double> frametime) {
+  exit(1); // DO NOT USE
   for (int i = 0; i < Constants::PLAYERS_MAX; i++) {
-    UpdatePlayer(players[i], frametime);
+    CheckMovementUpdatePlayer(players[i], frametime);
     if (players[i].active && Shoot()) {
       AddBullet(players[i]);
     }

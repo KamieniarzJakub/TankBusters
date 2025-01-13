@@ -62,8 +62,8 @@ struct Game {
       if (steady_clock::now() - last_room_fetch >
           room_fetch_interval) { // TODO: use timerfd
         last_room_fetch = steady_clock::now();
-        TraceLog(LOG_INFO, "NET: push fetch rooms");
         networkManager.todo.push([&]() {
+          TraceLog(LOG_INFO, "NET: Fetch rooms");
           std::map<uint32_t, Room> update_rooms;
           bool status = networkManager.get_rooms(update_rooms);
           if (status) {
@@ -77,8 +77,8 @@ struct Game {
       setSelectedRoom();
     } else if (gameManager().status == GameStatus::LOBBY) {
       if (gameManagersPair.at(game_manager_draw_idx).ReturnToRooms()) {
-        TraceLog(LOG_INFO, "NET: push leave room");
         networkManager.todo.push([&]() {
+          TraceLog(LOG_INFO, "NET: leave room");
           bool status = networkManager.leave_room();
           if (status) {
             std::cout << json(roomsPair).dump() << std::endl;
@@ -97,20 +97,18 @@ struct Game {
                   .players.at(gameManager().player_id)
                   .state != PlayerInfo::READY &&
           IsKeyPressed(KEY_SPACE)) {
-        TraceLog(LOG_INFO, "NET: push vote ready");
         networkManager.todo.push([&]() {
           std::vector<PlayerShortInfo> player_status;
           TraceLog(LOG_INFO, "NET: sending vote ready");
           bool status = networkManager.vote_ready(player_status);
           if (status) {
-            TraceLog(LOG_INFO, "GAME: player status %s",
-                     json(player_status).dump().c_str());
+            // TraceLog(LOG_INFO, "GAME: player status %s",
+            //          json(player_status).dump().c_str());
             networkManager.rooms().at(networkManager.room_id).players =
                 player_status;
             networkManager.flip_rooms();
             networkManager.rooms().at(networkManager.room_id).players =
                 player_status;
-            // networkManager.flip_game_manager();
           }
           return status;
         });
@@ -165,14 +163,10 @@ struct Game {
 
       auto &players = gameManager().players;
       auto &player = players.at(gameManager().player_id);
-      UpdatePlayer(player, frametime);
-      // for (auto &p : gameManager().players) { // FIXME: lag
-      //   if (p.player_id == gameManager().player_id) {
-      //     UpdatePlayer(player, frametime);
-      //   } else {
-      //     REALLYJUSTUPDATEPLAYER(p, frametime);
-      //   }
-      // }
+      CheckMovementUpdatePlayer(player, frametime);
+      for (auto &p : gameManager().players) { // FIXME: lag
+        REALLYJUSTUPDATEPLAYER(p, frametime);
+      }
       networkManager.todo.push([&]() {
         TraceLog(LOG_INFO, "NET: sending movement");
         bool status = networkManager.send_movement(
@@ -195,7 +189,7 @@ struct Game {
 
       // gameManager.AsteroidSpawner(GetTime());
     } else { // Lobby or end of Round
-      TraceLog(LOG_INFO, "3. Game status: %d", gameManager().status);
+      // TraceLog(LOG_INFO, "3. Game status: %d", gameManager().status);
       // if (gameManager().UpdateLobbyStatus(
       //         rooms().at(networkManager.room_id).players)) {
       // TraceLog(LOG_INFO, "4. Game status: %d", gameManager().status);
@@ -203,7 +197,7 @@ struct Game {
       // gameManager().RestartLobby();
       // TraceLog(LOG_INFO, "5. Game status: %d", gameManager().status);
       // }
-      TraceLog(LOG_INFO, "6. Game status: %d", gameManager().status);
+      // TraceLog(LOG_INFO, "6. Game status: %d", gameManager().status);
     }
   }
 
@@ -219,8 +213,8 @@ struct Game {
     try {
       if (IsKeyPressed(KEY_SPACE) &&
           get_X_players(selected_room.players, PlayerInfo::NONE) > 0) {
-        TraceLog(LOG_INFO, "NET: push join room");
         networkManager.todo.push([&]() {
+          TraceLog(LOG_INFO, "NET: join room");
           try {
             uint32_t player_id;
             bool status =

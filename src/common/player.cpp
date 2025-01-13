@@ -13,15 +13,15 @@ Player AddPlayer(int i) {
   return player;
 }
 
-void REALLYJUSTUPDATEPLAYER(Player &player, float frametime) {
+void REALLYJUSTUPDATEPLAYER(Player &player, duration<double> frametime) {
 
   // Apply damping to velocity
   player.velocity =
       Vector2Scale(player.velocity, (1 - Constants::PLAYER_DRAG / 1000.0f));
 
   // Update position
-  player.position =
-      Vector2Add(player.position, Vector2Scale(player.velocity, frametime));
+  player.position = Vector2Add(
+      player.position, Vector2Scale(player.velocity, frametime.count()));
 
   // Keep player on the screen (wrap around)
   if (player.position.x < 0)
@@ -37,7 +37,7 @@ void REALLYJUSTUPDATEPLAYER(Player &player, float frametime) {
   player.player_color.a = player.active ? 255 : 25;
 }
 
-void UpdatePlayer(Player &player, duration<double> frametime) {
+void CheckMovementUpdatePlayer(Player &player, duration<double> frametime) {
   int rot = (int)(IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D)) -
             (int)(IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A));
   player.rotation += rot * Constants::PLAYER_ROTATION_SPEED * frametime.count();
@@ -50,15 +50,9 @@ void UpdatePlayer(Player &player, duration<double> frametime) {
                    Vector2Scale(direction, Constants::PLAYER_ACCELERATION *
                                                frametime.count()));
   }
-
-  REALLYJUSTUPDATEPLAYER(player, frametime.count());
 }
 
-bool Shoot() {
-  if (IsKeyPressed(KEY_SPACE))
-    return true;
-  return false;
-}
+bool Shoot() { return IsKeyPressed(KEY_SPACE); }
 
 Vector2 GetPlayerSpawnPosition(int i) {
   return Vector2{(float)Constants::screenWidth / 2,

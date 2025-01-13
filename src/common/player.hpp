@@ -27,8 +27,8 @@ Player AddPlayer(int i);
 bool Shoot();
 
 Vector2 GetPlayerSpawnPosition(int i);
-void REALLYJUSTUPDATEPLAYER(Player &player, float frametime);
-void UpdatePlayer(Player &player, duration<double> frametime);
+void REALLYJUSTUPDATEPLAYER(Player &player, duration<double> frametime);
+void CheckMovementUpdatePlayer(Player &player, duration<double> frametime);
 
 void to_json(json &j, const Player &p);
 void from_json(const json &j, Player &p);
