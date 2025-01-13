@@ -12,7 +12,7 @@ Bullet CreateBullet(Vector2 position, float rotation) {
   return bullet;
 }
 
-void UpdateBullet(Bullet *bullet, float frametime) {
+void UpdateBullet(Bullet *bullet, duration<double> frametime) {
   if (!bullet->active)
     return;
 
@@ -21,10 +21,10 @@ void UpdateBullet(Bullet *bullet, float frametime) {
     return;
   }
 
-  bullet->position.x +=
-      Constants::BULLET_SPEED * frametime * cos(bullet->rotation * DEG2RAD);
-  bullet->position.y +=
-      Constants::BULLET_SPEED * frametime * sin(bullet->rotation * DEG2RAD);
+  bullet->position.x += Constants::BULLET_SPEED * frametime.count() *
+                        cos(bullet->rotation * DEG2RAD);
+  bullet->position.y += Constants::BULLET_SPEED * frametime.count() *
+                        sin(bullet->rotation * DEG2RAD);
 }
 
 void to_json(json &j, const Bullet &b) {

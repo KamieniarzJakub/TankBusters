@@ -3,6 +3,7 @@
 #include "player.hpp"
 #include "resource_dir.hpp"
 #include "room.hpp"
+#include <chrono>
 #include <cstdint>
 #include <raylib.h>
 
@@ -64,16 +65,17 @@ void GraphicsManager::DrawTimer(uint32_t t) {
       MeasureTextEx(font, text, Constants::TEXT_SIZE, Constants::TEXT_SPACING);
   DrawTextPro(font, text,
               Vector2{(float)Constants::screenWidth / 2,
-                      Constants::screenHeight - 3*Constants::TEXT_OFFSET},
+                      Constants::screenHeight - 3 * Constants::TEXT_OFFSET},
               Vector2{origin.x / 2, origin.y}, 0, Constants::TEXT_SIZE,
               Constants::TEXT_SPACING, RAYWHITE);
 }
 
 void GraphicsManager::DrawTitle(const Room &r) {
-  const char *text =
-      TextFormat("%s[%d/%d]", Constants::COOL_ROOM_NAMES[r.room_id-1].c_str(), //FIXME: selected id
-                 r.players.size() - get_X_players(r.players, PlayerInfo::NONE),
-                 Constants::PLAYERS_MAX);
+  const char *text = TextFormat(
+      "%s[%d/%d]",
+      Constants::COOL_ROOM_NAMES[r.room_id - 1].c_str(), // FIXME: selected id
+      r.players.size() - get_X_players(r.players, PlayerInfo::NONE),
+      Constants::PLAYERS_MAX);
   Vector2 origin = MeasureTextEx(font, text, Constants::TEXT_WIN_SIZE,
                                  Constants::TEXT_SPACING);
   DrawTextPro(font, text, Vector2{(float)Constants::screenWidth / 2, 0},
@@ -118,7 +120,7 @@ void GraphicsManager::DrawExitLobbyMessage() {
       MeasureTextEx(font, text, Constants::TEXT_SIZE, Constants::TEXT_SPACING);
   DrawTextPro(font, text,
               Vector2{(float)Constants::screenWidth / 2,
-                      Constants::screenHeight - 3*Constants::TEXT_OFFSET},
+                      Constants::screenHeight - 3 * Constants::TEXT_OFFSET},
               Vector2{origin.x / 2, origin.y}, 0, Constants::TEXT_SIZE,
               Constants::TEXT_SPACING, RAYWHITE);
 }
@@ -146,7 +148,8 @@ void GraphicsManager::DrawBullets(const GameManager &gm) {
   }
 }
 
-void GraphicsManager::DrawTime(const GameManager &gm, double time) {
+void GraphicsManager::DrawTime(const GameManager &gm) {
+  auto time = steady_clock::now();
   if (gm.status == GameStatus::END_OF_ROUND)
     time = gm.endRoundTime;
 
@@ -156,7 +159,6 @@ void GraphicsManager::DrawTime(const GameManager &gm, double time) {
               Vector2{0, 0}, 0.0f, Constants::TEXT_SIZE,
               Constants::TEXT_SPACING, RAYWHITE);
 }
-
 
 void GraphicsManager::DrawWinnerText(const GameManager &gm) {
   for (int i = 0; i < Constants::PLAYERS_MAX; i++) {
@@ -179,8 +181,10 @@ void GraphicsManager::DrawWinnerText(const GameManager &gm) {
 }
 
 void GraphicsManager::DrawNewRoundCountdown(const GameManager &gm) {
-  int time = Constants::NEW_ROUND_WAIT_TIME - int(GetTime() - gm.endRoundTime);
-  const char *text = TextFormat("New round in %d", time);
+  auto time =
+      Constants::NEW_ROUND_WAIT_TIME - (steady_clock::now() - gm.endRoundTime);
+  const char *text =
+      TextFormat("New round in %d", static_cast<int>(time.count()));
   Vector2 origin =
       MeasureTextEx(font, text, Constants::TEXT_SIZE, Constants::TEXT_SPACING);
   DrawTextPro(
@@ -200,7 +204,7 @@ void GraphicsManager::DrawGame(GameManager gameManager, Room room) {
       DrawWinnerText(gameManager);
       DrawNewRoundCountdown(gameManager);
     }
-    DrawTime(gameManager, GetTime());
+    DrawTime(gameManager);
   } else {
     DrawTitle(room);
     DrawLobbyPlayers(room);

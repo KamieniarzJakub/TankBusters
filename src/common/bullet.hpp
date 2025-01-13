@@ -1,7 +1,9 @@
 #pragma once
 #include "raylib.h"
+#include <chrono>
 #include <nlohmann/json.hpp>
 
+using namespace std::chrono;
 using json = nlohmann::json;
 
 struct Bullet {
@@ -12,7 +14,7 @@ struct Bullet {
 
 Bullet CreateBullet(Vector2 position, float rotation);
 
-void UpdateBullet(Bullet *asteroid, float frametime);
+void UpdateBullet(Bullet *bullet, duration<double> frametime);
 
 void to_json(json &j, const Bullet &b);
 void from_json(const json &j, Bullet &b);

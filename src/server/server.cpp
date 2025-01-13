@@ -1,5 +1,6 @@
 #include "server.hpp"
 
+#include <chrono>
 #include <errno.h>
 #include <error.h>
 #include <netinet/in.h>
@@ -336,7 +337,8 @@ void Server::handleVoteReady(Client &client) {
       player_short_infos_json = gr.room.players;
       if (get_X_players(gr.room.players, READY) >= 2) {
         TraceLog(LOG_INFO, "2. NEW PLAYER");
-        gr.gameManager.game_start_time = time(0) + Constants::LOBBY_READY_TIME;
+        gr.gameManager.game_start_time =
+            time(0) + Constants::LOBBY_READY_TIME.count();
         for (auto c : gr.clients) {
           TraceLog(LOG_INFO, "3. NEW PLAYER");
           todos.at(c).push([&](Client c1) {
@@ -519,13 +521,20 @@ void Server::new_game(const Room r) {
     // game.UpdateStatus();
     // game.status = GameStatus::GAME;
     // TraceLog(LOG_DEBUG, "Game status: %d", gameManager.status);
+    auto game_start_time = std::chrono::steady_clock::now();
+    auto frame_start_time = std::chrono::steady_clock::now();
+    duration<double> frametime = game_start_time - steady_clock::now();
     while (gs == GameStatus::GAME) {
       // TraceLog(LOG_INFO, "ROOM %lu is in game", r.room_id);
       {
+        auto frame_start_time1 = std::chrono::steady_clock::now();
+        frametime = frame_start_time1 - frame_start_time;
+        frame_start_time = frame_start_time1;
         auto &gr = games.at(r.room_id);
         std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
         auto &game = gr.gameManager;
-        float frametime = GetFrameTime();
+
+        // float frametime = GetFrameTime();
 
         // game.ManageCollisions();
 
@@ -566,9 +575,17 @@ void Server::new_game(const Room r) {
         }
 
         // game.UpdateBullets(frametime);
-        // game.UpdateAsteroids(frametime);
-
-        // game.AsteroidSpawner(GetTime());
+        game.UpdateAsteroids(frametime);
+        if (game.AsteroidSpawner()) {
+          for (auto c : gr.clients) {
+            todos.at(c).push([&](Client c1) {
+              TraceLog(LOG_INFO, "Updating asteroids for client_id=%lu",
+                       c1.client_id);
+              handleUpdateAsteroids(c1);
+              return true;
+            });
+          }
+        }
         // TraceLog(LOG_INFO, json(game.players).dump().c_str());
         // if (game._alive_players < 2) {
         //   gs = GameStatus::END_OF_ROUND;

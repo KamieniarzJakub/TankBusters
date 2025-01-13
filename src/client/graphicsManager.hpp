@@ -22,7 +22,7 @@ struct GraphicsManager {
   void DrawAsteroids(const GameManager &gm);
   void DrawPlayers(const GameManager &gm);
   void DrawBullets(const GameManager &gm);
-  void DrawTime(const GameManager &gm, double time);
+  void DrawTime(const GameManager &gm);
   void DrawWinnerText(const GameManager &gm);
   void DrawNewRoundCountdown(const GameManager &gm);
 

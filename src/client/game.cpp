@@ -31,6 +31,10 @@ struct Game {
   uint8_t selected_room_index = 0;
   Room selected_room{};
 
+  time_point<steady_clock> game_start_time = std::chrono::steady_clock::now();
+  time_point<steady_clock> frame_start_time = std::chrono::steady_clock::now();
+  duration<double> frametime = game_start_time - steady_clock::now();
+
   inline uint8_t get_networks_idx(std::atomic_uint8_t &draw_idx) {
     return !draw_idx.load();
   }
@@ -48,6 +52,9 @@ struct Game {
         roomsPair(std::array<std::map<uint32_t, Room>, 2>()) {}
 
   void updateDrawFrame(void) {
+    auto frame_start_time1 = std::chrono::steady_clock::now();
+    frametime = frame_start_time1 - frame_start_time;
+    frame_start_time = frame_start_time1;
     // TraceLog(LOG_INFO, "status: %d", gameManager().status);
     if (networkManager.room_id == 0) {
       // Queue network work
@@ -126,11 +133,11 @@ struct Game {
         graphicsManager.DrawAsteroids(gameManager());
         graphicsManager.DrawPlayers(gameManager());
         graphicsManager.DrawBullets(gameManager());
-        graphicsManager.DrawTime(gameManager(), GetTime());
+        graphicsManager.DrawTime(gameManager());
       } else if (gameManager().status == GameStatus::END_OF_ROUND) {
         graphicsManager.DrawWinnerText(gameManager());
         graphicsManager.DrawNewRoundCountdown(gameManager());
-        graphicsManager.DrawTime(gameManager(), GetTime());
+        graphicsManager.DrawTime(gameManager());
       } else {
         // TraceLog(LOG_INFO,
         //          json(rooms().at(networkManager.room_id)).dump().c_str());
@@ -152,14 +159,13 @@ struct Game {
     // gameManager().UpdateStatus();
     if (gameManager().status == GameStatus::GAME) {
       // TraceLog(LOG_INFO, "Game", gameManager().status);
-      float frametime = GetFrameTime();
 
       // gameManager().ManageCollisions();
 
       auto &players = gameManager().players;
       auto &player = players.at(gameManager().player_id);
       UpdatePlayer(player, frametime);
-      // for (auto &p : gameManager().players) {
+      // for (auto &p : gameManager().players) { // FIXME: lag
       //   if (p.player_id == gameManager().player_id) {
       //     UpdatePlayer(player, frametime);
       //   } else {
@@ -184,7 +190,7 @@ struct Game {
       }
 
       // gameManager().UpdateBullets(frametime);
-      // gameManager().UpdateAsteroids(frametime);
+      gameManager().UpdateAsteroids(frametime);
 
       // gameManager.AsteroidSpawner(GetTime());
     } else { // Lobby or end of Round

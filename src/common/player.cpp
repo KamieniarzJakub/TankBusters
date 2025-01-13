@@ -37,20 +37,21 @@ void REALLYJUSTUPDATEPLAYER(Player &player, float frametime) {
   player.player_color.a = player.active ? 255 : 25;
 }
 
-void UpdatePlayer(Player &player, float frametime) {
+void UpdatePlayer(Player &player, duration<double> frametime) {
   int rot = (int)(IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D)) -
             (int)(IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A));
-  player.rotation += rot * Constants::PLAYER_ROTATION_SPEED * frametime;
+  player.rotation += rot * Constants::PLAYER_ROTATION_SPEED * frametime.count();
 
   if (IsKeyDown(KEY_UP) || IsKeyDown(KEY_W)) {
     Vector2 direction = {cosf(DEG2RAD * player.rotation),
                          sinf(DEG2RAD * player.rotation)};
-    player.velocity = Vector2Add(
-        player.velocity,
-        Vector2Scale(direction, Constants::PLAYER_ACCELERATION * frametime));
+    player.velocity =
+        Vector2Add(player.velocity,
+                   Vector2Scale(direction, Constants::PLAYER_ACCELERATION *
+                                               frametime.count()));
   }
 
-  REALLYJUSTUPDATEPLAYER(player, frametime);
+  REALLYJUSTUPDATEPLAYER(player, frametime.count());
 }
 
 bool Shoot() {

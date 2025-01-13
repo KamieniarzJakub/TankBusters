@@ -25,7 +25,7 @@ CreateAsteroid(Vector2 position = GetRandomPosition(),
                int size = GetRandomValue(Constants::ASTEROID_SIZE_MIN,
                                          Constants::ASTEROID_SIZE_MAX));
 
-void UpdateAsteroid(Asteroid *asteroid, float frametime);
+void UpdateAsteroid(Asteroid *asteroid, duration<double> frametime);
 
 void to_json(json &j, const Asteroid &a);
 void from_json(const json &j, Asteroid &a);

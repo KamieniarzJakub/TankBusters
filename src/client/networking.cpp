@@ -369,7 +369,7 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
     json asteroids_json;
     bool status = read_json(mainfd, asteroids_json, -1);
     if (!status) {
-      TraceLog(LOG_ERROR, "NET: Couldn't receive json of players");
+      TraceLog(LOG_ERROR, "NET: Couldn't receive json of asteroids");
       return;
     }
     try {
@@ -377,6 +377,7 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
       gameManager() = gameManagersPair.at(game_manager_draw_idx);
       gameManager().asteroids = asteroids;
       flip_game_manager();
+      gameManager().asteroids = asteroids;
     } catch (json::exception &ex) {
       TraceLog(LOG_ERROR,
                "JSON: Couldn't deserialize json into vector<Asteroid>");

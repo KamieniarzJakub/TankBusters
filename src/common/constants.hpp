@@ -1,6 +1,8 @@
 #pragma once
 #include "raylib.h"
+#include <chrono>
 #include <string>
+using namespace std::chrono;
 
 namespace Constants {
 const static int screenWidth = 900;
@@ -20,7 +22,7 @@ const static int ASTEROID_POLYGON_MIN = 5;
 const static int ASTEROID_POLYGON_MAX = 8;
 const static int ASTEROID_PATH_RANDOM_ANGLE = 45 * DEG2RAD;
 const static int ASTEROIDS_MAX = 64;
-const static float ASTEROID_SPAWN_DELAY = 1.0f;
+const static auto ASTEROID_SPAWN_DELAY = 1s;
 const static float ASTEROID_SPLIT_LOSS = 1.5f;
 
 const static int PLAYERS_MAX = 4;
@@ -49,8 +51,8 @@ const static Color BACKGROUND_COLOR = {15, 15, 15, 255};
 const static Color BACKGROUND_COLOR_HALF_ALFA = {15, 15, 15, 150};
 const static Color NOT_CONNECTED_GRAY = {200, 200, 200, 150};
 
-const static int NEW_ROUND_WAIT_TIME = 3;
-const static int LOBBY_READY_TIME = 5;
+const static auto NEW_ROUND_WAIT_TIME = 3s;
+const static auto LOBBY_READY_TIME = 5s;
 
 const static unsigned int CONNECTION_TIMEOUT_MILISECONDS = 5000;
 } // namespace Constants

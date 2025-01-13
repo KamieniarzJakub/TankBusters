@@ -5,10 +5,13 @@
 #include "gameStatus.hpp"
 #include "player.hpp"
 #include "room.hpp"
+#include <chrono>
 #include <raylib.h>
 #include <raymath.h>
 #include <sys/types.h>
 #include <vector>
+
+using namespace std::chrono;
 
 struct GameManager {
   std::vector<Asteroid> asteroids;
@@ -19,9 +22,10 @@ struct GameManager {
   uint32_t room_id;
   GameStatus status;
   int _alive_players;
-  float _spawnerTime;
-  float startRoundTime;
-  float endRoundTime;
+  time_point<steady_clock> _spawnerTime;
+  time_point<steady_clock> startRoundTime;
+  time_point<steady_clock> endRoundTime;
+  void UpdatePlayers(duration<double> frametime);
 
   uint32_t game_start_time;
 
@@ -33,18 +37,17 @@ struct GameManager {
   void NewGame(std::vector<PlayerShortInfo> playerInfos);
 
   void UpdateStatus();
-  void UpdatePlayers(float frametime);
-  void UpdateBullets(float frametime);
-  void UpdateAsteroids(float frametime);
   void UpdateGameServer();
 
-  void AsteroidSpawner(double time);
+  void UpdateAsteroids(duration<double> frametime);
+  bool AsteroidSpawner();
 
   void ManageCollisions();
 
   void AddAsteroid();
   void SplitAsteroid(Vector2 position, Vector2 velocity, int size);
   bool AddBullet(const Player &player);
+  void UpdateBullets(duration<double> frametime);
 
   void RestartLobby();
 

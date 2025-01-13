@@ -1,7 +1,10 @@
 #pragma once
+#include <chrono>
 #include <nlohmann/json.hpp>
 #include <raylib.h>
 #include <raymath.h>
+
+using namespace std::chrono;
 
 using json = nlohmann::json;
 enum PlayerInfo { NONE = 0, NOT_READY = 1, READY = 2 };
@@ -21,12 +24,11 @@ struct Player {
 
 Player AddPlayer(int i);
 
-void UpdatePlayer(Player &player, float frametime);
-
 bool Shoot();
 
 Vector2 GetPlayerSpawnPosition(int i);
 void REALLYJUSTUPDATEPLAYER(Player &player, float frametime);
+void UpdatePlayer(Player &player, duration<double> frametime);
 
 void to_json(json &j, const Player &p);
 void from_json(const json &j, Player &p);

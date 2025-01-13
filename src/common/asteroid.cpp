@@ -20,7 +20,7 @@ Asteroid CreateAsteroid(Vector2 position, Vector2 velocity, int size) {
   return asteroid;
 }
 
-void UpdateAsteroid(Asteroid *asteroid, float frametime) {
+void UpdateAsteroid(Asteroid *asteroid, duration<double> frametime) {
   if (!asteroid->active)
     return;
 
@@ -29,9 +29,9 @@ void UpdateAsteroid(Asteroid *asteroid, float frametime) {
     return;
   }
 
-  asteroid->position = Vector2Add(asteroid->position,
-                                  Vector2Scale(asteroid->velocity, frametime));
-  asteroid->rotation += asteroid->rotation_speed * frametime;
+  asteroid->position = Vector2Add(
+      asteroid->position, Vector2Scale(asteroid->velocity, frametime.count()));
+  asteroid->rotation += asteroid->rotation_speed * frametime.count();
 }
 
 Vector2 GetRandomPosition() {
