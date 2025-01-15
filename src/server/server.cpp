@@ -950,10 +950,17 @@ void Server::handle_network_event(Client &client, uint32_t event) {
   case NetworkEvents::EndRound:
     // Never read by server
     // FIXME: IMPLEMENT SENDING
+    TraceLog(LOG_WARNING, "%s received from client_id=%ld,fd=%d",
+             network_event_to_string(event).c_str(), client.client_id,
+             client.fd_main);
+    disconnect_client(client);
     break;
   case NetworkEvents::StartRound:
     // Never read by server
-    // FIXME: IMPLEMENT SENDING
+    TraceLog(LOG_WARNING, "%s received from client_id=%ld,fd=%d",
+             network_event_to_string(event).c_str(), client.client_id,
+             client.fd_main);
+    disconnect_client(client);
     break;
   case NetworkEvents::GetClientId:
     std::time(&client.last_response);
@@ -1002,6 +1009,25 @@ void Server::handle_network_event(Client &client, uint32_t event) {
   case NetworkEvents::UpdateBullets:
     std::time(&client.last_response);
     handleUpdateBullets(client);
+    break;
+  case NetworkEvents::NewGameSoon:
+    // Not received by server
+    TraceLog(LOG_WARNING, "%s received from client_id=%ld,fd=%d",
+             network_event_to_string(event).c_str(), client.client_id,
+             client.fd_main);
+    disconnect_client(client);
+    break;
+  case NetworkEvents::PlayerDestroyed:
+    // FIXME: implement
+    break;
+  case NetworkEvents::SpawnAsteroid:
+    // FIXME: implement
+    break;
+  case NetworkEvents::AsteroidDestroyed:
+    // FIXME: implement
+    break;
+  case NetworkEvents::BulletDestroyed:
+    // FIXME: implement
     break;
   default:
     TraceLog(LOG_WARNING,

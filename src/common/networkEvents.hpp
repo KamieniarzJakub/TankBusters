@@ -18,7 +18,7 @@ enum NetworkEvents {
   GetClientId = 100,
   VoteReady = 110,
   PlayerMovement = 120,
-  ShootBullets = 130,
+  PlayerDestroyed = 140,
 
   // Room
   GetRoomList = 200,
@@ -31,6 +31,15 @@ enum NetworkEvents {
   UpdatePlayers = 320,
   UpdateAsteroids = 330,
   UpdateBullets = 340,
+
+  // Asteroid
+  SpawnAsteroid = 400,
+  AsteroidDestroyed = 410,
+
+  // Bullets
+  ShootBullets = 500,
+  BulletDestroyed = 510,
+
 };
 
 const std::string network_event_to_string(NetworkEvents networkEvent);
