@@ -346,7 +346,8 @@ void Server::handleVoteReady(Client &client) {
       std::lock_guard<std::mutex> lgm(gr.gameRoomMutex);
       // client.player_id = get_next_available_player_id(gr);
       gr.room.players.at(client.player_id).state = PlayerInfo::READY;
-      gr.gameManager.players[client.player_id].active = true;
+      gr.gameManager.players[client.player_id].active =
+          true; // TODO: check leave room
       player_short_infos_json = gr.room.players;
       if (get_X_players(gr.room.players, READY) >= 2) {
         // TraceLog(LOG_INFO, "2. NEW PLAYER");

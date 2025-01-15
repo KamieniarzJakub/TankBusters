@@ -213,8 +213,8 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
     joinedRoom().status = GameStatus::END_OF_ROUND;
     break;
   case NetworkEvents::StartRound:
-    readGameState(); // FIXME: optimize flips
-    read_update_players();
+    // readGameState(); // FIXME: optimize flips
+    // read_update_players();
     joinedRoom().status = GameStatus::GAME;
     flip_joined_room();
     joinedRoom().status = GameStatus::GAME;
