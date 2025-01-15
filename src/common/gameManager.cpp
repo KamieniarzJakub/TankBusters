@@ -18,6 +18,7 @@ void GameManager::NewGame(std::vector<PlayerIdState> playerInfos) {
   for (int i = 0; i < Constants::PLAYERS_MAX; i++) {
     players.push_back(AddPlayer(i));
     players.at(i).active = playerInfos.at(i).state != PlayerInfo::NONE;
+    players.at(i).player_id = i;
   }
   bullets = std::vector<Bullet>(
       Constants::BULLETS_PER_PLAYER * Constants::PLAYERS_MAX, Bullet());
