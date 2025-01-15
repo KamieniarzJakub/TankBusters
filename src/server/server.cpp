@@ -580,20 +580,14 @@ void Server::new_game(const Room r) {
   }
   TraceLog(LOG_INFO, "New round");
   {
-    TraceLog(LOG_INFO, "1nr");
     {
       auto &gr = games.at(r.room_id);
       std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
       gr.room.status = GameStatus::GAME;
       // gr.gameManager.status = GameStatus::GAME;
     }
-    TraceLog(LOG_INFO, "2nr");
+
     auto &gr = games.at(r.room_id);
-    TraceLog(LOG_INFO, "3nr");
-    for (auto c : gr.clients) {
-      Client &cl = clients.at(c);
-      gr.gameManager.players.at(cl.player_id).active = true;
-    }
     for (auto c : gr.clients) {
       todos.at(c).push([&](Client c1) {
         serverSetEvent(c1, NetworkEvents::StartRound);
@@ -710,10 +704,10 @@ void Server::handleJoinRoom(Client &client) {
         client.player_id = player_id;
         gr.room.players.at(player_id).state = PlayerInfo::NOT_READY;
         gr.clients.push_back(client.client_id);
-        gr.gameManager = GameManager{gr.room.room_id, gr.room.players};
         // TraceLog(LOG_INFO, "1. NEW PLAYER");
       }
       TraceLog(LOG_INFO, "Client player id=%lu", client.player_id);
+
       // }
     }
     client.room_id = read_room_id;
