@@ -152,6 +152,7 @@ struct Game {
         graphicsManager.DrawAsteroids(gameManager());
         graphicsManager.DrawPlayers(gameManager());
         graphicsManager.DrawBullets(gameManager());
+        graphicsManager.DrawBulletsGUI(gameManager());
         graphicsManager.DrawTime(gameManager(), joinedRoom());
       } else if (joinedRoom().status == GameStatus::END_OF_ROUND) {
         graphicsManager.DrawWinnerText(gameManager());
