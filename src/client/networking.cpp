@@ -125,8 +125,8 @@ void ClientNetworkManager::perform_network_actions() {
 
   while (!this->_stop) {
     // TraceLog(LOG_INFO, "NET: waiting on epoll");
-    int nfds = epoll_wait(epollfd, events, MAX_EVENTS,
-                          Constants::CONNECTION_TIMEOUT_MILISECONDS);
+    int nfds = epoll_wait(epollfd, events, MAX_EVENTS, -1);
+    // Constants::CONNECTION_TIMEOUT_MILISECONDS);
     // TraceLog(LOG_INFO, "NET: unwait epoll");
     if (nfds == -1) { // EPOLL WAIT ERROR
       TraceLog(LOG_ERROR, "NET: Epoll wait error");

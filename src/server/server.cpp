@@ -176,8 +176,9 @@ void Server::handle_connection(Client client) {
 
   std::time(&client.last_response); // Set last response to current time
   while (client.fd_main > 2) {
-    int nfds = epoll_wait(epoll_fd, events, MAX_EVENTS,
-                          Constants::CONNECTION_TIMEOUT_MILISECONDS);
+    // int nfds = epoll_wait(epoll_fd, events, MAX_EVENTS,
+    // Constants::CONNECTION_TIMEOUT_MILISECONDS);
+    int nfds = epoll_wait(epoll_fd, events, MAX_EVENTS, -1);
     if (nfds == -1) { // EPOLL WAIT ERROR
       close(epoll_fd);
       TraceLog(LOG_ERROR, "Epoll wait error for client_id=%ld,fd=%d",
@@ -185,9 +186,9 @@ void Server::handle_connection(Client client) {
       disconnect_client(client);
       return;
     } else if (nfds == 0) { // EPOLL WAIT TIMEOUT
-      if (!sendCheckConnection(client)) {
-        break;
-      }
+      // if (!sendCheckConnection(client)) { // FIXME:
+      //   break;
+      // }
     }
     for (int n = 0; n < nfds; n++) {
       if (events[n].events & (EPOLLRDHUP | EPOLLERR | EPOLLHUP)) {
