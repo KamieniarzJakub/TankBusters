@@ -148,6 +148,20 @@ void GraphicsManager::DrawBullets(const GameManager &gm) {
   }
 }
 
+void GraphicsManager::DrawBulletsGUI(const GameManager &gm) {
+  int avaliable_bullets = 0;
+  for (size_t i = gm.player_id * Constants::BULLETS_PER_PLAYER;
+       i < (gm.player_id + 1) * Constants::BULLETS_PER_PLAYER; i++) {
+    if (!gm.bullets[i].active) avaliable_bullets++; }
+  std::string bullets_text = avaliable_bullets ? std::string(avaliable_bullets, '*') : "EMPTY";
+  const char *text = TextFormat("%s", bullets_text.c_str());
+  Vector2 origin = MeasureTextEx(font, text, Constants::TEXT_SIZE, Constants::TEXT_SPACING);
+  DrawTextPro(font, text,
+              Vector2{Constants::screenWidth-Constants::TEXT_OFFSET, Constants::screenHeight-Constants::TEXT_OFFSET},
+              Vector2{origin.x, origin.y/2}, 0.0f, Constants::TEXT_SIZE,
+              Constants::TEXT_SPACING, RAYWHITE);
+}
+
 void GraphicsManager::DrawTime(const GameManager &gm, const Room &r) {
   auto time = steady_clock::now();
   if (r.status == GameStatus::END_OF_ROUND)
@@ -192,25 +206,6 @@ void GraphicsManager::DrawNewRoundCountdown(const GameManager &gm) {
       Vector2{(float)Constants::screenWidth / 2, Constants::screenHeight},
       Vector2{origin.x / 2, origin.y + Constants::TEXT_OFFSET}, 0,
       Constants::TEXT_SIZE, Constants::TEXT_SPACING, RAYWHITE);
-}
-
-void GraphicsManager::DrawGame(const GameManager &gameManager,
-                               const Room &room) {
-  if (room.status == GameStatus::LOBBY) {
-    DrawTitle(room);
-    DrawLobbyPlayers(room);
-    DrawReadyMessage();
-    DrawTimer(gameManager.game_start_time);
-  } else {
-    DrawAsteroids(gameManager);
-    DrawPlayers(gameManager);
-    DrawBullets(gameManager);
-    if (room.status == GameStatus::END_OF_ROUND) {
-      DrawWinnerText(gameManager);
-      DrawNewRoundCountdown(gameManager);
-    }
-    DrawTime(gameManager, room);
-  }
 }
 
 void GraphicsManager::DrawRoomTitle() {

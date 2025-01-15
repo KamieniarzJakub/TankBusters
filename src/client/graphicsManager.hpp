@@ -34,10 +34,10 @@ struct GraphicsManager {
   void DrawTime(const GameManager &gm, const Room &r);
 
   // Draw Game
-  void DrawGame(const GameManager &gameManager, const Room &room);
   void DrawAsteroids(const GameManager &gm);
   void DrawPlayers(const GameManager &gm);
   void DrawBullets(const GameManager &gm);
+  void DrawBulletsGUI(const GameManager &gm);
   void DrawPlayer(const Player &player);
   void DrawAsteroid(const Asteroid &asteroid);
   void DrawBullet(const Bullet &bullet);
