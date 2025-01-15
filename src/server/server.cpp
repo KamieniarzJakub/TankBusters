@@ -67,7 +67,6 @@ Server::Server(in_port_t main_port) {
           gr.room.players.at(j).player_id = j;
         }
         gr.gameManager = GameManager(game_id, gr.room.players);
-        std::cerr << json(gr.gameManager.players).dump() << std::endl;
       }
     }
   }
@@ -525,7 +524,6 @@ void Server::handleShootBullet(Client &client) {
     GameRoom &gr = games.at(client.room_id);
     std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
     const Player &p = gr.gameManager.players.at(client.player_id);
-    std::cerr << json(gr.gameManager.players).dump() << std::endl;
     status = gr.gameManager.AddBullet(p);
   } catch (const std::out_of_range &ex) {
     status = false;
@@ -544,7 +542,6 @@ void Server::handleShootBullet(Client &client) {
         serverSetEvent(c1, NetworkEvents::ShootBullets);
 
         bool status = write_uint32(c1.fd_main, client.player_id);
-        std::cerr << c1.fd_main << " " << client.player_id << std::endl;
         if (!status) {
           TraceLog(LOG_WARNING,
                    "Couldn't send info about bullet shot by player_id=%lu to "
@@ -705,21 +702,19 @@ void Server::handleJoinRoom(Client &client) {
     {
       auto &gr = games.at(read_room_id);
       std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
-      status = gr.room.status == GameStatus::LOBBY;
+      // status = gr.room.status == GameStatus::LOBBY;
+      // if (status) {
+      auto player_id = get_next_available_player_id(gr);
+      status = player_id != UINT32_MAX;
       if (status) {
-        auto player_id = get_next_available_player_id(gr);
-        std::cerr << player_id << std::endl;
-        status = player_id != UINT32_MAX;
-        if (status) {
-          client.player_id = player_id;
-          gr.room.players.at(player_id).state = PlayerInfo::NOT_READY;
-          gr.clients.push_back(client.client_id);
-          gr.gameManager = GameManager{gr.room.room_id, gr.room.players};
-          // TraceLog(LOG_INFO, "1. NEW PLAYER");
-        }
-        TraceLog(LOG_INFO, json(gr.room).dump().c_str());
-        TraceLog(LOG_INFO, "Client player id=%lu", client.player_id);
+        client.player_id = player_id;
+        gr.room.players.at(player_id).state = PlayerInfo::NOT_READY;
+        gr.clients.push_back(client.client_id);
+        gr.gameManager = GameManager{gr.room.room_id, gr.room.players};
+        // TraceLog(LOG_INFO, "1. NEW PLAYER");
       }
+      TraceLog(LOG_INFO, "Client player id=%lu", client.player_id);
+      // }
     }
     client.room_id = read_room_id;
   } catch (const std::out_of_range &ex) {
