@@ -440,8 +440,13 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
       return;
     }
   } break;
-  default:
-    TraceLog(LOG_WARNING, "Unknown NetworkEvent received");
+  // default:
+  //   TraceLog(LOG_WARNING, "Unknown NetworkEvent received");
+  //   break;
+  case PlayerDestroyed:
+  case SpawnAsteroid:
+  case AsteroidDestroyed:
+  case BulletDestroyed:
     break;
   }
 }

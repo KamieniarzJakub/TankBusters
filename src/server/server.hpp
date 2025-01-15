@@ -53,17 +53,14 @@ struct Server {
   Client *find_client(size_t client_id);
   uint32_t get_next_available_player_id(GameRoom &gr);
 
-  void handle_connection(Client client);
+  void handle_connection(int client_fd);
   void handle_network_event(Client &client, uint32_t networkEvent);
   void client_error(Client &client);
   void disconnect_client(Client &client);
   void serverSetEvent(Client &client, NetworkEvents event);
   void serverSetStreamEvent(Client &client, NetworkEvents event);
 
-  void handleSetupStreamConnection(Client &client);
-  void handle_stream_network_event(Client &client, uint32_t event);
-  void handle_stream_socket(Client client);
-  void handleGetClientId(Client &client);
+  uint32_t handleGetClientId(int client_fd);
   void handleGetRoomList(Client &client);
   void handleVoteReady(Client &client);
   void handlePlayerMovement(Client &client);

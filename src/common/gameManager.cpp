@@ -97,7 +97,10 @@ bool GameManager::AsteroidSpawner() {
   return updated;
 }
 
-void GameManager::ManageCollisions() {
+void GameManager::ManageCollisions(std::vector<Asteroid> &asteroid_changes,
+                                   std::vector<uint32_t> &destroyed_players,
+                                   std::vector<uint32_t> destroyed_bullets) {
+  // void GameManager::ManageCollisions() {
   for (int i = 0; i < Constants::ASTEROIDS_MAX; i++) {
     if (!asteroids[i].active)
       continue;

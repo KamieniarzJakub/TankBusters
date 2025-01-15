@@ -40,7 +40,10 @@ struct GameManager {
   void UpdateAsteroids(duration<double> frametime);
   bool AsteroidSpawner();
 
-  void ManageCollisions();
+  // void ManageCollisions();
+  void ManageCollisions(std::vector<Asteroid> &asteroid_changes,
+                        std::vector<uint32_t> &destroyed_players,
+                        std::vector<uint32_t> destroyed_bullets);
 
   void AddAsteroid();
   void SplitAsteroid(Vector2 position, Vector2 velocity, int size);
