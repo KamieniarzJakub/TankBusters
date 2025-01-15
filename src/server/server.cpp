@@ -361,7 +361,9 @@ void Server::handleVoteReady(Client &client) {
             return true;
           });
         }
-        gr.thread = std::thread(&Server::new_game, this, gr.room);
+        if (!gr.thread.joinable()) {
+          gr.thread = std::thread(&Server::new_game, this, gr.room);
+        }
       }
     }
     status = write_json(client.fd_main, player_short_infos_json);
@@ -528,8 +530,25 @@ void Server::handleShootBullet(Client &client) {
 }
 
 void Server::new_game(const Room r) {
-  while ((games.at(r.room_id).gameManager.game_start_time - time(0)) >
+
+  auto &gr = games.at(r.room_id);
+  auto last_clients = gr.clients;
+  while ((gr.gameManager.game_start_time - time(0)) >
          0.1) { // TODO: thread sleep,
+    if (gr.clients.size() != last_clients.size()) {
+      gr.gameManager.game_start_time =
+          time(0) + Constants::LOBBY_READY_TIME.count();
+      last_clients = gr.clients;
+      continue;
+    }
+    for (size_t i = 0; i < last_clients.size(); i++) {
+      if (last_clients.at(i) != gr.clients.at(i)) {
+        gr.gameManager.game_start_time =
+            time(0) + Constants::LOBBY_READY_TIME.count();
+        last_clients = gr.clients;
+        continue;
+      }
+    }
     // FIXME: restart if new player joins
   }
   TraceLog(LOG_INFO, "New round");
@@ -666,7 +685,7 @@ void Server::handleJoinRoom(Client &client) {
           gr.room.players.at(player_id).state = PlayerInfo::NOT_READY;
           gr.clients.push_back(client.client_id);
           gr.gameManager = GameManager{gr.room.room_id, gr.room.players};
-          TraceLog(LOG_INFO, "1. NEW PLAYER");
+          // TraceLog(LOG_INFO, "1. NEW PLAYER");
         }
         TraceLog(LOG_INFO, json(gr.room).dump().c_str());
         TraceLog(LOG_INFO, "Client player id=%lu", client.player_id);
@@ -1041,7 +1060,7 @@ std::map<uint32_t, Room> Server::get_available_rooms() {
   return rs;
 }
 
-// FIXME: Replace most of disconnect client with this
+// FIXME: good disconnect
 bool Server::delete_client(size_t client_id) {
   std::lock_guard<std::mutex> lc(clients_mutex);
   if (auto c = clients.find(client_id); c != clients.end()) {
