@@ -99,10 +99,12 @@ struct ClientNetworkManager {
   bool fetch_room_state(uint32_t fetch_room_id, Room &room);
   bool fetch_game_state(GameManager &gameManager);
   bool fetch_players(std::vector<Player> &players);
-  bool fetch_asteroids(std::vector<Asteroid> &asteroids);
+  bool fetch_asteroids(std::vector<uint32_t> &asteroid_ids,
+                       std::vector<Asteroid> &asteroids);
   bool fetch_bullets(std::vector<Bullet> &bullets);
 
   bool handle_end_round(uint32_t &winner_player_id);
   bool handle_connection_check();
   void read_update_players();
+  bool update_asteroids();
 };

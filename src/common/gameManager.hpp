@@ -5,6 +5,7 @@
 #include "player.hpp"
 #include "room.hpp"
 #include <chrono>
+#include <cstdint>
 #include <raylib.h>
 #include <raymath.h>
 #include <sys/types.h>
@@ -38,14 +39,14 @@ struct GameManager {
   void UpdateGameServer();
 
   void UpdateAsteroids(duration<double> frametime);
-  bool AsteroidSpawner();
+  void AsteroidSpawner(std::vector<uint32_t> &spawned_asteroids);
 
   // void ManageCollisions();
-  void ManageCollisions(std::vector<Asteroid> &asteroid_changes,
+  void ManageCollisions(std::vector<uint32_t> &changed_asteroids,
                         std::vector<uint32_t> &destroyed_players,
-                        std::vector<uint32_t> destroyed_bullets);
+                        std::vector<uint32_t> &destroyed_bullets);
 
-  void AddAsteroid();
+  uint32_t AddAsteroid();
   void SplitAsteroid(Vector2 position, Vector2 velocity, int size);
   bool AddBullet(const Player &player);
   void UpdateBullets(duration<double> frametime);

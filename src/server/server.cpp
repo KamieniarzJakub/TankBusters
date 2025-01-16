@@ -563,6 +563,16 @@ void Server::new_game(const Room r) {
 
   auto &gr = games.at(r.room_id);
   auto last_clients = gr.clients;
+  std::vector<Asteroid> new_asteroids;
+  new_asteroids.reserve(Constants::ASTEROIDS_MAX);
+  std::vector<uint32_t> changed_asteroids;
+  changed_asteroids.reserve(Constants::ASTEROIDS_MAX);
+  std::vector<uint32_t> destroyed_players;
+  destroyed_players.reserve(Constants::PLAYERS_MAX);
+  std::vector<uint32_t> destroyed_bullets;
+  destroyed_bullets.reserve(Constants::BULLETS_PER_PLAYER *
+                            Constants::PLAYERS_MAX);
+  gr.gameManager._spawnerTime = steady_clock::now();
   while ((gr.gameManager.game_start_time - time(0)) >
          0.1) { // TODO: thread sleep,
     if (gr.clients.size() != last_clients.size()) {
@@ -613,6 +623,7 @@ void Server::new_game(const Room r) {
     auto game_start_time = std::chrono::steady_clock::now();
     auto frame_start_time = std::chrono::steady_clock::now();
     duration<double> frametime = game_start_time - steady_clock::now();
+
     TraceLog(LOG_INFO, "game loop");
     while (games.at(r.room_id).room.status == GameStatus::GAME) {
       // TraceLog(LOG_INFO, "ROOM %lu is in game", r.room_id);
@@ -624,10 +635,13 @@ void Server::new_game(const Room r) {
         std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
         auto &game = gr.gameManager;
 
-        // float frametime = GetFrameTime();
+        new_asteroids.clear();
+        changed_asteroids.clear();
+        destroyed_players.clear();
+        destroyed_players.clear();
 
-        // std::vector<Asteroid> changed_asteroids =
-        // game.ManageCollisions();
+        game.ManageCollisions(changed_asteroids, destroyed_players,
+                              destroyed_bullets);
 
         for (auto &player : game.players) {
 
@@ -662,18 +676,24 @@ void Server::new_game(const Room r) {
 
           // Update player color depending on the active state
           player.player_color.a = player.active ? 255 : 25;
-          // TraceLog(LOG_INFO, json(player).dump().c_str());
         }
-
         game.UpdateBullets(frametime);
         game.UpdateAsteroids(frametime);
-        if (game.AsteroidSpawner()) { // FIXME: send only the asteroid that
-                                      // updated
+        game.AsteroidSpawner(changed_asteroids);
+        // std::cerr << "changed " << json(changed_asteroids).dump() <<
+        // std::endl;
+        for (uint32_t i : changed_asteroids) {
+          new_asteroids.push_back(gr.gameManager.asteroids.at(i));
+        }
+        if (!changed_asteroids.empty()) {
+          std::cerr << "new " << json(new_asteroids).dump() << std::endl;
+          std::cerr << "changed " << json(changed_asteroids).dump()
+                    << std::endl;
           for (auto c : gr.clients) {
             todos.at(c).push([&](Client c1) {
               TraceLog(LOG_INFO, "Updating asteroids for client_id=%lu",
                        c1.client_id);
-              handleUpdateAsteroids(c1);
+              handleUpdateAsteroids(c1, changed_asteroids, new_asteroids);
               return true;
             });
           }
@@ -920,10 +940,37 @@ void Server::handleUpdatePlayers(Client &client) {
 }
 
 void Server::handleUpdateAsteroids(Client &client) {
+  std::vector<uint32_t> asteroid_ids;
+  for (uint32_t i = 0; i < asteroid_ids.size(); i++) {
+    asteroid_ids.at(i) = i;
+  }
+  try {
+    handleUpdateAsteroids(client, asteroid_ids,
+                          games.at(client.room_id).gameManager.asteroids);
+  } catch (const std::out_of_range &ex) {
+    TraceLog(LOG_WARNING, "Invalid room id %lu from client_id=%ld,fd=%d",
+             client.room_id, client.client_id, client.fd_main);
+    client_error(client);
+    return;
+  }
+}
+void Server::handleUpdateAsteroids(Client &client,
+                                   std::vector<uint32_t> &asteroid_ids,
+                                   std::vector<Asteroid> &asteroids) {
   try {
     bool status;
-    json asteroids_json = games.at(client.room_id).gameManager.asteroids;
+    json asteroids_json = asteroids;
+    json asteroid_ids_json = asteroid_ids;
     serverSetEvent(client, NetworkEvents::UpdateAsteroids);
+
+    status = write_json(client.fd_main, asteroid_ids_json);
+    if (!status) {
+      TraceLog(LOG_WARNING,
+               "Couldn't send json of asteroid ids to client_id=%ld,fd=%d",
+               client.client_id, client.fd_main);
+      client_error(client);
+      return;
+    }
     status = write_json(client.fd_main, asteroids_json);
     if (!status) {
       TraceLog(LOG_WARNING,

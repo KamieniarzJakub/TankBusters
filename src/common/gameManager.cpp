@@ -2,6 +2,7 @@
 #include "constants.hpp"
 #include "player.hpp"
 #include <chrono>
+#include <iostream>
 
 using namespace std::chrono;
 
@@ -86,21 +87,20 @@ void GameManager::UpdateAsteroids(duration<double> frametime) {
 //   }
 // }
 
-bool GameManager::AsteroidSpawner() {
-  bool updated = false;
+void GameManager::AsteroidSpawner(std::vector<uint32_t> &spawned_asteroids) {
   auto now = std::chrono::steady_clock::now();
   if (now > _spawnerTime + Constants::ASTEROID_SPAWN_DELAY) {
-    TraceLog(LOG_DEBUG, "ASTEROID SPAWNER");
     _spawnerTime = now;
-    AddAsteroid();
-    updated = true;
+    auto r = AddAsteroid();
+    if (r != UINT32_MAX) {
+      spawned_asteroids.push_back(r);
+    }
   }
-  return updated;
 }
 
-void GameManager::ManageCollisions(std::vector<Asteroid> &asteroid_changes,
+void GameManager::ManageCollisions(std::vector<uint32_t> &changed_asteroids,
                                    std::vector<uint32_t> &destroyed_players,
-                                   std::vector<uint32_t> destroyed_bullets) {
+                                   std::vector<uint32_t> &destroyed_bullets) {
   // void GameManager::ManageCollisions() {
   for (int i = 0; i < Constants::ASTEROIDS_MAX; i++) {
     if (!asteroids[i].active)
@@ -114,6 +114,8 @@ void GameManager::ManageCollisions(std::vector<Asteroid> &asteroid_changes,
 
         if (CheckCollisionCircles(bullets[k].position, Constants::BULLET_SIZE,
                                   asteroids[i].position, asteroids[i].size)) {
+          destroyed_bullets.push_back(k);
+          changed_asteroids.push_back(i);
           bullets[k].active = false;
           asteroids[i].active = false;
           SplitAsteroid(asteroids[i].position, asteroids[i].velocity,
@@ -129,8 +131,9 @@ void GameManager::ManageCollisions(std::vector<Asteroid> &asteroid_changes,
           if (CheckCollisionCircles(bullets[k].position, Constants::BULLET_SIZE,
                                     players[l].position,
                                     Constants::PLAYER_SIZE / 3.0f)) {
+            destroyed_players.push_back(l);
+            destroyed_bullets.push_back(k);
             players[l].active = false;
-            // _alive_players--;
             bullets[k].active = false;
             break;
           }
@@ -143,8 +146,9 @@ void GameManager::ManageCollisions(std::vector<Asteroid> &asteroid_changes,
       if (CheckCollisionCircles(players[j].position,
                                 Constants::PLAYER_SIZE / 3.0f,
                                 asteroids[i].position, asteroids[i].size)) {
+        destroyed_players.push_back(j);
+        changed_asteroids.push_back(i);
         players[j].active = false;
-        // _alive_players--;
         asteroids[i].active = false;
         SplitAsteroid(asteroids[i].position, asteroids[i].velocity,
                       float(asteroids[i].size) /
@@ -155,14 +159,17 @@ void GameManager::ManageCollisions(std::vector<Asteroid> &asteroid_changes,
   // TraceLog(LOG_DEBUG, "Alive players: %d", _alive_players);
 }
 
-void GameManager::AddAsteroid() {
+uint32_t GameManager::AddAsteroid() {
   for (int i = 0; i < Constants::ASTEROIDS_MAX; i++) {
     if (asteroids[i].active)
       continue;
     asteroids[i] = CreateAsteroid();
-    return;
+    return i;
   }
-  TraceLog(LOG_ERROR, "Failed to create an asteroid - no empty slots left");
+  // TraceLog(LOG_ERROR, "Failed to create an asteroid - no empty slots left");
+  std::cerr << "Failed to create an asteroid - no empty slots left"
+            << std::endl;
+  return UINT32_MAX;
 }
 
 void GameManager::SplitAsteroid(Vector2 position, Vector2 velocity, int size) {

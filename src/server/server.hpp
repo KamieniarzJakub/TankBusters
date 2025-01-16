@@ -71,6 +71,9 @@ struct Server {
   void handleUpdateRoomState(Client &client);
   void handleUpdatePlayers(Client &client);
   void handleUpdateAsteroids(Client &client);
+  void handleUpdateAsteroids(Client &client,
+                             std::vector<uint32_t> &asteroid_ids,
+                             std::vector<Asteroid> &asteroids);
   void handleUpdateBullets(Client &client);
   void handleStreamUpdatePlayers(Client &client);
   void handleStreamUpdateBullets(Client &client);
