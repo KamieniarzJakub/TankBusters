@@ -67,7 +67,6 @@ Server::Server(in_port_t main_port) {
           gr.room.players.at(j).player_id = j;
         }
         gr.gameManager = GameManager(game_id, gr.room.players);
-        std::cerr << json(gr.gameManager.players).dump() << std::endl;
       }
     }
   }
@@ -132,8 +131,8 @@ bool Server::sendCheckConnection(Client &client) {
 
   // Expect pong
   status = read_uint32(client.fd_main, network_event);
-  if (status) {
-    TraceLog(LOG_INFO, "%s not received from client_id=%ld,fd=%d",
+  if (!status) {
+    TraceLog(LOG_WARNING, "%s not received from client_id=%ld,fd=%d",
              network_event_to_string(network_event).c_str(), client.client_id,
              client.fd_main);
     disconnect_client(client);
@@ -199,7 +198,7 @@ void Server::handle_connection(int client_fd) {
     return;
   }
 
-  TraceLog(LOG_INFO, "Added queue to epoll for client_id=%ld,fd=%d",
+  TraceLog(LOG_DEBUG, "Added queue to epoll for client_id=%ld,fd=%d",
            client.client_id, client.fd_main);
 
   std::time(&client.last_response); // Set last response to current time
@@ -227,7 +226,7 @@ void Server::handle_connection(int client_fd) {
         uint32_t network_event;
         bool status = read_uint32(client.fd_main, network_event);
         if (status) {
-          TraceLog(LOG_INFO,
+          TraceLog(LOG_DEBUG,
                    "Received NetworkEvent %s from client_id=%ld,fd=%d",
                    network_event_to_string(network_event).c_str(),
                    client.client_id, client.fd_main);
@@ -279,7 +278,7 @@ uint32_t Server::handleGetClientId(int client_fd) {
   }
   {
     std::lock_guard<std::mutex> lg(clients_mutex);
-    TraceLog(LOG_INFO, "Creating client entry in clients for %lu", client_id);
+    TraceLog(LOG_DEBUG, "Creating client entry in clients for %lu", client_id);
     Client &c = clients[client_id];
     c.client_id = client_id;
     c.fd_main = client_fd;
@@ -291,8 +290,8 @@ uint32_t Server::handleGetClientId(int client_fd) {
     // TraceLog(LOG_INFO, "Current Clients: %s", json(ccc).dump().c_str());
     // remove debug
 
-    TraceLog(LOG_INFO, "Creating todo queue for client_id=%ld,fd=%d", client_id,
-             client_fd);
+    TraceLog(LOG_DEBUG, "Creating todo queue for client_id=%ld,fd=%d",
+             client_id, client_fd);
     try {
       auto &todo = todos[client_id]; // Create todo queue and add to epoll
       c.todo_fd = todo.get_event_fd();
@@ -377,13 +376,10 @@ void Server::handleVoteReady(Client &client) {
           true; // TODO: check leave room
       player_short_infos_json = gr.room.players;
       if (get_X_players(gr.room.players, READY) >= 2) {
-        // TraceLog(LOG_INFO, "2. NEW PLAYER");
         gr.gameManager.game_start_time =
             time(0) + Constants::LOBBY_READY_TIME.count();
         for (auto c : gr.clients) {
-          // TraceLog(LOG_INFO, "3. NEW PLAYER");
           todos.at(c).push([&](Client c1) {
-            // TraceLog(LOG_INFO, "4. NEW PLAYER");
             sendNewGameSoon(c1, gr.gameManager.game_start_time);
             // handleUpdateGameState(c1);
             return true;
@@ -409,18 +405,17 @@ void Server::handleVoteReady(Client &client) {
   try {
     auto &gr = games.at(client.room_id);
     std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
-    std::cout << "Clients for room " << gr.room.room_id
-              << json(gr.clients).dump() << std::endl;
+    // std::cout << "Clients for room " << gr.room.room_id
+    //           << json(gr.clients).dump() << std::endl;
     for (auto c : gr.clients) {
       // if (c == except_client_id) {
       //   continue;
       // }
 
-      TraceLog(LOG_INFO, "setting up updating rooms for %lu", c);
+      TraceLog(LOG_DEBUG, "setting up updating rooms for %lu", c);
       todos.at(c).push([&](Client c1) {
-        TraceLog(LOG_INFO, "updating rooms for %lu", c1.client_id);
         bool status = sendUpdateRoomState(c1);
-        TraceLog(LOG_INFO, "updating rooms for %lu status=%d", c1.client_id,
+        TraceLog(LOG_DEBUG, "updating rooms for %lu status=%d", c1.client_id,
                  status);
         return status;
       });
@@ -479,17 +474,15 @@ void Server::handlePlayerMovement(Client &client) {
     player.rotation = rotation;
     player.velocity = velocity;
 
-    TraceLog(LOG_INFO, "client id movement %lu", client.client_id);
+    TraceLog(LOG_DEBUG, "client id movement %lu", client.client_id);
     for (auto c : gr.clients) {
       if (c == client.client_id)
         continue;
 
-      TraceLog(LOG_INFO, "setting up update players for %lu", c);
       todos.at(c).push([&](Client c1) {
-        TraceLog(LOG_INFO, "updating players for %lu", c1.client_id);
+        TraceLog(LOG_DEBUG, "updating players for %lu", c1.client_id);
         serverSetEvent(c1, NetworkEvents::PlayerMovement);
         write_uint32(c1.fd_main, client.player_id);
-        TraceLog(LOG_INFO, "updating player %lu", client.player_id);
 
         auto &player1 = gr.gameManager.players.at(client.player_id);
 
@@ -498,7 +491,7 @@ void Server::handlePlayerMovement(Client &client) {
                           {"rotation", player1.rotation},
                           {"active", player1.active}};
         write_json(c1.fd_main, movement1);
-        TraceLog(LOG_INFO, "updating movement for %lu, %s", c1.client_id,
+        TraceLog(LOG_DEBUG, "updating movement for %lu, %s", c1.client_id,
                  movement1.dump().c_str());
         return true;
       });
@@ -525,7 +518,7 @@ void Server::handleShootBullet(Client &client) {
     GameRoom &gr = games.at(client.room_id);
     std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
     const Player &p = gr.gameManager.players.at(client.player_id);
-    std::cerr << json(gr.gameManager.players).dump() << std::endl;
+    // std::cerr << json(gr.gameManager.players).dump() << std::endl;
     status = gr.gameManager.AddBullet(p);
   } catch (const std::out_of_range &ex) {
     status = false;
@@ -544,7 +537,7 @@ void Server::handleShootBullet(Client &client) {
         serverSetEvent(c1, NetworkEvents::ShootBullets);
 
         bool status = write_uint32(c1.fd_main, client.player_id);
-        std::cerr << c1.fd_main << " " << client.player_id << std::endl;
+        // std::cerr << c1.fd_main << " " << client.player_id << std::endl;
         if (!status) {
           TraceLog(LOG_WARNING,
                    "Couldn't send info about bullet shot by player_id=%lu to "
@@ -563,16 +556,26 @@ void Server::new_game(const Room r) {
 
   auto &gr = games.at(r.room_id);
   auto last_clients = gr.clients;
-  std::vector<Asteroid> new_asteroids;
-  new_asteroids.reserve(Constants::ASTEROIDS_MAX);
   std::vector<uint32_t> changed_asteroids;
-  changed_asteroids.reserve(Constants::ASTEROIDS_MAX);
+  changed_asteroids.resize(Constants::ASTEROIDS_MAX);
+  for (size_t i = 0; i < changed_asteroids.size(); i++) {
+    changed_asteroids.at(i) = i;
+  }
+  std::vector<Asteroid> new_asteroids = gr.gameManager.asteroids;
+  new_asteroids.reserve(Constants::ASTEROIDS_MAX);
   std::vector<uint32_t> destroyed_players;
   destroyed_players.reserve(Constants::PLAYERS_MAX);
   std::vector<uint32_t> destroyed_bullets;
   destroyed_bullets.reserve(Constants::BULLETS_PER_PLAYER *
                             Constants::PLAYERS_MAX);
   gr.gameManager._spawnerTime = steady_clock::now();
+  for (auto c : gr.clients) {
+    todos.at(c).push([&](Client c1) {
+      TraceLog(LOG_DEBUG, "Updating asteroids for client_id=%lu", c1.client_id);
+      handleUpdateAsteroids(c1, changed_asteroids, new_asteroids);
+      return true;
+    });
+  }
   while ((gr.gameManager.game_start_time - time(0)) >
          0.1) { // TODO: thread sleep,
     if (gr.clients.size() != last_clients.size()) {
@@ -591,18 +594,15 @@ void Server::new_game(const Room r) {
     }
     // FIXME: restart if new player joins
   }
-  TraceLog(LOG_INFO, "New round");
+  TraceLog(LOG_DEBUG, "New round for room %lu", r.room_id);
   {
-    TraceLog(LOG_INFO, "1nr");
     {
       auto &gr = games.at(r.room_id);
       std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
       gr.room.status = GameStatus::GAME;
       // gr.gameManager.status = GameStatus::GAME;
     }
-    TraceLog(LOG_INFO, "2nr");
     auto &gr = games.at(r.room_id);
-    TraceLog(LOG_INFO, "3nr");
     for (auto c : gr.clients) {
       Client &cl = clients.at(c);
       gr.gameManager.players.at(cl.player_id).active = true;
@@ -614,7 +614,6 @@ void Server::new_game(const Room r) {
         handleUpdatePlayers(c1);
         return true;
       });
-      TraceLog(LOG_INFO, "6nr");
     }
 
     // game.UpdateStatus();
@@ -624,7 +623,6 @@ void Server::new_game(const Room r) {
     auto frame_start_time = std::chrono::steady_clock::now();
     duration<double> frametime = game_start_time - steady_clock::now();
 
-    TraceLog(LOG_INFO, "game loop");
     while (games.at(r.room_id).room.status == GameStatus::GAME) {
       // TraceLog(LOG_INFO, "ROOM %lu is in game", r.room_id);
       {
@@ -635,8 +633,8 @@ void Server::new_game(const Room r) {
         std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
         auto &game = gr.gameManager;
 
-        new_asteroids.clear();
         changed_asteroids.clear();
+        new_asteroids.clear();
         destroyed_players.clear();
         destroyed_players.clear();
 
@@ -680,18 +678,15 @@ void Server::new_game(const Room r) {
         game.UpdateBullets(frametime);
         game.UpdateAsteroids(frametime);
         game.AsteroidSpawner(changed_asteroids);
-        // std::cerr << "changed " << json(changed_asteroids).dump() <<
-        // std::endl;
         for (uint32_t i : changed_asteroids) {
           new_asteroids.push_back(gr.gameManager.asteroids.at(i));
         }
+        std::cerr << json(new_asteroids).dump() << " "
+                  << json(changed_asteroids).dump() << std::endl;
         if (!changed_asteroids.empty()) {
-          std::cerr << "new " << json(new_asteroids).dump() << std::endl;
-          std::cerr << "changed " << json(changed_asteroids).dump()
-                    << std::endl;
           for (auto c : gr.clients) {
             todos.at(c).push([&](Client c1) {
-              TraceLog(LOG_INFO, "Updating asteroids for client_id=%lu",
+              TraceLog(LOG_DEBUG, "Updating asteroids for client_id=%lu",
                        c1.client_id);
               handleUpdateAsteroids(c1, changed_asteroids, new_asteroids);
               return true;
@@ -718,7 +713,7 @@ void Server::handleJoinRoom(Client &client) {
              client.client_id, client.fd_main);
     client_error(client);
   }
-  TraceLog(LOG_INFO, "Received room id=%lu to join from client_id=%lu,fd=%d",
+  TraceLog(LOG_DEBUG, "Received room id=%lu to join from client_id=%lu,fd=%d",
            read_room_id, client.client_id, client.fd_main);
 
   try {
@@ -728,17 +723,15 @@ void Server::handleJoinRoom(Client &client) {
       status = gr.room.status == GameStatus::LOBBY;
       if (status) {
         auto player_id = get_next_available_player_id(gr);
-        std::cerr << player_id << std::endl;
+        // std::cerr << player_id << std::endl;
         status = player_id != UINT32_MAX;
         if (status) {
           client.player_id = player_id;
           gr.room.players.at(player_id).state = PlayerInfo::NOT_READY;
           gr.clients.push_back(client.client_id);
           gr.gameManager = GameManager{gr.room.room_id, gr.room.players};
-          // TraceLog(LOG_INFO, "1. NEW PLAYER");
         }
-        TraceLog(LOG_INFO, json(gr.room).dump().c_str());
-        TraceLog(LOG_INFO, "Client player id=%lu", client.player_id);
+        TraceLog(LOG_DEBUG, "Client player id=%lu", client.player_id);
       }
     }
     client.room_id = read_room_id;
@@ -746,10 +739,10 @@ void Server::handleJoinRoom(Client &client) {
     status = false;
   }
 
-  TraceLog(LOG_INFO, "Sending JoinRoom to id=%lu", client.player_id);
+  TraceLog(LOG_DEBUG, "Sending JoinRoom to id=%lu", client.player_id);
   serverSetEvent(client, NetworkEvents::JoinRoom);
 
-  TraceLog(LOG_INFO, "Sending read room join to id=%lu", client.player_id);
+  TraceLog(LOG_DEBUG, "Sending read room join to id=%lu", client.player_id);
   status = write_uint32(client.fd_main, (uint32_t)status * read_room_id);
   if (!status) {
     TraceLog(LOG_WARNING, "Couldn't send joined room id to client_id=%ld,fd=%d",
@@ -757,7 +750,7 @@ void Server::handleJoinRoom(Client &client) {
     client_error(client);
   }
 
-  TraceLog(LOG_INFO, "Sending playerid to id=%lu", client.player_id);
+  TraceLog(LOG_DEBUG, "Sending playerid to id=%lu", client.player_id);
   status = write_uint32(client.fd_main, client.player_id);
   if (!status) {
     TraceLog(LOG_WARNING, "Couldn't send player id to client_id=%ld,fd=%d",
@@ -769,12 +762,9 @@ void Server::handleJoinRoom(Client &client) {
     auto &gr = games.at(client.room_id);
     std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
     for (auto c : gr.clients) {
-      TraceLog(LOG_INFO, "setting up updating rooms for %lu", c);
       todos.at(c).push([&](Client c1) {
-        TraceLog(LOG_INFO, "updating rooms for %lu", c1.client_id);
+        TraceLog(LOG_DEBUG, "updating rooms for %lu", c1.client_id);
         bool status = sendUpdateRoomState(c1);
-        TraceLog(LOG_INFO, "updating rooms for %lu status=%d", c1.client_id,
-                 status);
         return status;
       });
     }
@@ -784,11 +774,9 @@ void Server::handleJoinRoom(Client &client) {
 
 void Server::handleLeaveRoom(Client &client) {
   bool _ = false;
-  TraceLog(LOG_INFO, "1. Leave room %lu", client.client_id);
   std::vector<uint32_t> client_ids;
   try {
     auto &gr = games.at(client.room_id);
-    TraceLog(LOG_INFO, "2. Leave room %lu", client.client_id);
     std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
     auto i = gr.clients.begin();
     for (; i != gr.clients.end(); i++) {
@@ -798,11 +786,8 @@ void Server::handleLeaveRoom(Client &client) {
         gr.clients.erase(i, i);
         _ = true;
         try {
-          TraceLog(LOG_INFO, "3. Leave room %lu", client.client_id);
           gr.room.players.at(client.player_id).state = PlayerInfo::NONE;
-          TraceLog(LOG_INFO, "4. Leave room %lu", client.client_id);
           gr.gameManager.players.at(client.player_id).active = false;
-          TraceLog(LOG_INFO, "5. Leave room %lu", client.client_id);
           if (gr.clients.size() < 2) {
             gr.room.status = GameStatus::LOBBY;
             // gr.gameManager.status = GameStatus::LOBBY;
@@ -811,8 +796,6 @@ void Server::handleLeaveRoom(Client &client) {
               gr.thread.join();
             }
           }
-          TraceLog(LOG_INFO, "6. Leave room %lu", client.client_id);
-          // TraceLog(LOG_INFO, "2. Leave room %lu", client.client_id);
         } catch (const std::out_of_range &ex) {
         }
         break;
@@ -831,12 +814,10 @@ void Server::handleLeaveRoom(Client &client) {
   // TraceLog(LOG_INFO, "3. Leave room %lu", client.client_id);
   try {
     auto except_client_id = client.client_id;
-    // TraceLog(LOG_INFO, "2. Leave room %lu", client.client_id);
     for (auto c : client_ids) {
       if (c == except_client_id) {
         continue;
       }
-      // TraceLog(LOG_INFO, "4. Leave room %lu", client.client_id);
 
       todos.at(c).push([&](Client c1) {
         bool status = sendUpdateRoomState(c1);
@@ -900,7 +881,7 @@ bool Server::sendUpdateRoomState(Client &client) {
   try {
     json room_json = games.at(client.room_id).room;
     serverSetEvent(client, NetworkEvents::UpdateRoomState);
-    TraceLog(LOG_INFO, room_json.dump().c_str());
+    TraceLog(LOG_DEBUG, room_json.dump().c_str());
     bool status = write_json(client.fd_main, room_json);
     if (!status) {
       TraceLog(LOG_WARNING, "Couldn't send json of room to client_id=%ld,fd=%d",
@@ -1136,7 +1117,7 @@ void Server::disconnect_client(Client &client) {
           auto i =
               std::remove(g.clients.begin(), g.clients.end(), client.client_id);
           g.clients.erase(i, g.clients.end());
-          TraceLog(LOG_INFO, "Disconnected lient_id=%ld,fd=%d",
+          TraceLog(LOG_DEBUG, "Disconnected lient_id=%ld,fd=%d",
                    client.client_id, client.fd_main);
         }
       } catch (const std::out_of_range &ex) {
@@ -1193,7 +1174,7 @@ uint32_t Server::get_next_available_player_id(GameRoom &gr) {
   for (PlayerIdState &player : gr.room.players) {
     if (player.state == PlayerInfo::NONE) {
       player.state = PlayerInfo::NOT_READY;
-      TraceLog(LOG_INFO, "Next player id: %lu", player_id);
+      TraceLog(LOG_DEBUG, "Next player id: %lu", player_id);
       return player_id;
     }
     player_id++;

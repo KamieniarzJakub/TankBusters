@@ -30,7 +30,7 @@ public:
   int get_event_fd() { return efd; }
 
   void push(T item) {
-    TraceLog(LOG_INFO, "NET: adding element to network queue");
+    TraceLog(LOG_DEBUG, "NET: adding element to network queue");
     {
       std::unique_lock<std::mutex> lock(mutex);
       queue.push(item);
@@ -40,7 +40,7 @@ public:
   }
 
   T pop() {
-    TraceLog(LOG_INFO, "NET: popping element to network queue");
+    TraceLog(LOG_DEBUG, "NET: popping element to network queue");
     {
       std::unique_lock<std::mutex> lock(mutex);
     }

@@ -166,9 +166,7 @@ uint32_t GameManager::AddAsteroid() {
     asteroids[i] = CreateAsteroid();
     return i;
   }
-  // TraceLog(LOG_ERROR, "Failed to create an asteroid - no empty slots left");
-  std::cerr << "Failed to create an asteroid - no empty slots left"
-            << std::endl;
+  TraceLog(LOG_ERROR, "Failed to create an asteroid - no empty slots left");
   return UINT32_MAX;
 }
 

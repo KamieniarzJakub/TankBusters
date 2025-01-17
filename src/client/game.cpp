@@ -68,7 +68,7 @@ struct Game {
   void UpdateLobby() {
     if (ReturnToRooms()) {
       networkManager.todo.push([&]() {
-        TraceLog(LOG_INFO, "NET: leave room");
+        TraceLog(LOG_DEBUG, "NET: leave room");
         bool status = networkManager.leave_room();
         if (status) {
           std::cout << json(roomsMapPair).dump() << std::endl;
@@ -89,11 +89,9 @@ struct Game {
           IsKeyPressed(KEY_SPACE)) {
         networkManager.todo.push([&]() {
           std::vector<PlayerIdState> player_status;
-          TraceLog(LOG_INFO, "NET: sending vote ready");
+          TraceLog(LOG_DEBUG, "NET: sending vote ready");
           bool status = networkManager.vote_ready(player_status);
           if (status) {
-            // TraceLog(LOG_INFO, "GAME: player status %s",
-            //          json(player_status).dump().c_str());
             networkManager.joinedRoom().players = player_status;
             networkManager.flip_joined_room();
             networkManager.joinedRoom().players = player_status;
@@ -110,7 +108,7 @@ struct Game {
         Constants::ROOM_FETCH_INTERVAL) { // TODO: use timerfd
       last_room_fetch = steady_clock::now();
       networkManager.todo.push([&]() {
-        TraceLog(LOG_INFO, "NET: Fetch rooms");
+        TraceLog(LOG_DEBUG, "NET: Fetch rooms");
         std::map<uint32_t, Room> update_rooms;
         bool status = networkManager.get_rooms(update_rooms);
         if (status) {
@@ -159,8 +157,6 @@ struct Game {
         graphicsManager.DrawNewRoundCountdown(gameManager());
         graphicsManager.DrawTime(gameManager(), joinedRoom());
       } else {
-        // TraceLog(LOG_INFO,
-        //          json(rooms().at(networkManager.room_id)).dump().c_str());
         graphicsManager.DrawTitle(joinedRoom());
         graphicsManager.DrawLobbyPlayers(joinedRoom());
         graphicsManager.DrawReadyMessage();
@@ -178,7 +174,6 @@ struct Game {
   void UpdateGame() {
     // gameManager().UpdateStatus();
     if (joinedRoom().status == GameStatus::GAME) {
-      // TraceLog(LOG_INFO, "Game", gameManager().status);
 
       // gameManager().ManageCollisions();
 
@@ -190,7 +185,7 @@ struct Game {
         CalculateUpdatePlayerMovement(p, frametime);
       }
       networkManager.todo.push([&]() {
-        TraceLog(LOG_INFO, "NET: sending movement");
+        TraceLog(LOG_DEBUG, "NET: sending movement");
         bool status = networkManager.send_movement(
             player.position, player.velocity, player.rotation);
         return status;
@@ -201,7 +196,7 @@ struct Game {
         // if (gameManager().AddBullet(players.at(gameManager().player_id))) {
         // }
         networkManager.todo.push([&]() {
-          TraceLog(LOG_INFO, "NET: sending shooting");
+          TraceLog(LOG_DEBUG, "NET: sending shooting");
           return networkManager.shoot_bullet();
         });
       }
@@ -212,15 +207,11 @@ struct Game {
 
       // gameManager.AsteroidSpawner(GetTime());
     } else { // Lobby or end of Round
-      // TraceLog(LOG_INFO, "3. Game status: %d", gameManager().status);
       // if (gameManager().UpdateLobbyStatus(
       //         rooms().at(networkManager.room_id).players)) {
-      // TraceLog(LOG_INFO, "4. Game status: %d", gameManager().status);
       // NewGame(GetReadyPlayers());
       // gameManager().RestartLobby();
-      // TraceLog(LOG_INFO, "5. Game status: %d", gameManager().status);
       // }
-      // TraceLog(LOG_INFO, "6. Game status: %d", gameManager().status);
     }
   }
 
@@ -237,7 +228,7 @@ struct Game {
       if (IsKeyPressed(KEY_SPACE) &&
           get_X_players(selected_room.players, PlayerInfo::NONE) > 0) {
         networkManager.todo.push([&]() {
-          TraceLog(LOG_INFO, "NET: join room");
+          TraceLog(LOG_DEBUG, "NET: join room");
           try {
             uint32_t player_id;
             bool status =
@@ -259,7 +250,6 @@ struct Game {
         selected_room_index++;
         selected_room_index %= rooms_vec.size();
       }
-      // TraceLog(LOG_DEBUG, "SELECTED ROOM: %d", selected_room);
     } catch (const std::out_of_range &ex) {
       return;
     }
