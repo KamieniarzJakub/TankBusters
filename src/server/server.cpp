@@ -631,7 +631,7 @@ void Server::new_game(const Room r) {
         ids_of_changed_asteroids.clear();
         updated_asteroids.clear();
         destroyed_players_ids.clear();
-        destroyed_players_ids.clear();
+        destroyed_bullets_ids.clear();
 
         game.ManageCollisions(ids_of_changed_asteroids, destroyed_players_ids,
                               destroyed_bullets_ids);
@@ -680,20 +680,25 @@ void Server::new_game(const Room r) {
             });
           }
         }
-        // if (destroyed_bullets_ids.size() > 0) {
-        //   for (auto c : gr.clients) {
-        //     todos.at(c).push([=](Client c1) { // TODO: send timestamp
-        //       TraceLog(LOG_DEBUG, "Updating bullets for client_id=%lu",
-        //                c1.client_id);
-        //       handleUpdateAsteroids(c1, ids_of_changed_asteroids,
-        //                             updated_asteroids);
-        //     });
-        //   }
-        // }
+        if (destroyed_bullets_ids.size() > 0) {
+          for (auto c : gr.clients) {
+            for (auto b : destroyed_bullets_ids) {
+              todos.at(c).push([=](Client c1) { // TODO: send timestamp
+                TraceLog(LOG_DEBUG, "Updating bullets for client_id=%lu",
+                         c1.client_id);
+                handleBulletDestroyed(c1, b);
+              });
+            }
+          }
+        }
         // TraceLog(LOG_INFO, json(game.players).dump().c_str());
-        // if (game._alive_players < 2) {
-        //   gs = GameStatus::END_OF_ROUND;
-        //   game.status = GameStatus::END_OF_ROUND;
+
+        // int active_players = 0;
+        // for (auto &p : gr.gameManager.players) {
+        //   active_players += p.active;
+        // }
+        // if (active_players < 2) {
+        //   gr.room.status = GameStatus::END_OF_ROUND;
         // }
       }
     }
@@ -1073,14 +1078,8 @@ void Server::handle_network_event(Client &client, uint32_t event) {
   case NetworkEvents::PlayerDestroyed:
     // FIXME: implement
     break;
-  case NetworkEvents::SpawnAsteroid:
-    // FIXME: implement
-    break;
-  case NetworkEvents::AsteroidDestroyed:
-    // FIXME: implement
-    break;
   case NetworkEvents::BulletDestroyed:
-    // FIXME: implement
+    // Not received by server
     break;
   default:
     TraceLog(LOG_WARNING,
@@ -1174,4 +1173,19 @@ uint32_t Server::get_next_available_player_id(GameRoom &gr) {
   }
 
   return -1;
+}
+
+void Server::handleBulletDestroyed(Client &client, uint32_t bullet_id) {
+  serverSetEvent(client, NetworkEvents::BulletDestroyed);
+  bool status = write_uint32(client.fd_main, bullet_id);
+  if (!status) {
+    TraceLog(
+        LOG_WARNING,
+        "Couldn't write NetworkEvent BulletDestroyed to client_id=%ld,fd=%d",
+        client.client_id, client.fd_main);
+    disconnect_client(client);
+    return;
+  }
+  TraceLog(LOG_INFO, "sent NetworkEvent BulletDestroyed to client_id=%ld,fd=%d",
+           client.client_id, client.fd_main);
 }
