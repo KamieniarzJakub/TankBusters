@@ -1,5 +1,6 @@
 #include "networking.hpp"
 
+#include <chrono>
 #include <sys/epoll.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -223,9 +224,11 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
       TraceLog(LOG_ERROR, "NET: Didn't receive game start time");
       return;
     }
-    gameManager().game_start_time = val;
+    auto when =
+        std::chrono::system_clock::time_point(std::chrono::seconds(val));
+    gameManager().game_start_time = when;
     flip_game_manager();
-    gameManager().game_start_time = val;
+    gameManager().game_start_time = when;
   } break;
   case NetworkEvents::GetClientId: {
     uint32_t new_client_id;

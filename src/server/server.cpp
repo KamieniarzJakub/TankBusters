@@ -377,10 +377,12 @@ void Server::handleVoteReady(Client &client) {
       player_short_infos_json = gr.room.players;
       if (get_X_players(gr.room.players, READY) >= 2) {
         gr.gameManager.game_start_time =
-            time(0) + Constants::LOBBY_READY_TIME.count();
+            (system_clock::now() + Constants::LOBBY_READY_TIME);
+
         for (auto c : gr.clients) {
           todos.at(c).push([&](Client c1) {
-            sendNewGameSoon(c1, gr.gameManager.game_start_time);
+            sendNewGameSoon(
+                c1, system_clock::to_time_t(gr.gameManager.game_start_time));
             // handleUpdateGameState(c1);
           });
         }
@@ -573,18 +575,19 @@ void Server::new_game(const Room r) {
       handleUpdateAsteroids(c1, ids_of_changed_asteroids, updated_asteroids);
     });
   }
-  while ((gr.gameManager.game_start_time - time(0)) >
-         0.1) { // TODO: thread sleep,
+  // std::this_thread::sleep_until(gr.gameManager.game_start_time);
+  while ((gr.gameManager.game_start_time - system_clock::now()) >
+         100ms) { // TODO: thread sleep,
     if (gr.clients.size() != last_clients.size()) {
       gr.gameManager.game_start_time =
-          time(0) + Constants::LOBBY_READY_TIME.count();
+          system_clock::now() + Constants::LOBBY_READY_TIME;
       last_clients = gr.clients;
       continue;
     }
     for (size_t i = 0; i < last_clients.size(); i++) {
       if (last_clients.at(i) != gr.clients.at(i)) {
         gr.gameManager.game_start_time =
-            time(0) + Constants::LOBBY_READY_TIME.count();
+            system_clock::now() + Constants::LOBBY_READY_TIME;
         last_clients = gr.clients;
         continue;
       }

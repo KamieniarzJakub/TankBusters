@@ -26,7 +26,7 @@ struct GameManager {
   time_point<steady_clock> endRoundTime;
   void UpdatePlayers(duration<double> frametime);
 
-  uint32_t game_start_time;
+  time_point<system_clock> game_start_time;
 
   GameManager();
   GameManager(uint32_t room_id, std::vector<PlayerIdState> playerInfos);

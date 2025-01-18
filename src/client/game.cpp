@@ -160,7 +160,9 @@ struct Game {
         graphicsManager.DrawTitle(joinedRoom());
         graphicsManager.DrawLobbyPlayers(joinedRoom());
         graphicsManager.DrawReadyMessage();
-        long t = gameManager().game_start_time - time(0);
+        auto t = duration_cast<seconds>(gameManager().game_start_time -
+                                        system_clock::now())
+                     .count();
         if (t >= 0) {
           graphicsManager.DrawTimer(t);
         } else {
