@@ -36,6 +36,9 @@ struct Game {
   std::array<Room, 2> joinedRoomPair;
   std::atomic_uint8_t joined_room_draw_idx = 0;
 
+  // Display and update player id
+  std::atomic_uint32_t player_id = -1;
+
   // Last time the room was fetched on main menu
   std::chrono::steady_clock::time_point last_room_fetch =
       std::chrono::steady_clock::time_point{};
@@ -60,7 +63,7 @@ struct Game {
       : graphicsManager(GraphicsManager()),
         networkManager(host, port, gameManagersPair, game_manager_draw_idx,
                        roomsMapPair, rooms_draw_idx, joinedRoomPair,
-                       joined_room_draw_idx),
+                       joined_room_draw_idx, player_id),
         gameManagersPair(std::array<GameManager, 2>()),
         roomsMapPair(std::array<std::map<uint32_t, Room>, 2>()),
         joinedRoomPair(std::array<Room, 2>()) {}
@@ -84,7 +87,7 @@ struct Game {
       });
     }
     try {
-      if (joinedRoom().players.at(gameManager().player_id).state !=
+      if (joinedRoom().players.at(player_id.load()).state !=
               PlayerInfo::READY &&
           IsKeyPressed(KEY_SPACE)) {
         networkManager.todo.push([&]() {
@@ -150,7 +153,7 @@ struct Game {
         graphicsManager.DrawAsteroids(gameManager());
         graphicsManager.DrawPlayers(gameManager());
         graphicsManager.DrawBullets(gameManager());
-        graphicsManager.DrawBulletsGUI(gameManager());
+        graphicsManager.DrawBulletsGUI(gameManager(), player_id.load());
         graphicsManager.DrawTime(gameManager(), joinedRoom());
       } else if (joinedRoom().status == GameStatus::END_OF_ROUND) {
         graphicsManager.DrawWinnerText(gameManager());
@@ -180,7 +183,7 @@ struct Game {
       // gameManager().ManageCollisions();
 
       auto &players = gameManager().players;
-      auto &player = players.at(gameManager().player_id);
+      auto &player = players.at(player_id.load());
       CheckMovementUpdatePlayer(player, frametime);
       for (auto &p : gameManager().players) { // TODO: better position merging
                                               // and movement interpolation
@@ -232,13 +235,14 @@ struct Game {
         networkManager.todo.push([&]() {
           TraceLog(LOG_DEBUG, "NET: join room");
           try {
-            uint32_t player_id;
-            bool status =
-                networkManager.join_room(selected_room.room_id, player_id);
+            uint32_t player_id_received;
+            bool status = networkManager.join_room(selected_room.room_id,
+                                                   player_id_received);
             if (status) {
-              networkManager.gameManager().player_id = player_id;
-              networkManager.flip_game_manager();
-              networkManager.gameManager().player_id = player_id;
+              uint32_t expected_player_id = -1;
+              while (!this->player_id.compare_exchange_strong(
+                  expected_player_id, player_id_received)) {
+              }
             }
             return status;
           } catch (const std::out_of_range &ex) {

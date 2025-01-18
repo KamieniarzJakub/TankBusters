@@ -45,6 +45,7 @@ struct ClientNetworkManager {
   }
   void flip_joined_room();
 
+  std::atomic_uint32_t &player_id;
   std::atomic_bool _stop = false;
   std::thread main_thread;
   LockingQueue<std::function<bool(void)>> todo;
@@ -57,7 +58,8 @@ struct ClientNetworkManager {
                        std::array<std::map<uint32_t, Room>, 2> &roomsMapPair,
                        std::atomic_uint8_t &rooms_map_draw_idx,
                        std::array<Room, 2> &joinedRoomPair,
-                       std::atomic_uint8_t &joined_room_draw_idx);
+                       std::atomic_uint8_t &joined_room_draw_idx,
+                       std::atomic_uint32_t &player_id);
   ~ClientNetworkManager();
 
   // NOTE: If a function returns:
@@ -103,7 +105,7 @@ struct ClientNetworkManager {
                        std::vector<Asteroid> &asteroids);
   bool fetch_bullets(std::vector<Bullet> &bullets);
 
-  bool handle_end_round(uint32_t &winner_player_id);
+  bool handle_end_round();
   bool handle_connection_check();
   void read_update_players();
   bool handle_update_asteroids();

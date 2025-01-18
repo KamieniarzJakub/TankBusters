@@ -84,4 +84,5 @@ struct Server {
   void sendNewGameSoon(Client &client, uint32_t when);
   void handleSpawnAsteroid(Client &client, Asteroid a, uint32_t id);
   void handleAsteroidDestroyed(Client &client, uint32_t asteroid_id);
+  void invalid_network_event(Client &client, uint32_t event);
 };

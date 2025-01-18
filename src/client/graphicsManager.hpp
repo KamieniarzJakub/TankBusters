@@ -37,7 +37,7 @@ struct GraphicsManager {
   void DrawAsteroids(const GameManager &gm);
   void DrawPlayers(const GameManager &gm);
   void DrawBullets(const GameManager &gm);
-  void DrawBulletsGUI(const GameManager &gm);
+  void DrawBulletsGUI(const GameManager &gm, const uint32_t player_id);
   void DrawPlayer(const Player &player);
   void DrawAsteroid(const Asteroid &asteroid);
   void DrawBullet(const Bullet &bullet);

@@ -32,12 +32,12 @@ ClientNetworkManager::ClientNetworkManager(
     std::atomic_uint8_t &game_manager_draw_idx,
     std::array<std::map<uint32_t, Room>, 2> &roomsPair,
     std::atomic_uint8_t &rooms_draw_idx, std::array<Room, 2> &joinedRoomPair,
-    std::atomic_uint8_t &joined_room_draw_idx)
+    std::atomic_uint8_t &joined_room_draw_idx, std::atomic_uint32_t &player_id)
     : gameManagersPair(gameManagersPair),
       game_manager_draw_idx(game_manager_draw_idx), roomsMapPair(roomsPair),
       rooms_draw_idx(rooms_draw_idx), joinedRoomPair(joinedRoomPair),
-      joined_room_draw_idx(joined_room_draw_idx), connected_to_host(host),
-      connected_over_port(port) {
+      joined_room_draw_idx(joined_room_draw_idx), player_id(player_id),
+      connected_to_host(host), connected_over_port(port) {
   mainfd = connect_to(host, port);
   if (mainfd < 0) {
     TraceLog(LOG_ERROR, "GAME: Could not connect");
@@ -177,7 +177,6 @@ bool ClientNetworkManager::readGameState() {
     gameManager().players = draw_gm_mgr.players;
     gameManager().asteroids = draw_gm_mgr.asteroids;
     gameManager().bullets = draw_gm_mgr.bullets;
-    gameManager().player_id = draw_gm_mgr.player_id;
     flip_game_manager();
     gameManager() = gameManagersPair.at(game_manager_draw_idx);
     return true;
@@ -365,14 +364,19 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
 
     try {
       joinedRoom().players.at(player_id_that_left).state = PlayerInfo::NONE;
-      for (auto &p : joinedRoom().players) {
-        p.state = PlayerInfo::NONE;
+      // for (auto &p : joinedRoom().players) {
+      //   p.state = PlayerInfo::NONE;
+      // }
+      flip_joined_room();
+      joinedRoom().players.at(player_id_that_left).state = PlayerInfo::NONE;
+
+      auto expected_player_id = player_id.load();
+      if (expected_player_id == player_id_that_left) {
+        while (!player_id.compare_exchange_strong(expected_player_id, -1)) {
+        }
       }
     } catch (const std::out_of_range &ex) {
     }
-
-    flip_joined_room();
-
   } break;
   case NetworkEvents::UpdateGameState: {
     readGameState();
@@ -742,7 +746,7 @@ bool ClientNetworkManager::leave_room() {
 
   uint32_t my_player_id;
   status = read_uint32(mainfd, my_player_id);
-  if (!status || my_player_id != gameManager().player_id) {
+  if (!status || my_player_id != player_id.load()) {
     return false;
   }
 
@@ -1074,16 +1078,21 @@ bool ClientNetworkManager::vote_ready(std::vector<PlayerIdState> &players) {
   return status;
 }
 
-bool ClientNetworkManager::handle_end_round(uint32_t &winner_player_id) {
+bool ClientNetworkManager::handle_end_round() {
   bool status;
   status = expectEvent(mainfd, NetworkEvents::EndRound);
   if (!status)
     return false;
 
+  uint32_t winner_player_id;
   status = read_uint32(mainfd, winner_player_id);
   if (!status) {
     TraceLog(LOG_ERROR, "NET: Couldn't receive winner's player id");
   }
+
+  gameManager().winner_player_id = winner_player_id;
+  flip_game_manager();
+  gameManager().winner_player_id = winner_player_id;
 
   return status;
 }

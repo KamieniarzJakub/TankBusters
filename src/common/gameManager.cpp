@@ -195,6 +195,9 @@ void GameManager::SplitAsteroid(Vector2 position, Vector2 velocity, int size,
 }
 
 bool GameManager::AddBullet(const Player &player) {
+  if (!player.active)
+    return false;
+
   for (size_t i = player.player_id * Constants::BULLETS_PER_PLAYER;
        i < (player.player_id + 1) * Constants::BULLETS_PER_PLAYER; i++) {
     if (bullets.at(i).active)

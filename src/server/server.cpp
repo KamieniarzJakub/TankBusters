@@ -603,7 +603,6 @@ void Server::new_game(const Room r) {
       });
     }
 
-    // game.UpdateStatus();
     auto game_start_time = std::chrono::steady_clock::now();
     auto frame_start_time = std::chrono::steady_clock::now();
     duration<double> frametime = game_start_time - steady_clock::now();
@@ -699,13 +698,24 @@ void Server::new_game(const Room r) {
         }
         // TraceLog(LOG_INFO, json(game.players).dump().c_str());
 
-        // int active_players = 0;
-        // for (auto &p : gr.gameManager.players) {
-        //   active_players += p.active;
-        // }
-        // if (active_players < 2) {
-        //   gr.room.status = GameStatus::END_OF_ROUND;
-        // }
+        int active_players = 0;
+        uint32_t winner = UINT32_MAX;
+        for (auto &p : gr.gameManager.players) {
+          if (p.active) {
+            active_players += 1;
+            winner = p.player_id;
+          }
+        }
+        if (active_players < 2) {
+          gr.room.status = GameStatus::END_OF_ROUND;
+          for (auto c : gr.clients) {
+            todos.at(c).push([=](Client c1) {
+              serverSetEvent(c1, NetworkEvents::EndRound);
+              write_uint32(c1.fd_main, winner);
+            });
+          }
+          break; // Break out of main game while loop
+        }
       }
     }
   }
@@ -996,6 +1006,13 @@ void Server::handleUpdateBullets(Client &client) {
   }
 }
 
+void Server::invalid_network_event(Client &client, uint32_t event) {
+  TraceLog(LOG_WARNING, "%s received from client_id=%ld,fd=%d",
+           network_event_to_string(event).c_str(), client.client_id,
+           client.fd_main);
+  disconnect_client(client);
+}
+
 void Server::handle_network_event(Client &client, uint32_t event) {
   switch ((NetworkEvents)event) {
   case NetworkEvents::NoEvent:
@@ -1013,25 +1030,15 @@ void Server::handle_network_event(Client &client, uint32_t event) {
   }
   case NetworkEvents::EndRound:
     // Never read by server
-    // FIXME: IMPLEMENT SENDING
-    TraceLog(LOG_WARNING, "%s received from client_id=%ld,fd=%d",
-             network_event_to_string(event).c_str(), client.client_id,
-             client.fd_main);
-    disconnect_client(client);
+    invalid_network_event(client, event);
     break;
   case NetworkEvents::StartRound:
     // Never read by server
-    TraceLog(LOG_WARNING, "%s received from client_id=%ld,fd=%d",
-             network_event_to_string(event).c_str(), client.client_id,
-             client.fd_main);
-    disconnect_client(client);
+    invalid_network_event(client, event);
     break;
   case NetworkEvents::GetClientId:
     // Never read by server after establishing connection
-    TraceLog(LOG_WARNING, "%s received from client_id=%ld,fd=%d",
-             network_event_to_string(event).c_str(), client.client_id,
-             client.fd_main);
-    disconnect_client(client);
+    invalid_network_event(client, event);
     break;
   case NetworkEvents::VoteReady:
     std::time(&client.last_response);
@@ -1079,21 +1086,18 @@ void Server::handle_network_event(Client &client, uint32_t event) {
     break;
   case NetworkEvents::NewGameSoon:
     // Not received by server
-    TraceLog(LOG_WARNING, "%s received from client_id=%ld,fd=%d",
-             network_event_to_string(event).c_str(), client.client_id,
-             client.fd_main);
-    disconnect_client(client);
+    invalid_network_event(client, event);
     break;
   case NetworkEvents::PlayerDestroyed:
-    // FIXME: implement
+    // Not received by server
+    invalid_network_event(client, event);
     break;
   case NetworkEvents::BulletDestroyed:
     // Not received by server
+    invalid_network_event(client, event);
     break;
   default:
-    TraceLog(LOG_WARNING,
-             "Unknown NetworkEvent received from client_id=%ld,fd=%d",
-             client.client_id, client.fd_main);
+    invalid_network_event(client, event);
     break;
   }
 }

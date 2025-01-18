@@ -148,17 +148,23 @@ void GraphicsManager::DrawBullets(const GameManager &gm) {
   }
 }
 
-void GraphicsManager::DrawBulletsGUI(const GameManager &gm) {
+void GraphicsManager::DrawBulletsGUI(const GameManager &gm,
+                                     const uint32_t player_id) {
   int avaliable_bullets = 0;
-  for (size_t i = gm.player_id * Constants::BULLETS_PER_PLAYER;
-       i < (gm.player_id + 1) * Constants::BULLETS_PER_PLAYER; i++) {
-    if (!gm.bullets[i].active) avaliable_bullets++; }
-  std::string bullets_text = avaliable_bullets ? std::string(avaliable_bullets, '*') : "EMPTY";
+  for (size_t i = player_id * Constants::BULLETS_PER_PLAYER;
+       i < (player_id + 1) * Constants::BULLETS_PER_PLAYER; i++) {
+    if (!gm.bullets[i].active)
+      avaliable_bullets++;
+  }
+  std::string bullets_text =
+      avaliable_bullets ? std::string(avaliable_bullets, '*') : "EMPTY";
   const char *text = TextFormat("%s", bullets_text.c_str());
-  Vector2 origin = MeasureTextEx(font, text, Constants::TEXT_SIZE, Constants::TEXT_SPACING);
+  Vector2 origin =
+      MeasureTextEx(font, text, Constants::TEXT_SIZE, Constants::TEXT_SPACING);
   DrawTextPro(font, text,
-              Vector2{Constants::screenWidth-Constants::TEXT_OFFSET, Constants::screenHeight-Constants::TEXT_OFFSET},
-              Vector2{origin.x, origin.y/2}, 0.0f, Constants::TEXT_SIZE,
+              Vector2{Constants::screenWidth - Constants::TEXT_OFFSET,
+                      Constants::screenHeight - Constants::TEXT_OFFSET},
+              Vector2{origin.x, origin.y / 2}, 0.0f, Constants::TEXT_SIZE,
               Constants::TEXT_SPACING, RAYWHITE);
 }
 
