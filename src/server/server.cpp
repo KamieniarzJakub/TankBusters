@@ -669,8 +669,8 @@ void Server::new_game(const Room r) {
         for (uint32_t i : ids_of_changed_asteroids) {
           updated_asteroids.push_back(gr.gameManager.asteroids.at(i));
         }
-        if (ids_of_changed_asteroids.size() > 0 &&
-            updated_asteroids.size() > 0) {
+        if (!ids_of_changed_asteroids.empty() > 0 &&
+            !updated_asteroids.empty()) {
           for (auto c : gr.clients) { // TODO: send timestamp
             todos.at(c).push([=](Client c1) {
               TraceLog(LOG_DEBUG, "Updating asteroids for client_id=%lu",
@@ -680,13 +680,25 @@ void Server::new_game(const Room r) {
             });
           }
         }
-        if (destroyed_bullets_ids.size() > 0) {
+        if (!destroyed_bullets_ids.empty()) {
           for (auto c : gr.clients) {
             for (auto b : destroyed_bullets_ids) {
               todos.at(c).push([=](Client c1) { // TODO: send timestamp
                 TraceLog(LOG_DEBUG, "Updating bullets for client_id=%lu",
                          c1.client_id);
                 handleBulletDestroyed(c1, b);
+              });
+            }
+          }
+        }
+
+        if (!destroyed_players_ids.empty()) {
+          for (auto c : gr.clients) {
+            for (auto p : destroyed_players_ids) {
+              todos.at(c).push([=](Client c1) { // TODO: send timestamp
+                TraceLog(LOG_DEBUG, "Updating players for client_id=%lu",
+                         c1.client_id);
+                handlePlayerDestroyed(c1, p);
               });
             }
           }
@@ -1186,6 +1198,23 @@ void Server::handleBulletDestroyed(Client &client, uint32_t bullet_id) {
     disconnect_client(client);
     return;
   }
-  TraceLog(LOG_INFO, "sent NetworkEvent BulletDestroyed to client_id=%ld,fd=%d",
+  TraceLog(LOG_DEBUG,
+           "sent NetworkEvent BulletDestroyed to client_id=%ld,fd=%d",
+           client.client_id, client.fd_main);
+}
+
+void Server::handlePlayerDestroyed(Client &client, uint32_t player_id) {
+  serverSetEvent(client, NetworkEvents::PlayerDestroyed);
+  bool status = write_uint32(client.fd_main, player_id);
+  if (!status) {
+    TraceLog(
+        LOG_WARNING,
+        "Couldn't write NetworkEvent PlayerDestroyed to client_id=%ld,fd=%d",
+        client.client_id, client.fd_main);
+    disconnect_client(client);
+    return;
+  }
+  TraceLog(LOG_DEBUG,
+           "sent NetworkEvent PlayerDestroyed to client_id=%ld,fd=%d",
            client.client_id, client.fd_main);
 }

@@ -108,4 +108,5 @@ struct ClientNetworkManager {
   void read_update_players();
   bool update_asteroids();
   void handle_bullet_destroyed();
+  void handle_player_destroyed();
 };

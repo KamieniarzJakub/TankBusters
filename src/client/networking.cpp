@@ -430,6 +430,7 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
   case SpawnAsteroid:
   case AsteroidDestroyed:
 
+    handle_player_destroyed();
     break;
   case BulletDestroyed:
     handle_bullet_destroyed();
@@ -1099,6 +1100,24 @@ void ClientNetworkManager::handle_bullet_destroyed() {
     gameManager().bullets.at(bullet_id).active = false;
   } catch (const std::out_of_range &ex) {
     TraceLog(LOG_ERROR, "NET: bullet does not exist");
+    return;
+  }
+}
+
+void ClientNetworkManager::handle_player_destroyed() {
+  uint32_t player_id;
+  bool status = read_uint32(mainfd, player_id);
+  if (!status) {
+    TraceLog(LOG_ERROR, "NET: Couldn't receive destroyed player id");
+    return;
+  }
+  try {
+    gameManager() = gameManagersPair.at(game_manager_draw_idx);
+    gameManager().players.at(player_id).active = false;
+    flip_game_manager();
+    gameManager().players.at(player_id).active = false;
+  } catch (const std::out_of_range &ex) {
+    TraceLog(LOG_ERROR, "NET: player does not exist");
     return;
   }
 }

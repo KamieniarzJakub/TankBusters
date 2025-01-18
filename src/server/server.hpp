@@ -76,6 +76,7 @@ struct Server {
                              const std::vector<Asteroid> &asteroids);
   void handleUpdateBullets(Client &client);
   void handleBulletDestroyed(Client &client, uint32_t bullet_id);
+  void handlePlayerDestroyed(Client &c1, uint32_t player_id);
   bool sendCheckConnection(Client &client);
 
   bool sendUpdateRoomState(Client &client);
