@@ -108,7 +108,7 @@ struct Game {
 
   void UpdateMainMenu() {
     if (steady_clock::now() - last_room_fetch >
-        Constants::ROOM_FETCH_INTERVAL) { // TODO: use timerfd
+        Constants::ROOM_FETCH_INTERVAL) {
       last_room_fetch = steady_clock::now();
       networkManager.todo.push([&]() {
         TraceLog(LOG_DEBUG, "NET: Fetch rooms");
@@ -154,11 +154,11 @@ struct Game {
         graphicsManager.DrawPlayers(gameManager());
         graphicsManager.DrawBullets(gameManager());
         graphicsManager.DrawBulletsGUI(gameManager(), player_id.load());
-        graphicsManager.DrawTime(gameManager(), joinedRoom());
+        // graphicsManager.DrawTime(gameManager(), joinedRoom());
       } else if (joinedRoom().status == GameStatus::END_OF_ROUND) {
         graphicsManager.DrawWinnerText(gameManager());
         graphicsManager.DrawNewRoundCountdown(gameManager());
-        graphicsManager.DrawTime(gameManager(), joinedRoom());
+        // graphicsManager.DrawTime(gameManager(), joinedRoom());
       } else {
         graphicsManager.DrawTitle(joinedRoom());
         graphicsManager.DrawLobbyPlayers(joinedRoom());

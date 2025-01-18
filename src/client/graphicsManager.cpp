@@ -182,7 +182,7 @@ void GraphicsManager::DrawTime(const GameManager &gm, const Room &r) {
 
 void GraphicsManager::DrawWinnerText(const GameManager &gm) {
   for (int i = 0; i < Constants::PLAYERS_MAX; i++) {
-    if (gm.players[i].active) {
+    if (gm.winner_player_id) {
       const char *text =
           TextFormat("%s PLAYER WIN", Constants::PLAYER_NAMES[i].c_str());
       Vector2 text_length = MeasureTextEx(font, text, Constants::TEXT_WIN_SIZE,
@@ -201,10 +201,8 @@ void GraphicsManager::DrawWinnerText(const GameManager &gm) {
 }
 
 void GraphicsManager::DrawNewRoundCountdown(const GameManager &gm) {
-  auto time =
-      Constants::NEW_ROUND_WAIT_TIME - (steady_clock::now() - gm.endRoundTime);
-  const char *text =
-      TextFormat("New round in %d", static_cast<int>(time.count()));
+  auto time = duration_cast<seconds>(gm.game_start_time - system_clock::now());
+  const char *text = TextFormat("New round in %d", (time));
   Vector2 origin =
       MeasureTextEx(font, text, Constants::TEXT_SIZE, Constants::TEXT_SPACING);
   DrawTextPro(

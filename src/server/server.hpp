@@ -85,4 +85,5 @@ struct Server {
   void handleSpawnAsteroid(Client &client, Asteroid a, uint32_t id);
   void handleAsteroidDestroyed(Client &client, uint32_t asteroid_id);
   void invalid_network_event(Client &client, uint32_t event);
+  void restart_timer(GameRoom &gr, std::vector<uint32_t> &last_clients);
 };

@@ -374,16 +374,6 @@ void Server::handleVoteReady(Client &client) {
           true; // TODO: check leave room
       player_short_infos_json = gr.room.players;
       if (get_X_players(gr.room.players, READY) >= 2) {
-        gr.gameManager.game_start_time =
-            (system_clock::now() + Constants::LOBBY_READY_TIME);
-
-        for (auto c : gr.clients) {
-          todos.at(c).push([&](Client c1) {
-            sendNewGameSoon(
-                c1, system_clock::to_time_t(gr.gameManager.game_start_time));
-            // handleUpdateGameState(c1);
-          });
-        }
         if (!gr.thread.joinable()) {
           gr.thread = std::thread(&Server::new_game, this, gr.room);
         }
@@ -549,6 +539,21 @@ void Server::handleShootBullet(Client &client) {
   }
 }
 
+void Server::restart_timer(GameRoom &gr, std::vector<uint32_t> &last_clients) {
+
+  gr.gameManager._spawnerTime = steady_clock::now();
+  gr.gameManager.game_start_time =
+      system_clock::now() + Constants::LOBBY_READY_TIME;
+  last_clients = gr.clients;
+  for (auto c : gr.clients) {
+    todos.at(c).push([&](Client c1) {
+      sendNewGameSoon(c1,
+                      system_clock::to_time_t(gr.gameManager.game_start_time));
+      // handleUpdateGameState(c1);
+    });
+  }
+}
+
 void Server::new_game(const Room r) {
 
   auto &gr = games.at(r.room_id);
@@ -562,159 +567,156 @@ void Server::new_game(const Room r) {
   std::vector<uint32_t> destroyed_bullets_ids;
   destroyed_bullets_ids.reserve(Constants::BULLETS_PER_PLAYER *
                                 Constants::PLAYERS_MAX);
-  gr.gameManager._spawnerTime = steady_clock::now();
 
-  // std::this_thread::sleep_until(gr.gameManager.game_start_time);
-  while ((gr.gameManager.game_start_time - system_clock::now()) >
-         100ms) { // TODO: thread sleep,
+  restart_timer(gr, last_clients);
+  do {
+    std::this_thread::sleep_until(gr.gameManager.game_start_time - 0.1s);
     if (gr.clients.size() != last_clients.size()) {
-      gr.gameManager.game_start_time =
-          system_clock::now() + Constants::LOBBY_READY_TIME;
-      last_clients = gr.clients;
+      restart_timer(gr, last_clients);
       continue;
     }
     for (size_t i = 0; i < last_clients.size(); i++) {
       if (last_clients.at(i) != gr.clients.at(i)) {
-        gr.gameManager.game_start_time =
-            system_clock::now() + Constants::LOBBY_READY_TIME;
-        last_clients = gr.clients;
+        restart_timer(gr, last_clients);
+        break;
       }
     }
-    // FIXME: restart if new player joins
-  }
+  } while ((gr.gameManager.game_start_time - system_clock::now()) > 100ms);
   TraceLog(LOG_DEBUG, "New round for room %lu", r.room_id);
   {
-    {
-      auto &gr = games.at(r.room_id);
-      std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
-      gr.room.status = GameStatus::GAME;
-    }
-    auto &gr = games.at(r.room_id);
-    for (auto c : gr.clients) {
-      Client &cl = clients.at(c);
-      gr.gameManager.players.at(cl.player_id).active = true;
-    }
-    for (auto c : gr.clients) {
-      todos.at(c).push([=](Client c1) {
-        serverSetEvent(c1, NetworkEvents::StartRound);
-        handleUpdateGameState(c1);
-        handleUpdatePlayers(c1);
-        handleUpdateAsteroids(c1);
-      });
-    }
-
-    auto game_start_time = std::chrono::steady_clock::now();
-    auto frame_start_time = std::chrono::steady_clock::now();
-    duration<double> frametime = game_start_time - steady_clock::now();
-
-    while (games.at(r.room_id).room.status == GameStatus::GAME) {
+    for (uint32_t round_counter = 0; round_counter < Constants::ROUNDS_PER_GAME;
+         round_counter++) {
       {
-        auto frame_start_time1 = std::chrono::steady_clock::now();
-        frametime = frame_start_time1 - frame_start_time;
-        // std::cerr << "frametime: " << frametime.count() << std::endl;
-        frame_start_time = frame_start_time1;
         auto &gr = games.at(r.room_id);
         std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
-        auto &game = gr.gameManager;
+        gr.room.status = GameStatus::GAME;
+      }
+      auto &gr = games.at(r.room_id);
+      for (auto c : gr.clients) {
+        Client &cl = clients.at(c);
+        gr.gameManager.players.at(cl.player_id).active = true;
+      }
+      for (auto c : gr.clients) {
+        todos.at(c).push([=](Client c1) {
+          serverSetEvent(c1, NetworkEvents::StartRound);
+          handleUpdateGameState(c1);
+          handleUpdatePlayers(c1);
+          handleUpdateAsteroids(c1);
+        });
+      }
+      auto game_start_time = std::chrono::steady_clock::now();
+      auto frame_start_time = std::chrono::steady_clock::now();
+      duration<double> frametime = game_start_time - steady_clock::now();
 
-        destroyed_asteroids.clear();
-        spawned_asteroids.clear();
-        destroyed_players_ids.clear();
-        destroyed_bullets_ids.clear();
+      while (games.at(r.room_id).room.status == GameStatus::GAME) {
+        {
+          auto frame_start_time1 = std::chrono::steady_clock::now();
+          frametime = frame_start_time1 - frame_start_time;
+          // std::cerr << "frametime: " << frametime.count() << std::endl;
+          frame_start_time = frame_start_time1;
+          auto &gr = games.at(r.room_id);
+          std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
+          auto &game = gr.gameManager;
 
-        game.ManageCollisions(destroyed_asteroids, spawned_asteroids,
-                              destroyed_players_ids, destroyed_bullets_ids);
+          destroyed_asteroids.clear();
+          spawned_asteroids.clear();
+          destroyed_players_ids.clear();
+          destroyed_bullets_ids.clear();
 
-        for (auto &player : game.players) {
+          game.ManageCollisions(destroyed_asteroids, spawned_asteroids,
+                                destroyed_players_ids, destroyed_bullets_ids);
 
-          player.rotation +=
-              Constants::PLAYER_ROTATION_SPEED * frametime.count();
+          for (auto &player : game.players) {
 
-          // Apply damping to velocity
-          player.velocity = Vector2Scale(
-              player.velocity, (1 - Constants::PLAYER_DRAG / 1000.0f));
+            player.rotation +=
+                Constants::PLAYER_ROTATION_SPEED * frametime.count();
 
-          // Update position
-          player.position =
-              Vector2Add(player.position,
-                         Vector2Scale(player.velocity, frametime.count()));
+            // Apply damping to velocity
+            player.velocity = Vector2Scale(
+                player.velocity, (1 - Constants::PLAYER_DRAG / 1000.0f));
 
-          // Keep player on the screen (wrap around)
-          if (player.position.x < 0)
-            player.position.x += Constants::screenWidth;
-          if (player.position.x > Constants::screenWidth)
-            player.position.x -= Constants::screenWidth;
-          if (player.position.y < 0)
-            player.position.y += Constants::screenHeight;
-          if (player.position.y > Constants::screenHeight)
-            player.position.y -= Constants::screenHeight;
+            // Update position
+            player.position =
+                Vector2Add(player.position,
+                           Vector2Scale(player.velocity, frametime.count()));
 
-          // Update player color depending on the active state
-          player.player_color.a = player.active ? 255 : 25;
-        }
-        game.UpdateBullets(frametime);
-        game.UpdateAsteroids(frametime);
-        game.AsteroidSpawner(spawned_asteroids);
+            // Keep player on the screen (wrap around)
+            if (player.position.x < 0)
+              player.position.x += Constants::screenWidth;
+            if (player.position.x > Constants::screenWidth)
+              player.position.x -= Constants::screenWidth;
+            if (player.position.y < 0)
+              player.position.y += Constants::screenHeight;
+            if (player.position.y > Constants::screenHeight)
+              player.position.y -= Constants::screenHeight;
 
-        for (auto b : destroyed_bullets_ids) {
-          for (auto c : gr.clients) {
-            todos.at(c).push([=](Client c1) { // TODO: send timestamp
-              TraceLog(LOG_DEBUG, "Updating bullets for client_id=%lu",
-                       c1.client_id);
-              handleBulletDestroyed(c1, b);
-            });
+            // Update player color depending on the active state
+            player.player_color.a = player.active ? 255 : 25;
           }
-        }
+          game.UpdateBullets(frametime);
+          game.UpdateAsteroids(frametime);
+          game.AsteroidSpawner(spawned_asteroids);
 
-        for (auto id : spawned_asteroids) {
-          Asteroid &a = game.asteroids.at(id);
-          for (auto c : gr.clients) { // TODO: send timestamp
-            todos.at(c).push([=](Client c1) {
-              TraceLog(LOG_DEBUG, "Updating asteroids for client_id=%lu",
-                       c1.client_id);
-              handleSpawnAsteroid(c1, a, id);
-            });
+          for (auto b : destroyed_bullets_ids) {
+            for (auto c : gr.clients) {
+              todos.at(c).push([=](Client c1) { // TODO: send timestamp
+                TraceLog(LOG_DEBUG, "Updating bullets for client_id=%lu",
+                         c1.client_id);
+                handleBulletDestroyed(c1, b);
+              });
+            }
           }
-        }
 
-        for (auto id : destroyed_asteroids) {
-          for (auto c : gr.clients) { // TODO: send timestamp
-            todos.at(c).push([=](Client c1) {
-              TraceLog(LOG_DEBUG, "Updating asteroids for client_id=%lu",
-                       c1.client_id);
-              handleAsteroidDestroyed(c1, id);
-            });
+          for (auto id : spawned_asteroids) {
+            Asteroid &a = game.asteroids.at(id);
+            for (auto c : gr.clients) { // TODO: send timestamp
+              todos.at(c).push([=](Client c1) {
+                TraceLog(LOG_DEBUG, "Updating asteroids for client_id=%lu",
+                         c1.client_id);
+                handleSpawnAsteroid(c1, a, id);
+              });
+            }
           }
-        }
 
-        for (auto p : destroyed_players_ids) {
-          for (auto c : gr.clients) {
-            todos.at(c).push([=](Client c1) { // TODO: send timestamp
-              TraceLog(LOG_DEBUG, "Updating players for client_id=%lu",
-                       c1.client_id);
-              handlePlayerDestroyed(c1, p);
-            });
+          for (auto id : destroyed_asteroids) {
+            for (auto c : gr.clients) { // TODO: send timestamp
+              todos.at(c).push([=](Client c1) {
+                TraceLog(LOG_DEBUG, "Updating asteroids for client_id=%lu",
+                         c1.client_id);
+                handleAsteroidDestroyed(c1, id);
+              });
+            }
           }
-        }
-        // TraceLog(LOG_INFO, json(game.players).dump().c_str());
 
-        int active_players = 0;
-        uint32_t winner = UINT32_MAX;
-        for (auto &p : gr.gameManager.players) {
-          if (p.active) {
-            active_players += 1;
-            winner = p.player_id;
+          for (auto p : destroyed_players_ids) {
+            for (auto c : gr.clients) {
+              todos.at(c).push([=](Client c1) { // TODO: send timestamp
+                TraceLog(LOG_DEBUG, "Updating players for client_id=%lu",
+                         c1.client_id);
+                handlePlayerDestroyed(c1, p);
+              });
+            }
           }
-        }
-        if (active_players < 2) {
-          gr.room.status = GameStatus::END_OF_ROUND;
-          for (auto c : gr.clients) {
-            todos.at(c).push([=](Client c1) {
-              serverSetEvent(c1, NetworkEvents::EndRound);
-              write_uint32(c1.fd_main, winner);
-            });
+          // TraceLog(LOG_INFO, json(game.players).dump().c_str());
+
+          int active_players = 0;
+          uint32_t winner = UINT32_MAX;
+          for (auto &p : gr.gameManager.players) {
+            if (p.active) {
+              active_players += 1;
+              winner = p.player_id;
+            }
           }
-          break; // Break out of main game while loop
+          if (active_players < 2) {
+            gr.room.status = GameStatus::END_OF_ROUND;
+            for (auto c : gr.clients) {
+              todos.at(c).push([=](Client c1) {
+                handleUpdateGameState(c1);
+                serverSetEvent(c1, NetworkEvents::EndRound);
+                write_uint32(c1.fd_main, winner);
+              });
+            }
+          }
         }
       }
     }

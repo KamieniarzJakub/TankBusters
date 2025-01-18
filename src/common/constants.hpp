@@ -53,6 +53,7 @@ const static Color NOT_CONNECTED_GRAY = {200, 200, 200, 150};
 
 const static auto NEW_ROUND_WAIT_TIME = 3s;
 const static auto LOBBY_READY_TIME = 5s;
+const static unsigned int ROUNDS_PER_GAME = 3;
 
 const static unsigned int CONNECTION_TIMEOUT_MILISECONDS = 5000;
 const static std::chrono::milliseconds ROOM_FETCH_INTERVAL{5000};
