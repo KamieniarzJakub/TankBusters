@@ -106,7 +106,9 @@ struct ClientNetworkManager {
   bool handle_end_round(uint32_t &winner_player_id);
   bool handle_connection_check();
   void read_update_players();
-  bool update_asteroids();
+  bool handle_update_asteroids();
   void handle_bullet_destroyed();
   void handle_player_destroyed();
+  void handle_spawn_asteroid();
+  void handle_asteroid_destroyed();
 };

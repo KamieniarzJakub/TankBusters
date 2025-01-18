@@ -82,4 +82,6 @@ struct Server {
   bool sendUpdateRoomState(Client &client);
   void new_game(const Room r);
   void sendNewGameSoon(Client &client, uint32_t when);
+  void handleSpawnAsteroid(Client &client, Asteroid a, uint32_t id);
+  void handleAsteroidDestroyed(Client &client, uint32_t asteroid_id);
 };

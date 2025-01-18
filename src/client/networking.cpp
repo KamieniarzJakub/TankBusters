@@ -8,10 +8,10 @@
 
 #include <atomic>
 #include <cstdint>
-#include <iostream>
 #include <map>
 #include <nlohmann/json.hpp>
 #include <thread>
+#include <vector>
 
 #include "asteroid.hpp"
 #include "bullet.hpp"
@@ -403,7 +403,7 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
     read_update_players();
   } break;
   case NetworkEvents::UpdateAsteroids: {
-    update_asteroids();
+    handle_update_asteroids();
   } break;
   case NetworkEvents::UpdateBullets: {
     json bullets_json;
@@ -423,14 +423,15 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
       return;
     }
   } break;
-  // default:
-  //   TraceLog(LOG_WARNING, "Unknown NetworkEvent received");
-  //   break;
-  case PlayerDestroyed:
-  case SpawnAsteroid:
-  case AsteroidDestroyed:
-
+  case NetworkEvents::PlayerDestroyed:
     handle_player_destroyed();
+    break;
+  case NetworkEvents::SpawnAsteroid:
+    handle_spawn_asteroid();
+    break;
+  case NetworkEvents::AsteroidDestroyed:
+    handle_asteroid_destroyed();
+    // FIXME: implement
     break;
   case BulletDestroyed:
     handle_bullet_destroyed();
@@ -845,30 +846,10 @@ bool ClientNetworkManager::fetch_players(std::vector<Player> &players) {
     return false;
   }
 }
-bool ClientNetworkManager::update_asteroids() {
+bool ClientNetworkManager::handle_update_asteroids() {
   std::vector<Asteroid> asteroids;
-  std::vector<uint32_t> ids;
-
-  json asteroid_ids_json;
-  bool status = read_json(mainfd, asteroid_ids_json, -1);
-  if (!status) {
-    TraceLog(LOG_ERROR, "NET: Couldn't receive json of asteroid ids");
-    return false;
-  }
-
-  try {
-    ids = asteroid_ids_json.template get<std::vector<uint32_t>>();
-  } catch (json::exception &ex) {
-    TraceLog(LOG_ERROR,
-             "JSON: Couldn't deserialize json into vector<uint32_t>");
-    return false;
-  }
-
-  // constexpr auto MAX_ASTEROIDS_VECTOR_SIZE =
-  // sizeof(json(std::vector<Asteroid>(Constants::ASTEROIDS_MAX, Asteroid())));
-
   json asteroids_json;
-  status = read_json(mainfd, asteroids_json, -1);
+  bool status = read_json(mainfd, asteroids_json, -1);
   if (!status) {
     TraceLog(LOG_ERROR, "NET: Couldn't receive json of vector<Asteroid>");
     return false;
@@ -881,78 +862,130 @@ bool ClientNetworkManager::update_asteroids() {
              "JSON: Couldn't deserialize json into vector<Asteroid>");
     return false;
   }
-  // if (!fetch_asteroids(ids, asteroids)) {
-  //   return false;
-  // }
-
-  if (asteroids.size() != ids.size()) {
-    return false;
-  }
 
   try {
-    for (uint32_t i = 0; i < ids.size(); i++) {
-      gameManager().asteroids.at(ids.at(i)) = asteroids.at(i);
-    }
+    gameManager().asteroids = asteroids;
   } catch (const std::out_of_range &ex) {
     return false;
   }
 
   flip_game_manager();
-  gameManager().asteroids =
-      gameManagersPair.at(game_manager_draw_idx).asteroids;
+  gameManager().asteroids = asteroids;
 
   return true;
 }
 
-bool ClientNetworkManager::fetch_asteroids(std::vector<uint32_t> &asteroid_ids,
-                                           std::vector<Asteroid> &asteroids) {
-  if (joinedRoom().room_id == 0) {
-    TraceLog(LOG_ERROR, "GAME: Room ID=0 passed into fetch asteroids");
-    return false;
-  }
-
-  bool status;
-  status = setEvent(mainfd, NetworkEvents::UpdateAsteroids);
-  if (!status)
-    return false;
-
-  status = expectEvent(mainfd, NetworkEvents::UpdateAsteroids);
-  if (!status)
-    return false;
-
-  json asteroid_ids_json;
-  status = read_json(mainfd, asteroid_ids_json, -1);
-  if (!status) {
-    TraceLog(LOG_ERROR, "NET: Couldn't receive json of asteroid ids");
-    return false;
-  }
-  try {
-    asteroid_ids = asteroid_ids_json.template get<std::vector<uint32_t>>();
-  } catch (json::exception &ex) {
-    TraceLog(LOG_ERROR,
-             "JSON: Couldn't deserialize json into vector<uint32_t>");
-    return false;
-  }
-
-  // constexpr auto MAX_ASTEROIDS_VECTOR_SIZE =
-  // sizeof(json(std::vector<Asteroid>(Constants::ASTEROIDS_MAX, Asteroid())));
-
-  json asteroids_json;
-  status = read_json(mainfd, asteroids_json, -1);
-  if (!status) {
-    TraceLog(LOG_ERROR, "NET: Couldn't receive json of vector<Asteroid>");
-    return false;
-  }
-
-  try {
-    asteroids = asteroids_json.template get<std::vector<Asteroid>>();
-    return true;
-  } catch (json::exception &ex) {
-    TraceLog(LOG_ERROR,
-             "JSON: Couldn't deserialize json into vector<Asteroid>");
-    return false;
-  }
-}
+// bool ClientNetworkManager::update_asteroids() {
+//   std::vector<Asteroid> asteroids;
+//   std::vector<uint32_t> ids;
+//
+//   json asteroid_ids_json;
+//   bool status = read_json(mainfd, asteroid_ids_json, -1);
+//   if (!status) {
+//     TraceLog(LOG_ERROR, "NET: Couldn't receive json of asteroid ids");
+//     return false;
+//   }
+//
+//   try {
+//     ids = asteroid_ids_json.template get<std::vector<uint32_t>>();
+//   } catch (json::exception &ex) {
+//     TraceLog(LOG_ERROR,
+//              "JSON: Couldn't deserialize json into vector<uint32_t>");
+//     return false;
+//   }
+//
+//   // constexpr auto MAX_ASTEROIDS_VECTOR_SIZE =
+//   // sizeof(json(std::vector<Asteroid>(Constants::ASTEROIDS_MAX,
+//   Asteroid())));
+//
+//   json asteroids_json;
+//   status = read_json(mainfd, asteroids_json, -1);
+//   if (!status) {
+//     TraceLog(LOG_ERROR, "NET: Couldn't receive json of vector<Asteroid>");
+//     return false;
+//   }
+//
+//   try {
+//     asteroids = asteroids_json.template get<std::vector<Asteroid>>();
+//   } catch (json::exception &ex) {
+//     TraceLog(LOG_ERROR,
+//              "JSON: Couldn't deserialize json into vector<Asteroid>");
+//     return false;
+//   }
+//   // if (!fetch_asteroids(ids, asteroids)) {
+//   //   return false;
+//   // }
+//
+//   if (asteroids.size() != ids.size()) {
+//     return false;
+//   }
+//
+//   try {
+//     for (uint32_t i = 0; i < ids.size(); i++) {
+//       gameManager().asteroids.at(ids.at(i)) = asteroids.at(i);
+//     }
+//   } catch (const std::out_of_range &ex) {
+//     return false;
+//   }
+//
+//   flip_game_manager();
+//   gameManager().asteroids =
+//       gameManagersPair.at(game_manager_draw_idx).asteroids;
+//
+//   return true;
+// }
+// bool ClientNetworkManager::fetch_asteroids(std::vector<uint32_t>
+// &asteroid_ids,
+//                                            std::vector<Asteroid> &asteroids)
+//                                            {
+//   if (joinedRoom().room_id == 0) {
+//     TraceLog(LOG_ERROR, "GAME: Room ID=0 passed into fetch asteroids");
+//     return false;
+//   }
+//
+//   bool status;
+//   status = setEvent(mainfd, NetworkEvents::UpdateAsteroids);
+//   if (!status)
+//     return false;
+//
+//   status = expectEvent(mainfd, NetworkEvents::UpdateAsteroids);
+//   if (!status)
+//     return false;
+//
+//   json asteroid_ids_json;
+//   status = read_json(mainfd, asteroid_ids_json, -1);
+//   if (!status) {
+//     TraceLog(LOG_ERROR, "NET: Couldn't receive json of asteroid ids");
+//     return false;
+//   }
+//   try {
+//     asteroid_ids = asteroid_ids_json.template get<std::vector<uint32_t>>();
+//   } catch (json::exception &ex) {
+//     TraceLog(LOG_ERROR,
+//              "JSON: Couldn't deserialize json into vector<uint32_t>");
+//     return false;
+//   }
+//
+//   // constexpr auto MAX_ASTEROIDS_VECTOR_SIZE =
+//   // sizeof(json(std::vector<Asteroid>(Constants::ASTEROIDS_MAX,
+//   Asteroid())));
+//
+//   json asteroids_json;
+//   status = read_json(mainfd, asteroids_json, -1);
+//   if (!status) {
+//     TraceLog(LOG_ERROR, "NET: Couldn't receive json of vector<Asteroid>");
+//     return false;
+//   }
+//
+//   try {
+//     asteroids = asteroids_json.template get<std::vector<Asteroid>>();
+//     return true;
+//   } catch (json::exception &ex) {
+//     TraceLog(LOG_ERROR,
+//              "JSON: Couldn't deserialize json into vector<Asteroid>");
+//     return false;
+//   }
+// }
 
 bool ClientNetworkManager::fetch_bullets(std::vector<Bullet> &bullets) {
   if (joinedRoom().room_id == 0) {
@@ -1118,6 +1151,62 @@ void ClientNetworkManager::handle_player_destroyed() {
     gameManager().players.at(player_id).active = false;
   } catch (const std::out_of_range &ex) {
     TraceLog(LOG_ERROR, "NET: player does not exist");
+    return;
+  }
+}
+
+void ClientNetworkManager::handle_spawn_asteroid() {
+  uint32_t id;
+  bool status = read_uint32(mainfd, id);
+
+  if (!status) {
+    TraceLog(LOG_ERROR, "NET: Couldn't receive spawned Asteroid id");
+    return;
+  }
+
+  json j;
+  status = read_json(mainfd, j, -1);
+  if (!status) {
+    TraceLog(LOG_ERROR, "NET: Couldn't receive spawned Asteroid json");
+    return;
+  }
+
+  Asteroid a;
+
+  try {
+    a = j;
+  } catch (json::exception &ex) {
+    TraceLog(LOG_ERROR, "JSON: Couldn't deserialize json into asteroid");
+    return;
+  }
+
+  try {
+    gameManager() = gameManagersPair.at(game_manager_draw_idx);
+    gameManager().asteroids.at(id) = a;
+    flip_game_manager();
+    gameManager().asteroids.at(id) = a;
+  } catch (const std::out_of_range &ex) {
+    TraceLog(LOG_ERROR, "NET: Asteroid does not exist");
+    return;
+  }
+}
+
+void ClientNetworkManager::handle_asteroid_destroyed() {
+  uint32_t id;
+  bool status = read_uint32(mainfd, id);
+
+  if (!status) {
+    TraceLog(LOG_ERROR, "NET: Couldn't receive destroyed Asteroid id");
+    return;
+  }
+
+  try {
+    gameManager() = gameManagersPair.at(game_manager_draw_idx);
+    gameManager().asteroids.at(id).active = false;
+    flip_game_manager();
+    gameManager().asteroids.at(id).active = false;
+  } catch (const std::out_of_range &ex) {
+    TraceLog(LOG_ERROR, "NET: Asteroid does not exist");
     return;
   }
 }

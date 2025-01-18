@@ -2,7 +2,6 @@
 #include "constants.hpp"
 #include "player.hpp"
 #include <chrono>
-#include <iostream>
 
 using namespace std::chrono;
 
@@ -98,7 +97,8 @@ void GameManager::AsteroidSpawner(std::vector<uint32_t> &spawned_asteroids) {
   }
 }
 
-void GameManager::ManageCollisions(std::vector<uint32_t> &changed_asteroids,
+void GameManager::ManageCollisions(std::vector<uint32_t> &destroyed_asteroids,
+                                   std::vector<uint32_t> &spawned_asteroids,
                                    std::vector<uint32_t> &destroyed_players,
                                    std::vector<uint32_t> &destroyed_bullets) {
   // void GameManager::ManageCollisions() {
@@ -115,12 +115,13 @@ void GameManager::ManageCollisions(std::vector<uint32_t> &changed_asteroids,
         if (CheckCollisionCircles(bullets[k].position, Constants::BULLET_SIZE,
                                   asteroids[i].position, asteroids[i].size)) {
           destroyed_bullets.push_back(k);
-          changed_asteroids.push_back(i);
+          destroyed_asteroids.push_back(i);
           bullets[k].active = false;
           asteroids[i].active = false;
           SplitAsteroid(asteroids[i].position, asteroids[i].velocity,
                         float(asteroids[i].size) /
-                            Constants::ASTEROID_SPLIT_LOSS);
+                            Constants::ASTEROID_SPLIT_LOSS,
+                        spawned_asteroids);
           break;
         }
 
@@ -147,12 +148,12 @@ void GameManager::ManageCollisions(std::vector<uint32_t> &changed_asteroids,
                                 Constants::PLAYER_SIZE / 3.0f,
                                 asteroids[i].position, asteroids[i].size)) {
         destroyed_players.push_back(j);
-        changed_asteroids.push_back(i);
+        destroyed_asteroids.push_back(i);
         players[j].active = false;
         asteroids[i].active = false;
         SplitAsteroid(asteroids[i].position, asteroids[i].velocity,
-                      float(asteroids[i].size) /
-                          Constants::ASTEROID_SPLIT_LOSS);
+                      float(asteroids[i].size) / Constants::ASTEROID_SPLIT_LOSS,
+                      spawned_asteroids);
       }
     }
   }
@@ -170,7 +171,8 @@ uint32_t GameManager::AddAsteroid() {
   return UINT32_MAX;
 }
 
-void GameManager::SplitAsteroid(Vector2 position, Vector2 velocity, int size) {
+void GameManager::SplitAsteroid(Vector2 position, Vector2 velocity, int size,
+                                std::vector<uint32_t> &changed) {
   if (size < Constants::ASTEROID_SIZE_MIN)
     return;
 
@@ -185,6 +187,7 @@ void GameManager::SplitAsteroid(Vector2 position, Vector2 velocity, int size) {
         Vector2Rotate(velocity, toSpawn % 2 ? GetRandomValue(60, 120)
                                             : GetRandomValue(-120, -60));
     asteroids[i] = CreateAsteroid(position, new_velocity, size);
+    changed.push_back(i);
     toSpawn--;
   }
 

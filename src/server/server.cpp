@@ -3,7 +3,7 @@
 #include <chrono>
 #include <errno.h>
 #include <error.h>
-#include <iostream>
+#include <fcntl.h>
 #include <netinet/in.h>
 #include <sys/epoll.h>
 #include <sys/socket.h>
@@ -19,6 +19,7 @@
 #include <vec2json.hpp>
 #include <vector>
 
+#include "asteroid.hpp"
 #include "client.hpp"
 #include "constants.hpp"
 #include "gameManager.hpp"
@@ -242,9 +243,6 @@ void Server::handle_connection(int client_fd) {
         auto f = todos.at(client.client_id).pop();
         f(client);
 
-        // handleUpdateAsteroids(client);
-        // handleUpdatePlayers(client);
-        // handleUpdateBullets(client);
         // if game/round end
         // FIXME: send END ROUND
         // FIXME: send START ROUND
@@ -555,13 +553,10 @@ void Server::new_game(const Room r) {
 
   auto &gr = games.at(r.room_id);
   auto last_clients = gr.clients;
-  std::vector<uint32_t> ids_of_changed_asteroids;
-  ids_of_changed_asteroids.resize(Constants::ASTEROIDS_MAX);
-  for (size_t i = 0; i < ids_of_changed_asteroids.size(); i++) {
-    ids_of_changed_asteroids.at(i) = i;
-  }
-  std::vector<Asteroid> updated_asteroids = gr.gameManager.asteroids;
-  updated_asteroids.reserve(Constants::ASTEROIDS_MAX);
+  std::vector<uint32_t> destroyed_asteroids;
+  destroyed_asteroids.resize(Constants::ASTEROIDS_MAX);
+  std::vector<uint32_t> spawned_asteroids;
+  spawned_asteroids.resize(Constants::ASTEROIDS_MAX);
   std::vector<uint32_t> destroyed_players_ids;
   destroyed_players_ids.reserve(Constants::PLAYERS_MAX);
   std::vector<uint32_t> destroyed_bullets_ids;
@@ -583,7 +578,6 @@ void Server::new_game(const Room r) {
         gr.gameManager.game_start_time =
             system_clock::now() + Constants::LOBBY_READY_TIME;
         last_clients = gr.clients;
-        continue;
       }
     }
     // FIXME: restart if new player joins
@@ -594,7 +588,6 @@ void Server::new_game(const Room r) {
       auto &gr = games.at(r.room_id);
       std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
       gr.room.status = GameStatus::GAME;
-      // gr.gameManager.status = GameStatus::GAME;
     }
     auto &gr = games.at(r.room_id);
     for (auto c : gr.clients) {
@@ -606,19 +599,16 @@ void Server::new_game(const Room r) {
         serverSetEvent(c1, NetworkEvents::StartRound);
         handleUpdateGameState(c1);
         handleUpdatePlayers(c1);
-        handleUpdateAsteroids(c1, ids_of_changed_asteroids, updated_asteroids);
+        handleUpdateAsteroids(c1);
       });
     }
 
     // game.UpdateStatus();
-    // game.status = GameStatus::GAME;
-    // TraceLog(LOG_DEBUG, "Game status: %d", gameManager.status);
     auto game_start_time = std::chrono::steady_clock::now();
     auto frame_start_time = std::chrono::steady_clock::now();
     duration<double> frametime = game_start_time - steady_clock::now();
 
     while (games.at(r.room_id).room.status == GameStatus::GAME) {
-      // TraceLog(LOG_INFO, "ROOM %lu is in game", r.room_id);
       {
         auto frame_start_time1 = std::chrono::steady_clock::now();
         frametime = frame_start_time1 - frame_start_time;
@@ -628,13 +618,13 @@ void Server::new_game(const Room r) {
         std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
         auto &game = gr.gameManager;
 
-        ids_of_changed_asteroids.clear();
-        updated_asteroids.clear();
+        destroyed_asteroids.clear();
+        spawned_asteroids.clear();
         destroyed_players_ids.clear();
         destroyed_bullets_ids.clear();
 
-        game.ManageCollisions(ids_of_changed_asteroids, destroyed_players_ids,
-                              destroyed_bullets_ids);
+        game.ManageCollisions(destroyed_asteroids, spawned_asteroids,
+                              destroyed_players_ids, destroyed_bullets_ids);
 
         for (auto &player : game.players) {
 
@@ -665,42 +655,46 @@ void Server::new_game(const Room r) {
         }
         game.UpdateBullets(frametime);
         game.UpdateAsteroids(frametime);
-        game.AsteroidSpawner(ids_of_changed_asteroids);
-        for (uint32_t i : ids_of_changed_asteroids) {
-          updated_asteroids.push_back(gr.gameManager.asteroids.at(i));
+        game.AsteroidSpawner(spawned_asteroids);
+
+        for (auto b : destroyed_bullets_ids) {
+          for (auto c : gr.clients) {
+            todos.at(c).push([=](Client c1) { // TODO: send timestamp
+              TraceLog(LOG_DEBUG, "Updating bullets for client_id=%lu",
+                       c1.client_id);
+              handleBulletDestroyed(c1, b);
+            });
+          }
         }
-        if (!ids_of_changed_asteroids.empty() > 0 &&
-            !updated_asteroids.empty()) {
+
+        for (auto id : spawned_asteroids) {
+          Asteroid &a = game.asteroids.at(id);
           for (auto c : gr.clients) { // TODO: send timestamp
             todos.at(c).push([=](Client c1) {
               TraceLog(LOG_DEBUG, "Updating asteroids for client_id=%lu",
                        c1.client_id);
-              handleUpdateAsteroids(c1, ids_of_changed_asteroids,
-                                    updated_asteroids);
+              handleSpawnAsteroid(c1, a, id);
             });
           }
         }
-        if (!destroyed_bullets_ids.empty()) {
-          for (auto c : gr.clients) {
-            for (auto b : destroyed_bullets_ids) {
-              todos.at(c).push([=](Client c1) { // TODO: send timestamp
-                TraceLog(LOG_DEBUG, "Updating bullets for client_id=%lu",
-                         c1.client_id);
-                handleBulletDestroyed(c1, b);
-              });
-            }
+
+        for (auto id : destroyed_asteroids) {
+          for (auto c : gr.clients) { // TODO: send timestamp
+            todos.at(c).push([=](Client c1) {
+              TraceLog(LOG_DEBUG, "Updating asteroids for client_id=%lu",
+                       c1.client_id);
+              handleAsteroidDestroyed(c1, id);
+            });
           }
         }
 
-        if (!destroyed_players_ids.empty()) {
+        for (auto p : destroyed_players_ids) {
           for (auto c : gr.clients) {
-            for (auto p : destroyed_players_ids) {
-              todos.at(c).push([=](Client c1) { // TODO: send timestamp
-                TraceLog(LOG_DEBUG, "Updating players for client_id=%lu",
-                         c1.client_id);
-                handlePlayerDestroyed(c1, p);
-              });
-            }
+            todos.at(c).push([=](Client c1) { // TODO: send timestamp
+              TraceLog(LOG_DEBUG, "Updating players for client_id=%lu",
+                       c1.client_id);
+              handlePlayerDestroyed(c1, p);
+            });
           }
         }
         // TraceLog(LOG_INFO, json(game.players).dump().c_str());
@@ -931,42 +925,13 @@ void Server::handleUpdatePlayers(Client &client) {
 }
 
 void Server::handleUpdateAsteroids(Client &client) {
-  std::vector<uint32_t> asteroid_ids;
-  for (uint32_t i = 0; i < asteroid_ids.size(); i++) {
-    asteroid_ids.at(i) = i;
-  }
   try {
-    handleUpdateAsteroids(client, asteroid_ids,
-                          games.at(client.room_id).gameManager.asteroids);
-  } catch (const std::out_of_range &ex) {
-    TraceLog(LOG_WARNING, "Invalid room id %lu from client_id=%ld,fd=%d",
-             client.room_id, client.client_id, client.fd_main);
-    client_error(client);
-    return;
-  }
-}
-void Server::handleUpdateAsteroids(Client &client,
-                                   const std::vector<uint32_t> &asteroid_ids,
-                                   const std::vector<Asteroid> &asteroids) {
-  try {
-    bool status;
-    json asteroids_json = asteroids;
-    json asteroid_ids_json = asteroid_ids;
     serverSetEvent(client, NetworkEvents::UpdateAsteroids);
-
-    status = write_json(client.fd_main, asteroid_ids_json);
+    json j = games.at(client.room_id).gameManager.asteroids;
+    bool status = write_json(client.fd_main, j);
     if (!status) {
-      TraceLog(LOG_WARNING,
-               "Couldn't send json of asteroid ids to client_id=%ld,fd=%d",
-               client.client_id, client.fd_main);
-      client_error(client);
-      return;
-    }
-    status = write_json(client.fd_main, asteroids_json);
-    if (!status) {
-      TraceLog(LOG_WARNING,
-               "Couldn't send json of asteroids to client_id=%ld,fd=%d",
-               client.client_id, client.fd_main);
+      TraceLog(LOG_WARNING, "Couldn't send asteroids to client_id=%ld,fd=%d",
+               client.room_id, client.client_id, client.fd_main);
       client_error(client);
       return;
     }
@@ -977,6 +942,38 @@ void Server::handleUpdateAsteroids(Client &client,
     return;
   }
 }
+// void Server::handleUpdateAsteroids(Client &client,
+//                                    const std::vector<uint32_t> &asteroid_ids,
+//                                    const std::vector<Asteroid> &asteroids) {
+//   try {
+//     bool status;
+//     json asteroids_json = asteroids;
+//     json asteroid_ids_json = asteroid_ids;
+//     serverSetEvent(client, NetworkEvents::UpdateAsteroids);
+//
+//     status = write_json(client.fd_main, asteroid_ids_json);
+//     if (!status) {
+//       TraceLog(LOG_WARNING,
+//                "Couldn't send json of asteroid ids to client_id=%ld,fd=%d",
+//                client.client_id, client.fd_main);
+//       client_error(client);
+//       return;
+//     }
+//     status = write_json(client.fd_main, asteroids_json);
+//     if (!status) {
+//       TraceLog(LOG_WARNING,
+//                "Couldn't send json of asteroids to client_id=%ld,fd=%d",
+//                client.client_id, client.fd_main);
+//       client_error(client);
+//       return;
+//     }
+//   } catch (const std::out_of_range &ex) {
+//     TraceLog(LOG_WARNING, "Invalid room id %lu from client_id=%ld,fd=%d",
+//              client.room_id, client.client_id, client.fd_main);
+//     client_error(client);
+//     return;
+//   }
+// }
 
 void Server::handleUpdateBullets(Client &client) {
   try {
@@ -1217,4 +1214,37 @@ void Server::handlePlayerDestroyed(Client &client, uint32_t player_id) {
   TraceLog(LOG_DEBUG,
            "sent NetworkEvent PlayerDestroyed to client_id=%ld,fd=%d",
            client.client_id, client.fd_main);
+}
+
+void Server::handleSpawnAsteroid(Client &client, Asteroid a, uint32_t id) {
+  serverSetEvent(client, NetworkEvents::SpawnAsteroid);
+  bool status = write_uint32(client.fd_main, id);
+  if (!status) {
+    TraceLog(LOG_WARNING,
+             "Couldn't write NetworkEvent SpawnAsteroid to client_id=%ld,fd=%d",
+             client.client_id, client.fd_main);
+    disconnect_client(client);
+    return;
+  }
+  json j = a;
+  status = write_json(client.fd_main, j);
+  if (!status) {
+    TraceLog(LOG_WARNING,
+             "Couldn't write spawned asteroid to client_id=%ld,fd=%d",
+             client.client_id, client.fd_main);
+    disconnect_client(client);
+    return;
+  }
+}
+void Server::handleAsteroidDestroyed(Client &client, uint32_t asteroid_id) {
+  serverSetEvent(client, NetworkEvents::AsteroidDestroyed);
+  bool status = write_uint32(client.fd_main, asteroid_id);
+  if (!status) {
+    TraceLog(
+        LOG_WARNING,
+        "Couldn't write NetworkEvent AsteroidDestroyed to client_id=%ld,fd=%d",
+        client.client_id, client.fd_main);
+    disconnect_client(client);
+    return;
+  }
 }
