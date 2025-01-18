@@ -387,7 +387,7 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
       return;
     }
     try {
-      TraceLog(LOG_INFO, "NET: received json of room state");
+      TraceLog(LOG_DEBUG, "NET: received json of room state");
       auto room = room_state_json.template get<Room>();
       rooms() = roomsMapPair.at(rooms_draw_idx);
       joinedRoom() = room;
@@ -848,7 +848,6 @@ bool ClientNetworkManager::update_asteroids() {
     TraceLog(LOG_ERROR, "NET: Couldn't receive json of asteroid ids");
     return false;
   }
-  std::cerr << asteroid_ids_json.dump() << std::endl;
 
   try {
     ids = asteroid_ids_json.template get<std::vector<uint32_t>>();
@@ -868,7 +867,6 @@ bool ClientNetworkManager::update_asteroids() {
     return false;
   }
 
-  std::cerr << asteroids_json.dump() << std::endl;
   try {
     asteroids = asteroids_json.template get<std::vector<Asteroid>>();
   } catch (json::exception &ex) {
@@ -880,7 +878,6 @@ bool ClientNetworkManager::update_asteroids() {
   //   return false;
   // }
 
-  std::cerr << asteroids.size() << " " << ids.size() << std::endl;
   if (asteroids.size() != ids.size()) {
     return false;
   }

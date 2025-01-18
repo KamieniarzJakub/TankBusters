@@ -518,7 +518,6 @@ void Server::handleShootBullet(Client &client) {
     GameRoom &gr = games.at(client.room_id);
     std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
     const Player &p = gr.gameManager.players.at(client.player_id);
-    // std::cerr << json(gr.gameManager.players).dump() << std::endl;
     status = gr.gameManager.AddBullet(p);
   } catch (const std::out_of_range &ex) {
     status = false;
@@ -569,12 +568,7 @@ void Server::new_game(const Room r) {
   destroyed_bullets_ids.reserve(Constants::BULLETS_PER_PLAYER *
                                 Constants::PLAYERS_MAX);
   gr.gameManager._spawnerTime = steady_clock::now();
-  for (auto c : gr.clients) {
-    todos.at(c).push([=](Client c1) {
-      TraceLog(LOG_DEBUG, "Updating asteroids for client_id=%lu", c1.client_id);
-      handleUpdateAsteroids(c1, ids_of_changed_asteroids, updated_asteroids);
-    });
-  }
+
   // std::this_thread::sleep_until(gr.gameManager.game_start_time);
   while ((gr.gameManager.game_start_time - system_clock::now()) >
          100ms) { // TODO: thread sleep,
@@ -608,10 +602,11 @@ void Server::new_game(const Room r) {
       gr.gameManager.players.at(cl.player_id).active = true;
     }
     for (auto c : gr.clients) {
-      todos.at(c).push([&](Client c1) {
+      todos.at(c).push([=](Client c1) {
         serverSetEvent(c1, NetworkEvents::StartRound);
         handleUpdateGameState(c1);
         handleUpdatePlayers(c1);
+        handleUpdateAsteroids(c1, ids_of_changed_asteroids, updated_asteroids);
       });
     }
 
@@ -643,24 +638,17 @@ void Server::new_game(const Room r) {
 
         for (auto &player : game.players) {
 
-          // player.rotation += Constants::PLAYER_ROTATION_SPEED * frametime;
-
-          // if (IsKeyDown(KEY_UP) || IsKeyDown(KEY_W)) {
-          //   Vector2 direction = {cosf(DEG2RAD * player.rotation),
-          //                        sinf(DEG2RAD * player.rotation)};
-          //   player.velocity = Vector2Add(
-          //       player.velocity,
-          //       Vector2Scale(direction, Constants::PLAYER_ACCELERATION *
-          //       frametime));
-          // }
+          player.rotation +=
+              Constants::PLAYER_ROTATION_SPEED * frametime.count();
 
           // Apply damping to velocity
-          // player.velocity = Vector2Scale(
-          //     player.velocity, (1 - Constants::PLAYER_DRAG / 1000.0f));
+          player.velocity = Vector2Scale(
+              player.velocity, (1 - Constants::PLAYER_DRAG / 1000.0f));
 
           // Update position
-          // player.position = Vector2Add(
-          //     player.position, Vector2Scale(player.velocity, frametime));
+          player.position =
+              Vector2Add(player.position,
+                         Vector2Scale(player.velocity, frametime.count()));
 
           // Keep player on the screen (wrap around)
           if (player.position.x < 0)
@@ -683,21 +671,25 @@ void Server::new_game(const Room r) {
         }
         if (ids_of_changed_asteroids.size() > 0 &&
             updated_asteroids.size() > 0) {
-          std::cerr << "gameroom:  ";
-          std::cerr << "changed (ids): "
-                    << json(ids_of_changed_asteroids).dump();
-          std::cerr << "  new (ast): " << json(updated_asteroids).dump()
-                    << std::endl;
-          for (auto c : gr.clients) {
+          for (auto c : gr.clients) { // TODO: send timestamp
             todos.at(c).push([=](Client c1) {
               TraceLog(LOG_DEBUG, "Updating asteroids for client_id=%lu",
                        c1.client_id);
               handleUpdateAsteroids(c1, ids_of_changed_asteroids,
                                     updated_asteroids);
-              // handleUpdateAsteroids(c1, asteroid_ids, asteroids);
             });
           }
         }
+        // if (destroyed_bullets_ids.size() > 0) {
+        //   for (auto c : gr.clients) {
+        //     todos.at(c).push([=](Client c1) { // TODO: send timestamp
+        //       TraceLog(LOG_DEBUG, "Updating bullets for client_id=%lu",
+        //                c1.client_id);
+        //       handleUpdateAsteroids(c1, ids_of_changed_asteroids,
+        //                             updated_asteroids);
+        //     });
+        //   }
+        // }
         // TraceLog(LOG_INFO, json(game.players).dump().c_str());
         // if (game._alive_players < 2) {
         //   gs = GameStatus::END_OF_ROUND;
@@ -939,10 +931,6 @@ void Server::handleUpdateAsteroids(Client &client) {
 void Server::handleUpdateAsteroids(Client &client,
                                    const std::vector<uint32_t> &asteroid_ids,
                                    const std::vector<Asteroid> &asteroids) {
-  if (asteroid_ids.size() == 0 or asteroids.size() == 0) {
-    std::cerr << "empty asteroids";
-    exit(1);
-  }
   try {
     bool status;
     json asteroids_json = asteroids;
