@@ -868,7 +868,6 @@ bool ClientNetworkManager::update_asteroids() {
   std::cerr << asteroids_json.dump() << std::endl;
   try {
     asteroids = asteroids_json.template get<std::vector<Asteroid>>();
-    return true;
   } catch (json::exception &ex) {
     TraceLog(LOG_ERROR,
              "JSON: Couldn't deserialize json into vector<Asteroid>");

@@ -41,7 +41,7 @@ struct Server {
   std::map<uint32_t, Client> clients;
   std::atomic_uint32_t _next_client_id = 1;
 
-  std::map<uint32_t, LockingQueue<std::function<bool(Client)>>> todos;
+  std::map<uint32_t, LockingQueue<std::function<void(Client c)>>> todos;
 
   Server(in_port_t main_port);
   ~Server();
@@ -72,8 +72,8 @@ struct Server {
   void handleUpdatePlayers(Client &client);
   void handleUpdateAsteroids(Client &client);
   void handleUpdateAsteroids(Client &client,
-                             std::vector<uint32_t> &asteroid_ids,
-                             std::vector<Asteroid> &asteroids);
+                             const std::vector<uint32_t> &asteroid_ids,
+                             const std::vector<Asteroid> &asteroids);
   void handleUpdateBullets(Client &client);
   void handleStreamUpdatePlayers(Client &client);
   void handleStreamUpdateBullets(Client &client);

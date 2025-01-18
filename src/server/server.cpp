@@ -382,7 +382,6 @@ void Server::handleVoteReady(Client &client) {
           todos.at(c).push([&](Client c1) {
             sendNewGameSoon(c1, gr.gameManager.game_start_time);
             // handleUpdateGameState(c1);
-            return true;
           });
         }
         if (!gr.thread.joinable()) {
@@ -417,7 +416,6 @@ void Server::handleVoteReady(Client &client) {
         bool status = sendUpdateRoomState(c1);
         TraceLog(LOG_DEBUG, "updating rooms for %lu status=%d", c1.client_id,
                  status);
-        return status;
       });
     }
   } catch (const std::out_of_range &ex) {
@@ -556,24 +554,23 @@ void Server::new_game(const Room r) {
 
   auto &gr = games.at(r.room_id);
   auto last_clients = gr.clients;
-  std::vector<uint32_t> changed_asteroids;
-  changed_asteroids.resize(Constants::ASTEROIDS_MAX);
-  for (size_t i = 0; i < changed_asteroids.size(); i++) {
-    changed_asteroids.at(i) = i;
+  std::vector<uint32_t> ids_of_changed_asteroids;
+  ids_of_changed_asteroids.resize(Constants::ASTEROIDS_MAX);
+  for (size_t i = 0; i < ids_of_changed_asteroids.size(); i++) {
+    ids_of_changed_asteroids.at(i) = i;
   }
-  std::vector<Asteroid> new_asteroids = gr.gameManager.asteroids;
-  new_asteroids.reserve(Constants::ASTEROIDS_MAX);
-  std::vector<uint32_t> destroyed_players;
-  destroyed_players.reserve(Constants::PLAYERS_MAX);
-  std::vector<uint32_t> destroyed_bullets;
-  destroyed_bullets.reserve(Constants::BULLETS_PER_PLAYER *
-                            Constants::PLAYERS_MAX);
+  std::vector<Asteroid> updated_asteroids = gr.gameManager.asteroids;
+  updated_asteroids.reserve(Constants::ASTEROIDS_MAX);
+  std::vector<uint32_t> destroyed_players_ids;
+  destroyed_players_ids.reserve(Constants::PLAYERS_MAX);
+  std::vector<uint32_t> destroyed_bullets_ids;
+  destroyed_bullets_ids.reserve(Constants::BULLETS_PER_PLAYER *
+                                Constants::PLAYERS_MAX);
   gr.gameManager._spawnerTime = steady_clock::now();
   for (auto c : gr.clients) {
-    todos.at(c).push([&](Client c1) {
+    todos.at(c).push([=](Client c1) {
       TraceLog(LOG_DEBUG, "Updating asteroids for client_id=%lu", c1.client_id);
-      handleUpdateAsteroids(c1, changed_asteroids, new_asteroids);
-      return true;
+      handleUpdateAsteroids(c1, ids_of_changed_asteroids, updated_asteroids);
     });
   }
   while ((gr.gameManager.game_start_time - time(0)) >
@@ -612,7 +609,6 @@ void Server::new_game(const Room r) {
         serverSetEvent(c1, NetworkEvents::StartRound);
         handleUpdateGameState(c1);
         handleUpdatePlayers(c1);
-        return true;
       });
     }
 
@@ -628,18 +624,19 @@ void Server::new_game(const Room r) {
       {
         auto frame_start_time1 = std::chrono::steady_clock::now();
         frametime = frame_start_time1 - frame_start_time;
+        // std::cerr << "frametime: " << frametime.count() << std::endl;
         frame_start_time = frame_start_time1;
         auto &gr = games.at(r.room_id);
         std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
         auto &game = gr.gameManager;
 
-        changed_asteroids.clear();
-        new_asteroids.clear();
-        destroyed_players.clear();
-        destroyed_players.clear();
+        ids_of_changed_asteroids.clear();
+        updated_asteroids.clear();
+        destroyed_players_ids.clear();
+        destroyed_players_ids.clear();
 
-        game.ManageCollisions(changed_asteroids, destroyed_players,
-                              destroyed_bullets);
+        game.ManageCollisions(ids_of_changed_asteroids, destroyed_players_ids,
+                              destroyed_bullets_ids);
 
         for (auto &player : game.players) {
 
@@ -677,19 +674,24 @@ void Server::new_game(const Room r) {
         }
         game.UpdateBullets(frametime);
         game.UpdateAsteroids(frametime);
-        game.AsteroidSpawner(changed_asteroids);
-        for (uint32_t i : changed_asteroids) {
-          new_asteroids.push_back(gr.gameManager.asteroids.at(i));
+        game.AsteroidSpawner(ids_of_changed_asteroids);
+        for (uint32_t i : ids_of_changed_asteroids) {
+          updated_asteroids.push_back(gr.gameManager.asteroids.at(i));
         }
-        std::cerr << json(new_asteroids).dump() << " "
-                  << json(changed_asteroids).dump() << std::endl;
-        if (!changed_asteroids.empty()) {
+        if (ids_of_changed_asteroids.size() > 0 &&
+            updated_asteroids.size() > 0) {
+          std::cerr << "gameroom:  ";
+          std::cerr << "changed (ids): "
+                    << json(ids_of_changed_asteroids).dump();
+          std::cerr << "  new (ast): " << json(updated_asteroids).dump()
+                    << std::endl;
           for (auto c : gr.clients) {
-            todos.at(c).push([&](Client c1) {
+            todos.at(c).push([=](Client c1) {
               TraceLog(LOG_DEBUG, "Updating asteroids for client_id=%lu",
                        c1.client_id);
-              handleUpdateAsteroids(c1, changed_asteroids, new_asteroids);
-              return true;
+              handleUpdateAsteroids(c1, ids_of_changed_asteroids,
+                                    updated_asteroids);
+              // handleUpdateAsteroids(c1, asteroid_ids, asteroids);
             });
           }
         }
@@ -764,8 +766,7 @@ void Server::handleJoinRoom(Client &client) {
     for (auto c : gr.clients) {
       todos.at(c).push([&](Client c1) {
         TraceLog(LOG_DEBUG, "updating rooms for %lu", c1.client_id);
-        bool status = sendUpdateRoomState(c1);
-        return status;
+        sendUpdateRoomState(c1);
       });
     }
   } catch (const std::out_of_range &ex) {
@@ -819,10 +820,7 @@ void Server::handleLeaveRoom(Client &client) {
         continue;
       }
 
-      todos.at(c).push([&](Client c1) {
-        bool status = sendUpdateRoomState(c1);
-        return status;
-      });
+      todos.at(c).push([&](Client c1) { sendUpdateRoomState(c1); });
     }
   } catch (const std::out_of_range &ex) {
   }
@@ -936,8 +934,12 @@ void Server::handleUpdateAsteroids(Client &client) {
   }
 }
 void Server::handleUpdateAsteroids(Client &client,
-                                   std::vector<uint32_t> &asteroid_ids,
-                                   std::vector<Asteroid> &asteroids) {
+                                   const std::vector<uint32_t> &asteroid_ids,
+                                   const std::vector<Asteroid> &asteroids) {
+  if (asteroid_ids.size() == 0 or asteroids.size() == 0) {
+    std::cerr << "empty asteroids";
+    exit(1);
+  }
   try {
     bool status;
     json asteroids_json = asteroids;
