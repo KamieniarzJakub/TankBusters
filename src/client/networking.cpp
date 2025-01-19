@@ -425,9 +425,16 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
     }
 
     if (player_id_that_left == player_id.load()) {
+
+      player_id = -1;
       joinedRoom() = Room{0};
       flip_joined_room();
       joinedRoom() = Room{0};
+      // auto expected_player_id = player_id.load();
+      // if (expected_player_id == player_id_that_left) {
+      //   while (!player_id.compare_exchange_strong(expected_player_id, -1)) {
+      //   }
+      // }
       TraceLog(LOG_DEBUG, "NET: Left room");
       return;
     }
@@ -440,12 +447,8 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
       flip_joined_room();
       joinedRoom().players.at(player_id_that_left).state = PlayerInfo::NONE;
 
-      auto expected_player_id = player_id.load();
-      if (expected_player_id == player_id_that_left) {
-        while (!player_id.compare_exchange_strong(expected_player_id, -1)) {
-        }
-      }
     } catch (const std::out_of_range &ex) {
+      TraceLog(LOG_INFO, "fkadlfajlfk");
     }
   } break;
   case NetworkEvents::UpdateGameState: {

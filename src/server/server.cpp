@@ -847,7 +847,7 @@ void Server::handleLeaveRoom(Client &client) {
     try {
       todos.at(c).push([=](Client c1) {
         serverSetEvent(c1, NetworkEvents::LeaveRoom);
-        bool status = write_uint32(client.fd_main, client.player_id);
+        bool status = write_uint32(c1.fd_main, client.player_id);
         if (!status) {
           TraceLog(LOG_WARNING,
                    "Couldn't send leaving room confirmation to "
