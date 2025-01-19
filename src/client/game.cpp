@@ -1,9 +1,9 @@
-#include <raylib.h>
-#include <raymath.h>
-
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <iostream>
+#include <raylib.h>
+#include <raymath.h>
 
 #include "constants.hpp"
 #include "gameManager.hpp"
@@ -103,7 +103,6 @@ struct Game {
     setSelectedRoom();
   }
 
-  int prev_game_status = -1;
   void updateDrawFrame() {
     auto frame_start_time1 = std::chrono::steady_clock::now();
     frametime = frame_start_time1 - frame_start_time;
@@ -136,13 +135,14 @@ struct Game {
           graphicsManager.DrawReadyMessage();
           graphicsManager.DrawExitLobbyMessage();
         }
-        if (gameManager().winner_player_id) {
+        if (gameManager().winner_player_id != UINT32_MAX) {
           graphicsManager.DrawWinnerText(gameManager());
         }
         if (gameManager().game_start_time > system_clock::now()) {
           graphicsManager.DrawTimer("New game in ",
                                     gameManager().game_start_time + 1s);
         }
+
       } break;
       case GameStatus::GAME:
         graphicsManager.DrawAsteroids(gameManager());
@@ -159,13 +159,10 @@ struct Game {
 
   void UpdateGame() {
 
-    // gameManager().ManageCollisions();
-
     auto &players = gameManager().players;
     auto &player = players.at(player_id.load());
     CheckMovementUpdatePlayer(player, frametime);
-    for (auto &p : gameManager().players) { // TODO: better position merging
-                                            // and movement interpolation
+    for (auto &p : gameManager().players) {
       CalculateUpdatePlayerMovement(p, frametime);
     }
     networkManager.todo.push([&]() {
@@ -182,7 +179,6 @@ struct Game {
       });
     }
 
-    // TODO: better position merging and movement interpolation
     gameManager().UpdateBullets(frametime);
     gameManager().UpdateAsteroids(frametime);
   }

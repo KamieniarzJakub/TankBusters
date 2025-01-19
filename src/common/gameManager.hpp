@@ -24,10 +24,10 @@ struct GameManager {
   time_point<steady_clock> _spawnerTime;
   time_point<steady_clock> startRoundTime;
   time_point<steady_clock> endRoundTime;
-  void UpdatePlayers(duration<double> frametime);
 
   time_point<system_clock> game_start_time;
 
+  void UpdatePlayers(duration<double> frametime);
   GameManager();
   GameManager(uint32_t room_id, std::vector<PlayerIdState> playerInfos);
   ~GameManager();

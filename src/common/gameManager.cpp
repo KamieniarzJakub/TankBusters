@@ -267,14 +267,22 @@ GameManager::GameManager(uint32_t room_id,
 void to_json(json &j, const GameManager &gm) {
   j = json{
       {"room_id", gm.room_id},
-      // {"alive_players", gm._alive_players},
-      // {"new_round_timer", gm.new_round_timer}
+      {"asteroids", gm.asteroids},
+      {"players", gm.players},
+      {"bulelts", gm.bullets},
+      {"winner_player_id", gm.winner_player_id},
+      // {"_spawnerTime", gm._spawnerTime},
+      // {"startRoundTime", gm.startRoundTime},
+      // {"endRoundTime", gm.endRoundTime} ,
+      // {"game_start_time", gm.game_start_time}
   };
   // asteroids, players, bullets omitted
 }
 
 void from_json(const json &j, GameManager &gm) {
   j.at("room_id").get_to(gm.room_id);
-  // j.at("alive_players").get_to(gm._alive_players);
-  // j.at("new_round_timer").get_to(gm.new_round_timer);
+  j.at("asteroids").get_to(gm.asteroids);
+  j.at("players").get_to(gm.players);
+  j.at("bulelts").get_to(gm.bullets);
+  j.at("winner_player_id").get_to(gm.winner_player_id);
 }

@@ -1,4 +1,5 @@
 #include "networking.hpp"
+#include <iostream>
 
 #include <chrono>
 #include <sys/epoll.h>
@@ -226,6 +227,8 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
     joinedRoom().status = GameStatus::LOBBY;
     flip_joined_room();
     joinedRoom().status = GameStatus::LOBBY;
+    std::cout << json(joinedRoom()).dump() << std::endl;
+    std::cout << json(gameManager()).dump() << std::endl;
   } break;
   case NetworkEvents::StartRound:
     joinedRoom().status = GameStatus::GAME;
@@ -254,6 +257,9 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
     }
     auto when =
         std::chrono::system_clock::time_point(std::chrono::seconds(val));
+    joinedRoom().status = GameStatus::LOBBY;
+    flip_joined_room();
+    joinedRoom().status = GameStatus::LOBBY;
     gameManager().game_start_time = when;
     flip_game_manager();
     gameManager().game_start_time = when;
@@ -419,9 +425,9 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
     }
 
     if (player_id_that_left == player_id.load()) {
-      joinedRoom() = Room{};
+      joinedRoom() = Room{0};
       flip_joined_room();
-      joinedRoom() = Room{};
+      joinedRoom() = Room{0};
       TraceLog(LOG_DEBUG, "NET: Left room");
       return;
     }
@@ -465,6 +471,8 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
                "JSON: Couldn't deserialize json into vector<Player>");
     } catch (const std::out_of_range &ex) {
     }
+    std::cout << "update room state: " << json(joinedRoom()).dump()
+              << std::endl;
   } break;
   case NetworkEvents::UpdatePlayers: {
     read_update_players();
@@ -633,13 +641,12 @@ int ClientNetworkManager::connect_to(const char *host, const char *port) {
 bool ClientNetworkManager::join_room(uint32_t join_room_id) {
   bool status;
 
-  status = setEvent(mainfd, NetworkEvents::JoinRoom);
-  if (!status) {
-    return false;
-  }
-
   if (join_room_id == 0) {
     TraceLog(LOG_ERROR, "GAME: Room ID=0 passed into join_room");
+    return false;
+  }
+  status = setEvent(mainfd, NetworkEvents::JoinRoom);
+  if (!status) {
     return false;
   }
 
