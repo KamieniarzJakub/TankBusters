@@ -18,7 +18,7 @@ struct GameManager {
   std::vector<Player> players;
   std::vector<Bullet> bullets;
 
-  uint32_t winner_player_id;
+  uint32_t winner_player_id = UINT32_MAX;
   uint32_t room_id;
   // int _alive_players;
   time_point<steady_clock> _spawnerTime;

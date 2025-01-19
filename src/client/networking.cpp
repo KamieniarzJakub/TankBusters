@@ -429,6 +429,9 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
     if (!status) {
       return;
     }
+    gameManager().winner_player_id = UINT32_MAX;
+    flip_game_manager();
+    gameManager().winner_player_id = UINT32_MAX;
 
     if (player_id_that_left == player_id.load()) {
 
@@ -447,9 +450,6 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
 
     try {
       joinedRoom().players.at(player_id_that_left).state = PlayerInfo::NONE;
-      // for (auto &p : joinedRoom().players) {
-      //   p.state = PlayerInfo::NONE;
-      // }
       flip_joined_room();
       joinedRoom().players.at(player_id_that_left).state = PlayerInfo::NONE;
 
