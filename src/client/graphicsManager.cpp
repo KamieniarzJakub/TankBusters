@@ -60,8 +60,8 @@ void GraphicsManager::DrawBullet(const Bullet &bullet) {
 
 void GraphicsManager::DrawTimer(const char *message,
                                 time_point<system_clock> when) {
-  auto time = duration<double>(when - system_clock::now()).count();
-  const char *text = TextFormat("%s %ld", message, std::ceil(time));
+  auto time = duration_cast<seconds>(when - system_clock::now()).count();
+  const char *text = TextFormat("%s %ld", message, time);
   Vector2 origin =
       MeasureTextEx(font, text, Constants::TEXT_SIZE, Constants::TEXT_SPACING);
   DrawTextPro(font, text,
@@ -104,7 +104,8 @@ void GraphicsManager::DrawTitle(const Room &r) {
       Constants::PLAYERS_MAX);
   Vector2 origin = MeasureTextEx(font, text, Constants::TEXT_WIN_SIZE,
                                  Constants::TEXT_SPACING);
-  DrawTextPro(font, text, Vector2{(float)Constants::screenWidth / 2, 0},
+  DrawTextPro(font, text,
+              Vector2{(float)Constants::screenWidth / 2, origin.y / 2},
               Vector2{origin.x / 2, -origin.y / 3}, 0, Constants::TEXT_WIN_SIZE,
               Constants::TEXT_SPACING, RAYWHITE);
 }
@@ -202,11 +203,12 @@ void GraphicsManager::DrawWinnerText(const GameManager &gm) {
                                         Constants::TEXT_SPACING);
     // DrawRectangle(0, 0, Constants::screenWidth, Constants::screenHeight,
     //               Constants::BACKGROUND_COLOR_HALF_ALFA);
-    DrawTextPro(win_font, text,
-                Vector2{(float)Constants::screenWidth / 2, (float)0},
-                Vector2{text_length.x / 2, text_length.y / 2}, 0,
-                Constants::TEXT_WIN_SIZE, Constants::TEXT_SPACING,
-                Constants::PLAYER_COLORS[gm.winner_player_id]);
+    DrawTextPro(
+        win_font, text,
+        Vector2{(float)Constants::screenWidth / 2, (float)text_length.y / 2},
+        Vector2{text_length.x / 2, text_length.y / 2}, 0,
+        Constants::TEXT_WIN_SIZE, Constants::TEXT_SPACING,
+        Constants::PLAYER_COLORS[gm.winner_player_id]);
     return;
   }
 }

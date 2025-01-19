@@ -724,12 +724,13 @@ void Server::new_game(const Room r) {
   }
   for (auto c : gr.clients) {
     gr.gameManager.game_start_time =
-        system_clock::now() + Constants::NEW_ROUND_WAIT_TIME;
+        system_clock::now() - Constants::NEW_ROUND_WAIT_TIME; // invalid time
     auto when = system_clock::to_time_t(gr.gameManager.game_start_time);
     todos.at(c).push([=](Client c1) {
       TraceLog(LOG_INFO, "LOBBY SENT TO %d", c1.client_id);
       serverSetEvent(c1, NetworkEvents::ReturnToLobby);
       write_uint32(c1.fd_main, when);
+      sendUpdateRoomState(c1);
     });
   }
 }
@@ -820,9 +821,7 @@ void Server::handleLeaveRoom(Client &client) {
           gr.gameManager.players.at(client.player_id).active = false;
           if (gr.clients.size() < 2) {
             gr.room.status = GameStatus::LOBBY;
-            // gr.gameManager.status = GameStatus::LOBBY;
             if (gr.thread.joinable()) {
-
               gr.thread.join();
             }
           }
@@ -842,25 +841,22 @@ void Server::handleLeaveRoom(Client &client) {
     return;
   }
   // TraceLog(LOG_INFO, "3. Leave room %lu", client.client_id);
-  try {
-    auto except_client_id = client.client_id;
-    for (auto c : client_ids) {
-      if (c == except_client_id) {
-        continue;
-      }
-
-      todos.at(c).push([&](Client c1) { sendUpdateRoomState(c1); });
+  for (auto c : client_ids) {
+    try {
+      todos.at(c).push([=](Client c1) {
+        serverSetEvent(c1, NetworkEvents::LeaveRoom);
+        bool status = write_uint32(client.fd_main, client.player_id);
+        if (!status) {
+          TraceLog(LOG_WARNING,
+                   "Couldn't send leaving room confirmation to "
+                   "client_id=%ld,fd=%d",
+                   client.room_id, client.client_id, client.fd_main);
+          client_error(c1);
+        }
+        sendUpdateRoomState(c1);
+      });
+    } catch (const std::out_of_range &ex) {
     }
-  } catch (const std::out_of_range &ex) {
-  }
-  serverSetEvent(client, NetworkEvents::LeaveRoom);
-  bool status = write_uint32(client.fd_main, client.player_id);
-  if (!status) {
-    TraceLog(LOG_WARNING,
-             "Couldn't send leaving room confirmation to "
-             "client_id=%ld,fd=%d",
-             client.room_id, client.client_id, client.fd_main);
-    client_error(client);
   }
 
   client.player_id = -1;

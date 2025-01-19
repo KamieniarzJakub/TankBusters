@@ -141,7 +141,7 @@ struct Game {
         }
         if (gameManager().game_start_time > system_clock::now()) {
           graphicsManager.DrawTimer("New game in ",
-                                    gameManager().game_start_time);
+                                    gameManager().game_start_time + 1s);
         }
       } break;
       case GameStatus::GAME:
@@ -149,6 +149,8 @@ struct Game {
         graphicsManager.DrawPlayers(gameManager());
         graphicsManager.DrawBullets(gameManager());
         graphicsManager.DrawBulletsGUI(gameManager(), player_id.load());
+        break;
+      case GameStatus::NO_STATUS:
         break;
       }
     }

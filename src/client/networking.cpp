@@ -204,8 +204,14 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
     break;
   }
   case NetworkEvents::EndRound: {
+    uint32_t winner_player_id;
+    bool status = read_uint32(mainfd, winner_player_id);
+    if (!status) {
+      TraceLog(LOG_ERROR, "NET: Couldn't receive winner's player id");
+    }
+
     uint32_t val;
-    bool status = read_uint32(mainfd, val);
+    status = read_uint32(mainfd, val);
     if (!status) {
       TraceLog(LOG_ERROR, "NET: Didn't receive round start time");
       return;
@@ -213,8 +219,10 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
     auto when =
         std::chrono::system_clock::time_point(std::chrono::seconds(val));
     gameManager().game_start_time = when;
+    gameManager().winner_player_id = winner_player_id;
     flip_game_manager();
     gameManager().game_start_time = when;
+    gameManager().winner_player_id = winner_player_id;
     joinedRoom().status = GameStatus::LOBBY;
     flip_joined_room();
     joinedRoom().status = GameStatus::LOBBY;
@@ -495,7 +503,7 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
     handle_bullet_destroyed();
     break;
   default:
-    TraceLog(LOG_WARNING, "Unknown NetworkEvent received");
+    TraceLog(LOG_WARNING, "Unknown NetworkEvent %ld received", event);
     break;
   }
 }
