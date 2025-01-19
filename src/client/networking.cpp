@@ -231,6 +231,9 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
     std::cout << json(gameManager()).dump() << std::endl;
   } break;
   case NetworkEvents::StartRound:
+    gameManager().NewGame(joinedRoom().players);
+    flip_game_manager();
+    gameManager().NewGame(joinedRoom().players);
     joinedRoom().status = GameStatus::GAME;
     flip_joined_room();
     joinedRoom().status = GameStatus::GAME;
@@ -448,7 +451,6 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
       joinedRoom().players.at(player_id_that_left).state = PlayerInfo::NONE;
 
     } catch (const std::out_of_range &ex) {
-      TraceLog(LOG_INFO, "fkadlfajlfk");
     }
   } break;
   case NetworkEvents::UpdateGameState: {

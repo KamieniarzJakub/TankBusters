@@ -47,6 +47,8 @@ struct Game {
   time_point<steady_clock> frame_start_time = std::chrono::steady_clock::now();
   duration<double> frametime = game_start_time - steady_clock::now();
 
+  time_point<steady_clock> last_position_time_sent = steady_clock::now();
+
   inline uint8_t get_networks_idx(std::atomic_uint8_t &draw_idx) {
     return !draw_idx.load();
   }
@@ -165,12 +167,16 @@ struct Game {
     for (auto &p : gameManager().players) {
       CalculateUpdatePlayerMovement(p, frametime);
     }
-    networkManager.todo.push([&]() {
-      TraceLog(LOG_DEBUG, "NET: sending movement");
-      bool status = networkManager.send_movement(
-          player.position, player.velocity, player.rotation);
-      return status;
-    });
+
+    if (steady_clock::now() - last_position_time_sent > 0.1s) {
+      last_position_time_sent = steady_clock::now();
+      networkManager.todo.push([&]() {
+        TraceLog(LOG_DEBUG, "NET: sending movement");
+        bool status = networkManager.send_movement(
+            player.position, player.velocity, player.rotation);
+        return status;
+      });
+    }
 
     if (Shoot() && gameManager().players.at(player_id.load()).active) {
       networkManager.todo.push([&]() {

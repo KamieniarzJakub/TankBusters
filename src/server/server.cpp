@@ -596,7 +596,7 @@ void Server::new_game(const Room r) {
       TraceLog(LOG_INFO, "START ROUND SENT TO %d", c1.client_id);
       serverSetEvent(c1, NetworkEvents::StartRound);
       handleUpdatePlayers(c1);
-      handleUpdateAsteroids(c1);
+      // handleUpdateAsteroids(c1); // FIXME:
     });
   }
   auto game_start_time = std::chrono::steady_clock::now();
