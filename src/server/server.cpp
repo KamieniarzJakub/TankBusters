@@ -540,16 +540,16 @@ void Server::handleShootBullet(Client &client) {
 }
 
 void Server::restart_timer(GameRoom &gr, std::vector<uint32_t> &last_clients) {
-
   gr.gameManager._spawnerTime = steady_clock::now();
   gr.gameManager.game_start_time =
       system_clock::now() + Constants::LOBBY_READY_TIME;
   last_clients = gr.clients;
   for (auto c : gr.clients) {
-    todos.at(c).push([&](Client c1) {
+    auto time = system_clock::to_time_t(gr.gameManager.game_start_time);
+    todos.at(c).push([=](Client c1) {
       sendUpdateRoomState(c1);
-      sendNewGameSoon(c1,
-                      system_clock::to_time_t(gr.gameManager.game_start_time));
+      sendNewGameSoon(c1, time);
+      TraceLog(LOG_INFO, "Sent new game soon");
       // handleUpdateGameState(c1);
     });
   }
@@ -569,9 +569,9 @@ void Server::new_game(const Room r) {
 
   auto &gr = games.at(r.room_id);
   TraceLog(LOG_DEBUG, "New round for room %lu", r.room_id);
+  auto last_clients = gr.clients;
   for (uint32_t round_counter = 0; round_counter < Constants::ROUNDS_PER_GAME;
        round_counter++) {
-    auto last_clients = gr.clients;
     restart_timer(gr, last_clients);
     do {
       std::this_thread::sleep_until(gr.gameManager.game_start_time - 0.1s);
@@ -592,7 +592,6 @@ void Server::new_game(const Room r) {
       todos.at(c).push([=](Client c1) {
         TraceLog(LOG_INFO, "START ROUND SENT TO %d", c1.client_id);
         serverSetEvent(c1, NetworkEvents::StartRound);
-        handleUpdateGameState(c1);
         handleUpdatePlayers(c1);
         handleUpdateAsteroids(c1);
       });
@@ -701,13 +700,17 @@ void Server::new_game(const Room r) {
           }
         }
         if (active_players < 2) {
-          gr.room.status = GameStatus::END_OF_ROUND;
+          gr.room.status = GameStatus::LOBBY;
+          gr.gameManager.game_start_time =
+              system_clock::now() + Constants::NEW_ROUND_WAIT_TIME;
+          auto time = system_clock::to_time_t(gr.gameManager.game_start_time);
           for (auto c : gr.clients) {
             todos.at(c).push([=](Client c1) {
               TraceLog(LOG_INFO, "END OF ROUND SENT TO %d", c1.client_id);
               handleUpdateGameState(c1);
               serverSetEvent(c1, NetworkEvents::EndRound);
               write_uint32(c1.fd_main, winner);
+              write_uint32(c1.fd_main, time);
             });
           }
         }
@@ -720,6 +723,8 @@ void Server::new_game(const Room r) {
       p.state = PlayerInfo::NOT_READY;
   }
   for (auto c : gr.clients) {
+    gr.gameManager.game_start_time =
+        system_clock::now() + Constants::NEW_ROUND_WAIT_TIME;
     auto when = system_clock::to_time_t(gr.gameManager.game_start_time);
     todos.at(c).push([=](Client c1) {
       TraceLog(LOG_INFO, "LOBBY SENT TO %d", c1.client_id);

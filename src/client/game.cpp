@@ -72,12 +72,7 @@ struct Game {
         TraceLog(LOG_DEBUG, "NET: leave room");
         bool status = networkManager.leave_room();
         if (status) {
-          std::map<uint32_t, Room> rooms;
-          networkManager.get_rooms(rooms);
-
-          networkManager.rooms() = rooms;
-          networkManager.flip_rooms();
-          networkManager.rooms() = rooms;
+          networkManager.get_rooms();
         }
         return status;
       });
@@ -86,14 +81,8 @@ struct Game {
       auto my_player_state = joinedRoom().players.at(player_id.load()).state;
       if (my_player_state != PlayerInfo::READY && IsKeyPressed(KEY_SPACE)) {
         networkManager.todo.push([&]() {
-          std::vector<PlayerIdState> player_status;
           TraceLog(LOG_DEBUG, "NET: sending vote ready");
-          bool status = networkManager.vote_ready(player_status);
-          if (status) {
-            networkManager.joinedRoom().players = player_status;
-            networkManager.flip_joined_room();
-            networkManager.joinedRoom().players = player_status;
-          }
+          bool status = networkManager.vote_ready();
           return status;
         });
       }
@@ -107,19 +96,14 @@ struct Game {
       last_room_fetch = steady_clock::now();
       networkManager.todo.push([&]() {
         TraceLog(LOG_DEBUG, "NET: Fetch rooms");
-        std::map<uint32_t, Room> update_rooms;
-        bool status = networkManager.get_rooms(update_rooms);
-        if (status) {
-          networkManager.rooms() = update_rooms;
-          networkManager.flip_rooms();
-          networkManager.rooms() = update_rooms;
-        }
+        bool status = networkManager.get_rooms();
         return status;
       });
     }
     setSelectedRoom();
   }
 
+  int prev_game_status = -1;
   void updateDrawFrame() {
     auto frame_start_time1 = std::chrono::steady_clock::now();
     frametime = frame_start_time1 - frame_start_time;
@@ -148,17 +132,16 @@ struct Game {
         graphicsManager.DrawTitle(joinedRoom());
         graphicsManager.DrawLobbyPlayers(joinedRoom());
         if (joinedRoom().players.at(player_id.load()).state ==
-            PlayerInfo::NOT_READY)
+            PlayerInfo::NOT_READY) {
           graphicsManager.DrawReadyMessage();
-        graphicsManager.DrawExitLobbyMessage();
-      } break;
-      case GameStatus::START_GAME: {
-        graphicsManager.DrawTitle(joinedRoom());
-        graphicsManager.DrawLobbyPlayers(joinedRoom());
-        graphicsManager.DrawTimer("New game in ",
-                                  gameManager().game_start_time);
+          graphicsManager.DrawExitLobbyMessage();
+        }
+        if (gameManager().winner_player_id) {
+          graphicsManager.DrawWinnerText(gameManager());
+        }
         if (gameManager().game_start_time > system_clock::now()) {
-          joinedRoom().status = GameStatus::LOBBY;
+          graphicsManager.DrawTimer("New game in ",
+                                    gameManager().game_start_time);
         }
       } break;
       case GameStatus::GAME:
@@ -166,19 +149,6 @@ struct Game {
         graphicsManager.DrawPlayers(gameManager());
         graphicsManager.DrawBullets(gameManager());
         graphicsManager.DrawBulletsGUI(gameManager(), player_id.load());
-        break;
-      case GameStatus::END_OF_ROUND:
-        graphicsManager.DrawWinnerText(gameManager());
-        graphicsManager.DrawTimer("Next round in ",
-                                  gameManager().game_start_time);
-        break;
-      case GameStatus::RETURN_TO_LOBBY:
-        graphicsManager.DrawWinnerText(gameManager());
-        graphicsManager.DrawTimer("Returning to lobby in ",
-                                  gameManager().game_start_time);
-        if (gameManager().game_start_time > system_clock::now()) {
-          joinedRoom().status = GameStatus::LOBBY;
-        }
         break;
       }
     }

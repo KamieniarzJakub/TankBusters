@@ -200,11 +200,10 @@ void GraphicsManager::DrawWinnerText(const GameManager &gm) {
         "%s PLAYER WIN", Constants::PLAYER_NAMES[gm.winner_player_id].c_str());
     Vector2 text_length = MeasureTextEx(font, text, Constants::TEXT_WIN_SIZE,
                                         Constants::TEXT_SPACING);
-    DrawRectangle(0, 0, Constants::screenWidth, Constants::screenHeight,
-                  Constants::BACKGROUND_COLOR_HALF_ALFA);
+    // DrawRectangle(0, 0, Constants::screenWidth, Constants::screenHeight,
+    //               Constants::BACKGROUND_COLOR_HALF_ALFA);
     DrawTextPro(win_font, text,
-                Vector2{(float)Constants::screenWidth / 2,
-                        (float)Constants::screenHeight / 2},
+                Vector2{(float)Constants::screenWidth / 2, (float)0},
                 Vector2{text_length.x / 2, text_length.y / 2}, 0,
                 Constants::TEXT_WIN_SIZE, Constants::TEXT_SPACING,
                 Constants::PLAYER_COLORS[gm.winner_player_id]);

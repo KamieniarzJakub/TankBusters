@@ -85,13 +85,13 @@ struct ClientNetworkManager {
 
   // Player
   bool get_new_client_id(uint32_t &new_client_id);
-  bool vote_ready(std::vector<PlayerIdState> &players);
+  bool vote_ready();
   bool send_movement(Vector2 position, Vector2 velocity, float rotation);
   bool shoot_bullet();
   bool readGameState();
 
   // Room
-  bool get_rooms(std::map<uint32_t, Room> &rooms);
+  bool get_rooms();
   bool join_room(uint32_t join_room_id);
   bool leave_room();
 
