@@ -369,8 +369,7 @@ void Server::handleVoteReady(Client &client) {
       TraceLog(LOG_INFO, "VOTE READY %d", client.client_id);
       // client.player_id = get_next_available_player_id(gr);
       gr.room.players.at(client.player_id).state = PlayerInfo::READY;
-      gr.gameManager.players[client.player_id].active =
-          true; // TODO: check leave room
+      gr.gameManager.players[client.player_id].active = true;
       player_short_infos_json = gr.room.players;
       std::cout << json(gr.room).dump() << std::endl;
       if (get_X_players(gr.room.players, READY) >= 2 &&
@@ -1132,25 +1131,6 @@ void Server::disconnect_client(Client &client) {
           auto &g = games.at(client.room_id);
           // std::lock_guard<std::mutex> lr(g.gameRoomMutex);
           handleLeaveRoom(client, false);
-          // for (auto c : g.clients) {
-          //   if (c == client.client_id)
-          //     continue;
-          //   try {
-          //     todos.at(c).push([=](Client c1) {
-          //       serverSetEvent(c1, NetworkEvents::LeaveRoom);
-          //       bool status = write_uint32(c1.fd_main, client.player_id);
-          //       if (!status) {
-          //         TraceLog(LOG_WARNING,
-          //                  "Couldn't send leaving room confirmation to "
-          //                  "client_id=%ld,fd=%d",
-          //                  client.room_id, client.client_id, client.fd_main);
-          //         client_error(c1);
-          //       }
-          //       sendUpdateRoomState(c1);
-          //     });
-          //   } catch (const std::out_of_range &ex) {
-          //   }
-          // }
 
           auto i =
               std::remove(g.clients.begin(), g.clients.end(), client.client_id);

@@ -17,7 +17,7 @@ void GameManager::NewGame(std::vector<PlayerIdState> playerInfos) {
   players.reserve(Constants::PLAYERS_MAX);
   for (int i = 0; i < Constants::PLAYERS_MAX; i++) {
     players.push_back(AddPlayer(i));
-    players.at(i).active = playerInfos.at(i).state != PlayerInfo::NONE;
+    players.at(i).active = playerInfos.at(i).state == PlayerInfo::READY;
     players.at(i).player_id = i;
   }
   bullets = std::vector<Bullet>(
@@ -27,29 +27,6 @@ void GameManager::NewGame(std::vector<PlayerIdState> playerInfos) {
   startRoundTime = steady_clock::now();
   endRoundTime = time_point<steady_clock>(0s);
 }
-
-// void GameManager::UpdateStatus() {
-//   if (_alive_players > 1) {
-//     status = GameStatus::GAME;
-//     endRoundTime = steady_clock::now();
-//   } else if (endRoundTime.time_since_epoch().count() > 0) {
-//     status = GameStatus::END_OF_ROUND;
-//     if (steady_clock::now() - endRoundTime >= Constants::NEW_ROUND_WAIT_TIME)
-//       endRoundTime = time_point<steady_clock>(0s);
-//   } else {
-//     status = GameStatus::LOBBY;
-//   }
-// }
-
-// void GameManager::UpdatePlayers(duration<double> frametime) {
-//   exit(1); // DO NOT USE
-//   for (int i = 0; i < Constants::PLAYERS_MAX; i++) {
-//     CheckMovementUpdatePlayer(players[i], frametime);
-//     if (players[i].active && Shoot()) {
-//       AddBullet(players[i]);
-//     }
-//   }
-// }
 
 void GameManager::UpdateBullets(duration<double> frametime) {
   for (int i = 0; i < Constants::PLAYERS_MAX * Constants::BULLETS_PER_PLAYER;
@@ -63,28 +40,6 @@ void GameManager::UpdateAsteroids(duration<double> frametime) {
     UpdateAsteroid(&asteroids[i], frametime);
   }
 }
-
-// void GameManager::UpdateGameServer() { // FIXME: delete inputs
-//   UpdateStatus();
-//   // TraceLog(LOG_DEBUG, "Game status: %d", gameManager.status);
-//   if (status == GameStatus::GAME) {
-//     float frametime = GetFrameTime();
-//
-//     ManageCollisions();
-//
-//     UpdatePlayers(frametime);
-//     UpdateBullets(frametime);
-//     UpdateAsteroids(frametime);
-//
-//     AsteroidSpawner(GetTime());
-//   } else {
-//     if (UpdateLobbyStatus()) {
-//       NewGame(GetReadyPlayers());
-//       RestartLobby();
-//     }
-//     UpdatePlayersLobby();
-//   }
-// }
 
 void GameManager::AsteroidSpawner(std::vector<uint32_t> &spawned_asteroids) {
   auto now = std::chrono::steady_clock::now();
