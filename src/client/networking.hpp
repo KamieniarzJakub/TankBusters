@@ -92,7 +92,7 @@ struct ClientNetworkManager {
 
   // Room
   bool get_rooms(std::map<uint32_t, Room> &rooms);
-  bool join_room(uint32_t join_room_id, uint32_t &player_id);
+  bool join_room(uint32_t join_room_id);
   bool leave_room();
 
   // Fetching data from server

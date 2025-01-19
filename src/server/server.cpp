@@ -715,10 +715,16 @@ void Server::new_game(const Room r) {
     }
   }
   gr.room.status = GameStatus::LOBBY;
+  for (auto &p : gr.room.players) {
+    if (p.state == PlayerInfo::READY)
+      p.state = PlayerInfo::NOT_READY;
+  }
   for (auto c : gr.clients) {
+    auto when = system_clock::to_time_t(gr.gameManager.game_start_time);
     todos.at(c).push([=](Client c1) {
       TraceLog(LOG_INFO, "LOBBY SENT TO %d", c1.client_id);
-      handleUpdateGameState(c1);
+      serverSetEvent(c1, NetworkEvents::ReturnToLobby);
+      write_uint32(c1.fd_main, when);
     });
   }
 }
@@ -745,8 +751,8 @@ void Server::handleJoinRoom(Client &client) {
         auto player_id = get_next_available_player_id(gr);
         // std::cerr << player_id << std::endl;
         status = player_id != UINT32_MAX;
+        client.player_id = player_id;
         if (status) {
-          client.player_id = player_id;
           gr.room.players.at(player_id).state = PlayerInfo::NOT_READY;
           gr.clients.push_back(client.client_id);
           gr.gameManager = GameManager{gr.room.room_id, gr.room.players};

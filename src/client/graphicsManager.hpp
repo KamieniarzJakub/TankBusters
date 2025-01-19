@@ -26,12 +26,12 @@ struct GraphicsManager {
                  uint32_t selected_room_index_not_id);
 
   // Draw lobby
-  void DrawTimer(uint32_t t);
+  void DrawTimer(const char *message, time_point<system_clock> when);
   void DrawTitle(const Room &r);
   void DrawLobbyPlayers(const Room &r);
   void DrawReadyMessage();
   void DrawExitLobbyMessage();
-  void DrawTime(const GameManager &gm, const Room &r);
+  // void DrawTime(const GameManager &gm, const Room &r);
 
   // Draw Game
   void DrawAsteroids(const GameManager &gm);
@@ -44,5 +44,4 @@ struct GraphicsManager {
 
   // Draw new round after game
   void DrawWinnerText(const GameManager &gm);
-  void DrawNewRoundCountdown(const GameManager &gm);
 };

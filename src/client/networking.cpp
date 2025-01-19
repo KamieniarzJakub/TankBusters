@@ -210,8 +210,6 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
     joinedRoom().status = GameStatus::END_OF_ROUND;
     break;
   case NetworkEvents::StartRound:
-    // readGameState(); // FIXME: optimize flips
-    // read_update_players();
     joinedRoom().status = GameStatus::GAME;
     flip_joined_room();
     joinedRoom().status = GameStatus::GAME;
@@ -223,11 +221,31 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
       TraceLog(LOG_ERROR, "NET: Didn't receive game start time");
       return;
     }
+    TraceLog(LOG_INFO, "NEW GAME SOON RECEIVED");
     auto when =
         std::chrono::system_clock::time_point(std::chrono::seconds(val));
     gameManager().game_start_time = when;
+    joinedRoom().status = GameStatus::START_GAME;
     flip_game_manager();
+    flip_joined_room();
     gameManager().game_start_time = when;
+    joinedRoom().status = GameStatus::START_GAME;
+  } break;
+  case NetworkEvents::ReturnToLobby: {
+    uint32_t val;
+    bool status = read_uint32(mainfd, val);
+    if (!status) {
+      TraceLog(LOG_ERROR, "NET: Didn't receive return to lobby time");
+      return;
+    }
+    auto when =
+        std::chrono::system_clock::time_point(std::chrono::seconds(val));
+    gameManager().game_start_time = when;
+    joinedRoom().status = GameStatus::RETURN_TO_LOBBY;
+    flip_game_manager();
+    flip_joined_room();
+    gameManager().game_start_time = when;
+    joinedRoom().status = GameStatus::RETURN_TO_LOBBY;
   } break;
   case NetworkEvents::GetClientId: {
     uint32_t new_client_id;
@@ -351,10 +369,39 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
       return;
     }
   } break;
-  case NetworkEvents::JoinRoom:
-    TraceLog(LOG_WARNING, "NET: %s received",
-             network_event_to_string(event).c_str());
-    break;
+  case NetworkEvents::JoinRoom: {
+
+    uint32_t joined_room_id;
+    bool status = read_uint32(mainfd, joined_room_id);
+    if (!status) {
+      TraceLog(LOG_ERROR, "NET: Couldn't read joined room id");
+      return;
+    }
+    uint32_t _player_id;
+
+    if (joined_room_id > 0) {
+      joinedRoom().room_id = joined_room_id;
+      status = read_uint32(mainfd, _player_id);
+      if (!status) {
+        TraceLog(LOG_ERROR, "NET: Couldn't read player id");
+        return;
+      }
+
+      TraceLog(LOG_DEBUG, "GAME: Joined room_id=%lu, player_id=%lu",
+               joined_room_id, _player_id);
+      uint32_t expected_player_id = -1;
+      while (!this->player_id.compare_exchange_strong(expected_player_id,
+                                                      _player_id)) {
+      }
+      flip_joined_room();
+      joinedRoom().room_id = joined_room_id;
+      return;
+    } else {
+      return;
+    }
+  }
+
+  break;
   case NetworkEvents::LeaveRoom: {
     uint32_t player_id_that_left;
     bool status = read_uint32(mainfd, player_id_that_left);
@@ -435,7 +482,6 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
     break;
   case NetworkEvents::AsteroidDestroyed:
     handle_asteroid_destroyed();
-    // FIXME: implement
     break;
   case BulletDestroyed:
     handle_bullet_destroyed();
@@ -588,10 +634,7 @@ int ClientNetworkManager::connect_to(const char *host, const char *port) {
   return fd;
 }
 
-// Join a room by room_id
-// returns true if joined room
-bool ClientNetworkManager::join_room(uint32_t join_room_id,
-                                     uint32_t &player_id) {
+bool ClientNetworkManager::join_room(uint32_t join_room_id) {
   bool status;
 
   status = setEvent(mainfd, NetworkEvents::JoinRoom);
@@ -610,34 +653,7 @@ bool ClientNetworkManager::join_room(uint32_t join_room_id,
     return false;
   }
 
-  status = expectEvent(mainfd, NetworkEvents::JoinRoom);
-  if (!status) {
-    return false;
-  }
-
-  uint32_t joined_room_id;
-  status = read_uint32(mainfd, joined_room_id);
-  if (!status) {
-    TraceLog(LOG_ERROR, "NET: Couldn't read joined room id");
-    return false;
-  }
-
-  if (joined_room_id == join_room_id) {
-    joinedRoom().room_id = joined_room_id;
-    status = read_uint32(mainfd, player_id);
-    if (!status) {
-      TraceLog(LOG_ERROR, "NET: Couldn't read player id");
-      return false;
-    }
-
-    TraceLog(LOG_DEBUG, "GAME: Joined room_id=%lu, player_id=%lu", join_room_id,
-             player_id);
-    flip_joined_room();
-    joinedRoom().room_id = join_room_id;
-    return true;
-  } else {
-    return false;
-  }
+  return status;
 }
 
 // Get info about currently joined room

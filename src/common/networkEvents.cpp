@@ -22,6 +22,8 @@ const std::string network_event_to_string(NetworkEvents networkEvent) {
     return "StartRound";
   case NetworkEvents::NewGameSoon:
     return "NewGameSoon";
+  case NetworkEvents::ReturnToLobby:
+    return "ReturnToLobby";
   case NetworkEvents::GetClientId:
     return "GetClientId";
   case NetworkEvents::VoteReady:

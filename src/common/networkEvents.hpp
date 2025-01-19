@@ -13,6 +13,7 @@ enum NetworkEvents {
   EndRound = 30,
   StartRound = 40,
   NewGameSoon = 50,
+  ReturnToLobby = 60,
 
   // Player
   GetClientId = 100,

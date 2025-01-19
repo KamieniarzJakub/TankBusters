@@ -4,9 +4,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
-#include <iostream>
 
-#include "bullet.hpp"
 #include "constants.hpp"
 #include "gameManager.hpp"
 #include "gameStatus.hpp"
@@ -74,8 +72,6 @@ struct Game {
         TraceLog(LOG_DEBUG, "NET: leave room");
         bool status = networkManager.leave_room();
         if (status) {
-          std::cout << json(roomsMapPair).dump() << std::endl;
-
           std::map<uint32_t, Room> rooms;
           networkManager.get_rooms(rooms);
 
@@ -87,9 +83,8 @@ struct Game {
       });
     }
     try {
-      if (joinedRoom().players.at(player_id.load()).state !=
-              PlayerInfo::READY &&
-          IsKeyPressed(KEY_SPACE)) {
+      auto my_player_state = joinedRoom().players.at(player_id.load()).state;
+      if (my_player_state != PlayerInfo::READY && IsKeyPressed(KEY_SPACE)) {
         networkManager.todo.push([&]() {
           std::vector<PlayerIdState> player_status;
           TraceLog(LOG_DEBUG, "NET: sending vote ready");
@@ -125,7 +120,7 @@ struct Game {
     setSelectedRoom();
   }
 
-  void updateDrawFrame(void) {
+  void updateDrawFrame() {
     auto frame_start_time1 = std::chrono::steady_clock::now();
     frametime = frame_start_time1 - frame_start_time;
     frame_start_time = frame_start_time1;
@@ -148,76 +143,76 @@ struct Game {
       graphicsManager.DrawRooms(rooms_vec, selected_room_index);
       graphicsManager.DrawRoomBottomText();
     } else {
-      // graphicsManager.DrawGame(gameManagersPair.at(game_manager_draw_idx));
-      if (joinedRoom().status == GameStatus::GAME) {
+      switch (joinedRoom().status) {
+      case GameStatus::LOBBY: {
+        graphicsManager.DrawTitle(joinedRoom());
+        graphicsManager.DrawLobbyPlayers(joinedRoom());
+        if (joinedRoom().players.at(player_id.load()).state ==
+            PlayerInfo::NOT_READY)
+          graphicsManager.DrawReadyMessage();
+        graphicsManager.DrawExitLobbyMessage();
+      } break;
+      case GameStatus::START_GAME: {
+        graphicsManager.DrawTitle(joinedRoom());
+        graphicsManager.DrawLobbyPlayers(joinedRoom());
+        graphicsManager.DrawTimer("New game in ",
+                                  gameManager().game_start_time);
+        if (gameManager().game_start_time > system_clock::now()) {
+          joinedRoom().status = GameStatus::LOBBY;
+        }
+      } break;
+      case GameStatus::GAME:
         graphicsManager.DrawAsteroids(gameManager());
         graphicsManager.DrawPlayers(gameManager());
         graphicsManager.DrawBullets(gameManager());
         graphicsManager.DrawBulletsGUI(gameManager(), player_id.load());
-        // graphicsManager.DrawTime(gameManager(), joinedRoom());
-      } else if (joinedRoom().status == GameStatus::END_OF_ROUND) {
+        break;
+      case GameStatus::END_OF_ROUND:
         graphicsManager.DrawWinnerText(gameManager());
-        graphicsManager.DrawNewRoundCountdown(gameManager());
-        // graphicsManager.DrawTime(gameManager(), joinedRoom());
-      } else {
-        graphicsManager.DrawTitle(joinedRoom());
-        graphicsManager.DrawLobbyPlayers(joinedRoom());
-        graphicsManager.DrawReadyMessage();
-        auto t = duration_cast<seconds>(gameManager().game_start_time -
-                                        system_clock::now())
-                     .count();
-        if (t >= 0) {
-          graphicsManager.DrawTimer(t);
-        } else {
-          graphicsManager.DrawExitLobbyMessage();
+        graphicsManager.DrawTimer("Next round in ",
+                                  gameManager().game_start_time);
+        break;
+      case GameStatus::RETURN_TO_LOBBY:
+        graphicsManager.DrawWinnerText(gameManager());
+        graphicsManager.DrawTimer("Returning to lobby in ",
+                                  gameManager().game_start_time);
+        if (gameManager().game_start_time > system_clock::now()) {
+          joinedRoom().status = GameStatus::LOBBY;
         }
+        break;
       }
     }
     EndDrawing();
   }
 
   void UpdateGame() {
-    // gameManager().UpdateStatus();
-    if (joinedRoom().status == GameStatus::GAME) {
 
-      // gameManager().ManageCollisions();
+    // gameManager().ManageCollisions();
 
-      auto &players = gameManager().players;
-      auto &player = players.at(player_id.load());
-      CheckMovementUpdatePlayer(player, frametime);
-      for (auto &p : gameManager().players) { // TODO: better position merging
-                                              // and movement interpolation
-        CalculateUpdatePlayerMovement(p, frametime);
-      }
-      networkManager.todo.push([&]() {
-        TraceLog(LOG_DEBUG, "NET: sending movement");
-        bool status = networkManager.send_movement(
-            player.position, player.velocity, player.rotation);
-        return status;
-      });
-
-      if (Shoot()) {
-        // if (players.at(gameManager().player_id).active && Shoot()) {
-        // if (gameManager().AddBullet(players.at(gameManager().player_id))) {
-        // }
-        networkManager.todo.push([&]() {
-          TraceLog(LOG_DEBUG, "NET: sending shooting");
-          return networkManager.shoot_bullet();
-        });
-      }
-
-      // TODO: better position merging and movement interpolation
-      gameManager().UpdateBullets(frametime);
-      gameManager().UpdateAsteroids(frametime);
-
-      // gameManager.AsteroidSpawner(GetTime());
-    } else { // Lobby or end of Round
-      // if (gameManager().UpdateLobbyStatus(
-      //         rooms().at(networkManager.room_id).players)) {
-      // NewGame(GetReadyPlayers());
-      // gameManager().RestartLobby();
-      // }
+    auto &players = gameManager().players;
+    auto &player = players.at(player_id.load());
+    CheckMovementUpdatePlayer(player, frametime);
+    for (auto &p : gameManager().players) { // TODO: better position merging
+                                            // and movement interpolation
+      CalculateUpdatePlayerMovement(p, frametime);
     }
+    networkManager.todo.push([&]() {
+      TraceLog(LOG_DEBUG, "NET: sending movement");
+      bool status = networkManager.send_movement(
+          player.position, player.velocity, player.rotation);
+      return status;
+    });
+
+    if (Shoot() && gameManager().players.at(player_id.load()).active) {
+      networkManager.todo.push([&]() {
+        TraceLog(LOG_DEBUG, "NET: sending shooting");
+        return networkManager.shoot_bullet();
+      });
+    }
+
+    // TODO: better position merging and movement interpolation
+    gameManager().UpdateBullets(frametime);
+    gameManager().UpdateAsteroids(frametime);
   }
 
   void setSelectedRoom() {
@@ -234,20 +229,7 @@ struct Game {
           get_X_players(selected_room.players, PlayerInfo::NONE) > 0) {
         networkManager.todo.push([&]() {
           TraceLog(LOG_DEBUG, "NET: join room");
-          try {
-            uint32_t player_id_received;
-            bool status = networkManager.join_room(selected_room.room_id,
-                                                   player_id_received);
-            if (status) {
-              uint32_t expected_player_id = -1;
-              while (!this->player_id.compare_exchange_strong(
-                  expected_player_id, player_id_received)) {
-              }
-            }
-            return status;
-          } catch (const std::out_of_range &ex) {
-            return false;
-          }
+          return networkManager.join_room(selected_room.room_id);
         });
       } else if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) {
         selected_room_index--;
