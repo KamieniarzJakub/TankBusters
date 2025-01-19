@@ -817,7 +817,7 @@ void Server::handleLeaveRoom(Client &client) {
       if (*i == client.client_id) {
         client_ids = gr.clients;
         // Found, remove client from GameRoom
-        gr.clients.erase(i, i);
+        gr.clients.erase(i);
         _ = true;
         try {
           gr.room.players.at(client.player_id).state = PlayerInfo::NONE;
