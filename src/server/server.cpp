@@ -110,6 +110,7 @@ void Server::client_error(Client &client) {
 }
 
 bool Server::sendCheckConnection(Client &client) {
+  client.good_connection = false;
   // Set socket timeouts
   struct timeval tv;
   size_t tvs = sizeof(tv);
@@ -119,7 +120,6 @@ bool Server::sendCheckConnection(Client &client) {
   setsockopt(client.fd_main, SOL_SOCKET, SO_SNDTIMEO, (const char *)&tv, tvs);
 
   // Send ping
-  uint32_t network_event;
   bool status = write_uint32(client.fd_main, NetworkEvents::CheckConnection);
   if (!status) {
     TraceLog(
@@ -130,21 +130,6 @@ bool Server::sendCheckConnection(Client &client) {
     return false;
   }
 
-  // Expect pong
-  status = read_uint32(client.fd_main, network_event);
-  if (!status) {
-    TraceLog(LOG_WARNING, "%s not received from client_id=%ld,fd=%d",
-             network_event_to_string(network_event).c_str(), client.client_id,
-             client.fd_main);
-    disconnect_client(client);
-    return false;
-  }
-
-  // Reset to no timeout
-  tv = {};
-  setsockopt(client.fd_main, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, tvs);
-  setsockopt(client.fd_main, SOL_SOCKET, SO_SNDTIMEO, (const char *)&tv, tvs);
-  std::time(&client.last_response); // Set last response to current time
   return true;
 }
 
@@ -204,9 +189,8 @@ void Server::handle_connection(int client_fd) {
 
   std::time(&client.last_response); // Set last response to current time
   while (client.fd_main > 2) {
-    // int nfds = epoll_wait(epoll_fd, events, MAX_EVENTS,
-    // Constants::CONNECTION_TIMEOUT_MILISECONDS);
-    int nfds = epoll_wait(epoll_fd, events, MAX_EVENTS, -1);
+    int nfds = epoll_wait(epoll_fd, events, MAX_EVENTS,
+                          Constants::CONNECTION_TIMEOUT_MILISECONDS);
     if (nfds == -1) { // EPOLL WAIT ERROR
       close(epoll_fd);
       TraceLog(LOG_ERROR, "Epoll wait error for client_id=%ld,fd=%d",
@@ -214,9 +198,14 @@ void Server::handle_connection(int client_fd) {
       disconnect_client(client);
       return;
     } else if (nfds == 0) { // EPOLL WAIT TIMEOUT
-      // if (!sendCheckConnection(client)) { // FIXME:
-      //   break;
-      // }
+      if (!client.good_connection) {
+        TraceLog(LOG_WARNING, "%s not received from client_id=%ld,fd=%d",
+                 network_event_to_string(CheckConnection).c_str(),
+                 client.client_id, client.fd_main);
+        disconnect_client(client);
+        return;
+      }
+      sendCheckConnection(client);
     }
     for (int n = 0; n < nfds; n++) {
       if (events[n].events & (EPOLLRDHUP | EPOLLERR | EPOLLHUP)) {
@@ -224,6 +213,19 @@ void Server::handle_connection(int client_fd) {
         break;
       } else if (events[n].data.fd ==
                  client.fd_main) { // EPOLLIN on client.main_fd
+        if (!client.good_connection) {
+          client.good_connection = true;
+          // Reset to no timeout
+          // struct timeval tv{};
+          // size_t tvs = sizeof(tv);
+          // setsockopt(client.fd_main, SOL_SOCKET, SO_RCVTIMEO, (const char
+          // *)&tv,
+          //            tvs);
+          // setsockopt(client.fd_main, SOL_SOCKET, SO_SNDTIMEO, (const char
+          // *)&tv,
+          //            tvs);
+          std::time(&client.last_response); // Set last response to current time
+        }
         uint32_t network_event;
         bool status = read_uint32(client.fd_main, network_event);
         if (status) {
@@ -242,10 +244,6 @@ void Server::handle_connection(int client_fd) {
       } else if (events[n].data.fd == client.todo_fd) { // Something on queue
         auto f = todos.at(client.client_id).pop();
         f(client);
-
-        // if game/round end
-        // FIXME: send END ROUND
-        // FIXME: send START ROUND
       }
     }
   }
@@ -596,7 +594,6 @@ void Server::new_game(const Room r) {
       TraceLog(LOG_INFO, "START ROUND SENT TO %d", c1.client_id);
       serverSetEvent(c1, NetworkEvents::StartRound);
       handleUpdatePlayers(c1);
-      // handleUpdateAsteroids(c1); // FIXME:
     });
   }
   auto game_start_time = std::chrono::steady_clock::now();
@@ -806,7 +803,7 @@ void Server::handleJoinRoom(Client &client) {
   }
 }
 
-void Server::handleLeaveRoom(Client &client) {
+void Server::handleLeaveRoom(Client &client, bool checks_stuff) {
   bool _ = false;
   std::vector<uint32_t> client_ids;
   try {
@@ -861,14 +858,16 @@ void Server::handleLeaveRoom(Client &client) {
     }
   }
 
-  serverSetEvent(client, NetworkEvents::LeaveRoom);
-  bool status = write_uint32(client.fd_main, client.player_id);
-  if (!status) {
-    TraceLog(LOG_WARNING,
-             "Couldn't send leaving room confirmation to "
-             "client_id=%ld,fd=%d",
-             client.room_id, client.client_id, client.fd_main);
-    client_error(client);
+  if (checks_stuff) {
+    serverSetEvent(client, NetworkEvents::LeaveRoom);
+    bool status = write_uint32(client.fd_main, client.player_id);
+    if (!status) {
+      TraceLog(LOG_WARNING,
+               "Couldn't send leaving room confirmation to "
+               "client_id=%ld,fd=%d",
+               client.room_id, client.client_id, client.fd_main);
+      client_error(client);
+    }
   }
   client.player_id = -1;
 }
@@ -1040,9 +1039,7 @@ void Server::handle_network_event(Client &client, uint32_t event) {
              client.client_id, client.fd_main);
     break;
   case NetworkEvents::Disconnect:
-    if (!delete_client(client.client_id)) {
-      disconnect_client(client);
-    }
+    disconnect_client(client);
     break;
   case NetworkEvents::CheckConnection: {
     std::time(&client.last_response);
@@ -1082,7 +1079,7 @@ void Server::handle_network_event(Client &client, uint32_t event) {
     break;
   case NetworkEvents::LeaveRoom:
     std::time(&client.last_response);
-    handleLeaveRoom(client);
+    handleLeaveRoom(client, true);
     break;
   case NetworkEvents::UpdateGameState:
     std::time(&client.last_response);
@@ -1123,6 +1120,7 @@ void Server::handle_network_event(Client &client, uint32_t event) {
 }
 
 void Server::disconnect_client(Client &client) {
+  TraceLog(LOG_INFO, "DISCONNECTING %d", client.client_id);
   if (client.epd > 0) {
     close(client.epd);
   }
@@ -1131,18 +1129,40 @@ void Server::disconnect_client(Client &client) {
     {
       try {
         {
-          std::lock_guard<std::mutex> lc(clients_mutex);
-          todos.erase(client.client_id);
-          clients.erase(client.client_id);
-        }
-        {
           auto &g = games.at(client.room_id);
-          std::lock_guard<std::mutex> lr(g.gameRoomMutex);
+          // std::lock_guard<std::mutex> lr(g.gameRoomMutex);
+          handleLeaveRoom(client, false);
+          // for (auto c : g.clients) {
+          //   if (c == client.client_id)
+          //     continue;
+          //   try {
+          //     todos.at(c).push([=](Client c1) {
+          //       serverSetEvent(c1, NetworkEvents::LeaveRoom);
+          //       bool status = write_uint32(c1.fd_main, client.player_id);
+          //       if (!status) {
+          //         TraceLog(LOG_WARNING,
+          //                  "Couldn't send leaving room confirmation to "
+          //                  "client_id=%ld,fd=%d",
+          //                  client.room_id, client.client_id, client.fd_main);
+          //         client_error(c1);
+          //       }
+          //       sendUpdateRoomState(c1);
+          //     });
+          //   } catch (const std::out_of_range &ex) {
+          //   }
+          // }
 
           auto i =
               std::remove(g.clients.begin(), g.clients.end(), client.client_id);
           g.clients.erase(i, g.clients.end());
-          TraceLog(LOG_DEBUG, "Disconnected lient_id=%ld,fd=%d",
+          TraceLog(LOG_INFO, "1. Disconnected client_id=%ld,fd=%d",
+                   client.client_id, client.fd_main);
+        }
+        {
+          std::lock_guard<std::mutex> lc(clients_mutex);
+          todos.erase(client.client_id);
+          clients.erase(client.client_id);
+          TraceLog(LOG_INFO, "2. Disconnected client_id=%ld,fd=%d",
                    client.client_id, client.fd_main);
         }
       } catch (const std::out_of_range &ex) {
@@ -1153,6 +1173,8 @@ void Server::disconnect_client(Client &client) {
     close(client.fd_main);
     client.fd_main = -1;
   }
+  TraceLog(LOG_INFO, "3. Disconnected client_id=%ld,fd=%d", client.client_id,
+           client.fd_main);
 }
 
 std::map<uint32_t, Room> Server::get_available_rooms() {
@@ -1172,27 +1194,26 @@ std::map<uint32_t, Room> Server::get_available_rooms() {
   return rs;
 }
 
-// FIXME: good disconnect
-bool Server::delete_client(size_t client_id) {
-  std::lock_guard<std::mutex> lc(clients_mutex);
-  if (auto c = clients.find(client_id); c != clients.end()) {
-    handleLeaveRoom(c->second);
-    int res = shutdown(c->second.fd_main, SHUT_RDWR);
-    if (res) {
-      TraceLog(LOG_WARNING, "Failed shutdown for client: %lu",
-               c->second.client_id);
-    }
-    res = close(c->second.fd_main);
-    if (res) {
-      TraceLog(LOG_WARNING, "Failed socket close for client: %lu",
-               c->second.client_id);
-    }
-    c->second.fd_main = -1;
-    clients.erase(client_id);
-    return true;
-  }
-  return false;
-}
+// bool Server::delete_client(size_t client_id) {
+//   std::lock_guard<std::mutex> lc(clients_mutex);
+//   if (auto c = clients.find(client_id); c != clients.end()) {
+//     handleLeaveRoom(c->second, false);
+//     int res = shutdown(c->second.fd_main, SHUT_RDWR);
+//     if (res) {
+//       TraceLog(LOG_WARNING, "Failed shutdown for client: %lu",
+//                c->second.client_id);
+//     }
+//     res = close(c->second.fd_main);
+//     if (res) {
+//       TraceLog(LOG_WARNING, "Failed socket close for client: %lu",
+//                c->second.client_id);
+//     }
+//     c->second.fd_main = -1;
+//     clients.erase(client_id);
+//     return true;
+//   }
+//   return false;
+// }
 
 uint32_t Server::get_next_available_player_id(GameRoom &gr) {
   uint32_t player_id = 0;

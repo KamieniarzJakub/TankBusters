@@ -29,7 +29,6 @@ int main() {
     exit(1);
   }
 
-  // FIXME: initalize network connection after displaying GUI
   Game game = Game(host.c_str(), port.c_str());
 
   // Main game loop

@@ -125,7 +125,8 @@ void ClientNetworkManager::perform_network_actions() {
   }
 
   while (!this->_stop) {
-    int nfds = epoll_wait(epollfd, events, MAX_EVENTS, -1);
+    int nfds = epoll_wait(epollfd, events, MAX_EVENTS,
+                          3 * Constants::CONNECTION_TIMEOUT_MILISECONDS);
     // Constants::CONNECTION_TIMEOUT_MILISECONDS);
     if (nfds == -1) { // EPOLL WAIT ERROR
       TraceLog(LOG_ERROR, "NET: Epoll wait error");
@@ -135,8 +136,8 @@ void ClientNetworkManager::perform_network_actions() {
       return;
     } else if (nfds == 0) { // EPOLL WAIT TIMEOUT
       // RECONNECT
-      // shutdown(mainfd, SHUT_RDWR);
-      // close(mainfd);
+      shutdown(mainfd, SHUT_RDWR);
+      close(mainfd);
       // reconnect(connected_to_host, connected_over_port, client_id);
     }
     for (int n = 0; n < nfds; n++) {
@@ -197,6 +198,8 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
              network_event_to_string(event).c_str());
     break;
   case NetworkEvents::CheckConnection: {
+    TraceLog(LOG_INFO, "NET:sending  %s",
+             network_event_to_string(event).c_str());
     if (!write_uint32(mainfd, NetworkEvents::CheckConnection)) {
       TraceLog(LOG_WARNING, "NET: Cannot send %s",
                network_event_to_string(event).c_str());

@@ -1,7 +1,6 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
-#include <iostream>
 #include <raylib.h>
 #include <raymath.h>
 
