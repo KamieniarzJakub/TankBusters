@@ -36,7 +36,11 @@ const static Color PLAYER_COLORS[4] = {{66, 133, 244, 255},
                                        {255, 0, 51, 255},
                                        {52, 168, 83, 255},
                                        {251, 188, 4, 255}};
-
+const static Vector2 PLAYER_SPAWN_POSITIONS[4] = {
+    Vector2{(float)screenWidth / 2 - 50, (float)screenHeight / 2 - 50},
+    Vector2{(float)screenWidth / 2 + 50, (float)screenHeight / 2 - 50},
+    Vector2{(float)screenWidth / 2 - 50, (float)screenHeight / 2 + 50},
+    Vector2{(float)screenWidth / 2 + 50, (float)screenHeight / 2 + 50}};
 const static int BULLETS_PER_PLAYER = 3;
 const static float BULLET_SPEED = 350.0f;
 const static float BULLET_SIZE = 5.0f;
