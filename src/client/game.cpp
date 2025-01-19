@@ -136,9 +136,7 @@ struct Game {
           graphicsManager.DrawReadyMessage();
           graphicsManager.DrawExitLobbyMessage();
         }
-        if (gameManager().winner_player_id != UINT32_MAX) {
-          graphicsManager.DrawWinnerText(gameManager());
-        }
+        graphicsManager.DrawWinnerText(gameManager());
         if (gameManager().game_start_time > system_clock::now()) {
           graphicsManager.DrawTimer("New game in ",
                                     gameManager().game_start_time + 1s);
