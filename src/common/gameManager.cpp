@@ -28,29 +28,6 @@ void GameManager::NewGame(std::vector<PlayerIdState> playerInfos) {
   endRoundTime = time_point<steady_clock>(0s);
 }
 
-// void GameManager::UpdateStatus() {
-//   if (_alive_players > 1) {
-//     status = GameStatus::GAME;
-//     endRoundTime = steady_clock::now();
-//   } else if (endRoundTime.time_since_epoch().count() > 0) {
-//     status = GameStatus::END_OF_ROUND;
-//     if (steady_clock::now() - endRoundTime >= Constants::NEW_ROUND_WAIT_TIME)
-//       endRoundTime = time_point<steady_clock>(0s);
-//   } else {
-//     status = GameStatus::LOBBY;
-//   }
-// }
-
-// void GameManager::UpdatePlayers(duration<double> frametime) {
-//   exit(1); // DO NOT USE
-//   for (int i = 0; i < Constants::PLAYERS_MAX; i++) {
-//     CheckMovementUpdatePlayer(players[i], frametime);
-//     if (players[i].active && Shoot()) {
-//       AddBullet(players[i]);
-//     }
-//   }
-// }
-
 void GameManager::UpdateBullets(duration<double> frametime) {
   for (int i = 0; i < Constants::PLAYERS_MAX * Constants::BULLETS_PER_PLAYER;
        i++) {
@@ -64,43 +41,21 @@ void GameManager::UpdateAsteroids(duration<double> frametime) {
   }
 }
 
-// void GameManager::UpdateGameServer() { // FIXME: delete inputs
-//   UpdateStatus();
-//   // TraceLog(LOG_DEBUG, "Game status: %d", gameManager.status);
-//   if (status == GameStatus::GAME) {
-//     float frametime = GetFrameTime();
-//
-//     ManageCollisions();
-//
-//     UpdatePlayers(frametime);
-//     UpdateBullets(frametime);
-//     UpdateAsteroids(frametime);
-//
-//     AsteroidSpawner(GetTime());
-//   } else {
-//     if (UpdateLobbyStatus()) {
-//       NewGame(GetReadyPlayers());
-//       RestartLobby();
-//     }
-//     UpdatePlayersLobby();
-//   }
-// }
-
-bool GameManager::AsteroidSpawner() {
-  bool updated = false;
+void GameManager::AsteroidSpawner(std::vector<uint32_t> &spawned_asteroids) {
   auto now = std::chrono::steady_clock::now();
   if (now > _spawnerTime + Constants::ASTEROID_SPAWN_DELAY) {
-    TraceLog(LOG_DEBUG, "ASTEROID SPAWNER");
     _spawnerTime = now;
-    AddAsteroid();
-    updated = true;
+    auto r = AddAsteroid();
+    if (r != UINT32_MAX) {
+      spawned_asteroids.push_back(r);
+    }
   }
-  return updated;
 }
 
-void GameManager::ManageCollisions(std::vector<Asteroid> &asteroid_changes,
+void GameManager::ManageCollisions(std::vector<uint32_t> &destroyed_asteroids,
+                                   std::vector<uint32_t> &spawned_asteroids,
                                    std::vector<uint32_t> &destroyed_players,
-                                   std::vector<uint32_t> destroyed_bullets) {
+                                   std::vector<uint32_t> &destroyed_bullets) {
   // void GameManager::ManageCollisions() {
   for (int i = 0; i < Constants::ASTEROIDS_MAX; i++) {
     if (!asteroids[i].active)
@@ -114,11 +69,14 @@ void GameManager::ManageCollisions(std::vector<Asteroid> &asteroid_changes,
 
         if (CheckCollisionCircles(bullets[k].position, Constants::BULLET_SIZE,
                                   asteroids[i].position, asteroids[i].size)) {
+          destroyed_bullets.push_back(k);
+          destroyed_asteroids.push_back(i);
           bullets[k].active = false;
           asteroids[i].active = false;
           SplitAsteroid(asteroids[i].position, asteroids[i].velocity,
                         float(asteroids[i].size) /
-                            Constants::ASTEROID_SPLIT_LOSS);
+                            Constants::ASTEROID_SPLIT_LOSS,
+                        spawned_asteroids);
           break;
         }
 
@@ -129,8 +87,9 @@ void GameManager::ManageCollisions(std::vector<Asteroid> &asteroid_changes,
           if (CheckCollisionCircles(bullets[k].position, Constants::BULLET_SIZE,
                                     players[l].position,
                                     Constants::PLAYER_SIZE / 3.0f)) {
+            destroyed_players.push_back(l);
+            destroyed_bullets.push_back(k);
             players[l].active = false;
-            // _alive_players--;
             bullets[k].active = false;
             break;
           }
@@ -143,29 +102,32 @@ void GameManager::ManageCollisions(std::vector<Asteroid> &asteroid_changes,
       if (CheckCollisionCircles(players[j].position,
                                 Constants::PLAYER_SIZE / 3.0f,
                                 asteroids[i].position, asteroids[i].size)) {
+        destroyed_players.push_back(j);
+        destroyed_asteroids.push_back(i);
         players[j].active = false;
-        // _alive_players--;
         asteroids[i].active = false;
         SplitAsteroid(asteroids[i].position, asteroids[i].velocity,
-                      float(asteroids[i].size) /
-                          Constants::ASTEROID_SPLIT_LOSS);
+                      float(asteroids[i].size) / Constants::ASTEROID_SPLIT_LOSS,
+                      spawned_asteroids);
       }
     }
   }
   // TraceLog(LOG_DEBUG, "Alive players: %d", _alive_players);
 }
 
-void GameManager::AddAsteroid() {
+uint32_t GameManager::AddAsteroid() {
   for (int i = 0; i < Constants::ASTEROIDS_MAX; i++) {
     if (asteroids[i].active)
       continue;
     asteroids[i] = CreateAsteroid();
-    return;
+    return i;
   }
   TraceLog(LOG_ERROR, "Failed to create an asteroid - no empty slots left");
+  return UINT32_MAX;
 }
 
-void GameManager::SplitAsteroid(Vector2 position, Vector2 velocity, int size) {
+void GameManager::SplitAsteroid(Vector2 position, Vector2 velocity, int size,
+                                std::vector<uint32_t> &changed) {
   if (size < Constants::ASTEROID_SIZE_MIN)
     return;
 
@@ -180,6 +142,7 @@ void GameManager::SplitAsteroid(Vector2 position, Vector2 velocity, int size) {
         Vector2Rotate(velocity, toSpawn % 2 ? GetRandomValue(60, 120)
                                             : GetRandomValue(-120, -60));
     asteroids[i] = CreateAsteroid(position, new_velocity, size);
+    changed.push_back(i);
     toSpawn--;
   }
 
@@ -187,6 +150,9 @@ void GameManager::SplitAsteroid(Vector2 position, Vector2 velocity, int size) {
 }
 
 bool GameManager::AddBullet(const Player &player) {
+  if (!player.active)
+    return false;
+
   for (size_t i = player.player_id * Constants::BULLETS_PER_PLAYER;
        i < (player.player_id + 1) * Constants::BULLETS_PER_PLAYER; i++) {
     if (bullets.at(i).active)
@@ -256,14 +222,22 @@ GameManager::GameManager(uint32_t room_id,
 void to_json(json &j, const GameManager &gm) {
   j = json{
       {"room_id", gm.room_id},
-      // {"alive_players", gm._alive_players},
-      // {"new_round_timer", gm.new_round_timer}
+      {"asteroids", gm.asteroids},
+      {"players", gm.players},
+      {"bulelts", gm.bullets},
+      {"winner_player_id", gm.winner_player_id},
+      // {"_spawnerTime", gm._spawnerTime},
+      // {"startRoundTime", gm.startRoundTime},
+      // {"endRoundTime", gm.endRoundTime} ,
+      // {"game_start_time", gm.game_start_time}
   };
   // asteroids, players, bullets omitted
 }
 
 void from_json(const json &j, GameManager &gm) {
   j.at("room_id").get_to(gm.room_id);
-  // j.at("alive_players").get_to(gm._alive_players);
-  // j.at("new_round_timer").get_to(gm.new_round_timer);
+  j.at("asteroids").get_to(gm.asteroids);
+  j.at("players").get_to(gm.players);
+  j.at("bulelts").get_to(gm.bullets);
+  j.at("winner_player_id").get_to(gm.winner_player_id);
 }

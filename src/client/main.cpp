@@ -3,6 +3,7 @@
 #include <fstream>
 #include <nlohmann/json.hpp>
 #include <raylib.h>
+#include <thread>
 
 int main() {
   SetConfigFlags(FLAG_VSYNC_HINT | FLAG_WINDOW_HIGHDPI);
@@ -29,7 +30,6 @@ int main() {
     exit(1);
   }
 
-  // FIXME: initalize network connection after displaying GUI
   Game game = Game(host.c_str(), port.c_str());
 
   // Main game loop
@@ -38,6 +38,7 @@ int main() {
     game.updateDrawFrame();
   }
 
+  std::this_thread::sleep_for(1s);
   // destroy the window and cleanup the OpenGL context
   CloseWindow();
   return 0;

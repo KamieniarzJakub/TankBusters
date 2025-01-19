@@ -58,9 +58,10 @@ void GraphicsManager::DrawBullet(const Bullet &bullet) {
              WHITE);
 }
 
-void GraphicsManager::DrawTimer(uint32_t t) {
-  // int time = Constants::LOBBY_READY_TIME - int(GetTime() - time);
-  const char *text = TextFormat("New round in %ld", t);
+void GraphicsManager::DrawTimer(const char *message,
+                                time_point<system_clock> when) {
+  auto time = duration_cast<seconds>(when - system_clock::now()).count();
+  const char *text = TextFormat("%s %ld", message, time);
   Vector2 origin =
       MeasureTextEx(font, text, Constants::TEXT_SIZE, Constants::TEXT_SPACING);
   DrawTextPro(font, text,
@@ -70,6 +71,31 @@ void GraphicsManager::DrawTimer(uint32_t t) {
               Constants::TEXT_SPACING, RAYWHITE);
 }
 
+// void GraphicsManager::DrawTime(const GameManager &gm, const Room &r) {
+//   auto time = steady_clock::now();
+//   if (r.status == GameStatus::END_OF_ROUND)
+//     time = gm.endRoundTime;
+//
+//   const char *text = TextFormat("%00.2f", time - gm.startRoundTime);
+//   DrawTextPro(font, text,
+//               Vector2{Constants::TEXT_OFFSET, Constants::TEXT_OFFSET},
+//               Vector2{0, 0}, 0.0f, Constants::TEXT_SIZE,
+//               Constants::TEXT_SPACING, RAYWHITE);
+// }
+
+// void GraphicsManager::DrawNewRoundCountdown(time_point<system_clock> when) {
+//   auto time = duration_cast<seconds>(when - system_clock::now());
+//   const char *text = TextFormat("New round in %d", (time));
+//   Vector2 origin =
+//       MeasureTextEx(font, text, Constants::TEXT_SIZE,
+//       Constants::TEXT_SPACING);
+//   DrawTextPro(
+//       font, text,
+//       Vector2{(float)Constants::screenWidth / 2, Constants::screenHeight},
+//       Vector2{origin.x / 2, origin.y + Constants::TEXT_OFFSET}, 0,
+//       Constants::TEXT_SIZE, Constants::TEXT_SPACING, RAYWHITE);
+// }
+
 void GraphicsManager::DrawTitle(const Room &r) {
   const char *text = TextFormat(
       "%s[%d/%d]",
@@ -78,7 +104,8 @@ void GraphicsManager::DrawTitle(const Room &r) {
       Constants::PLAYERS_MAX);
   Vector2 origin = MeasureTextEx(font, text, Constants::TEXT_WIN_SIZE,
                                  Constants::TEXT_SPACING);
-  DrawTextPro(font, text, Vector2{(float)Constants::screenWidth / 2, 0},
+  DrawTextPro(font, text,
+              Vector2{(float)Constants::screenWidth / 2, origin.y / 2},
               Vector2{origin.x / 2, -origin.y / 3}, 0, Constants::TEXT_WIN_SIZE,
               Constants::TEXT_SPACING, RAYWHITE);
 }
@@ -148,64 +175,42 @@ void GraphicsManager::DrawBullets(const GameManager &gm) {
   }
 }
 
-void GraphicsManager::DrawBulletsGUI(const GameManager &gm) {
+void GraphicsManager::DrawBulletsGUI(const GameManager &gm,
+                                     const uint32_t player_id) {
   int avaliable_bullets = 0;
-  for (size_t i = gm.player_id * Constants::BULLETS_PER_PLAYER;
-       i < (gm.player_id + 1) * Constants::BULLETS_PER_PLAYER; i++) {
-    if (!gm.bullets[i].active) avaliable_bullets++; }
-  std::string bullets_text = avaliable_bullets ? std::string(avaliable_bullets, '*') : "EMPTY";
+  for (size_t i = player_id * Constants::BULLETS_PER_PLAYER;
+       i < (player_id + 1) * Constants::BULLETS_PER_PLAYER; i++) {
+    if (!gm.bullets[i].active)
+      avaliable_bullets++;
+  }
+  std::string bullets_text =
+      avaliable_bullets ? std::string(avaliable_bullets, '*') : "EMPTY";
   const char *text = TextFormat("%s", bullets_text.c_str());
-  Vector2 origin = MeasureTextEx(font, text, Constants::TEXT_SIZE, Constants::TEXT_SPACING);
+  Vector2 origin =
+      MeasureTextEx(font, text, Constants::TEXT_SIZE, Constants::TEXT_SPACING);
   DrawTextPro(font, text,
-              Vector2{Constants::screenWidth-Constants::TEXT_OFFSET, Constants::screenHeight-Constants::TEXT_OFFSET},
-              Vector2{origin.x, origin.y/2}, 0.0f, Constants::TEXT_SIZE,
-              Constants::TEXT_SPACING, RAYWHITE);
-}
-
-void GraphicsManager::DrawTime(const GameManager &gm, const Room &r) {
-  auto time = steady_clock::now();
-  if (r.status == GameStatus::END_OF_ROUND)
-    time = gm.endRoundTime;
-
-  const char *text = TextFormat("%00.2f", time - gm.startRoundTime);
-  DrawTextPro(font, text,
-              Vector2{Constants::TEXT_OFFSET, Constants::TEXT_OFFSET},
-              Vector2{0, 0}, 0.0f, Constants::TEXT_SIZE,
+              Vector2{Constants::screenWidth - Constants::TEXT_OFFSET,
+                      Constants::screenHeight - Constants::TEXT_OFFSET},
+              Vector2{origin.x, origin.y / 2}, 0.0f, Constants::TEXT_SIZE,
               Constants::TEXT_SPACING, RAYWHITE);
 }
 
 void GraphicsManager::DrawWinnerText(const GameManager &gm) {
-  for (int i = 0; i < Constants::PLAYERS_MAX; i++) {
-    if (gm.players[i].active) {
-      const char *text =
-          TextFormat("%s PLAYER WIN", Constants::PLAYER_NAMES[i].c_str());
-      Vector2 text_length = MeasureTextEx(font, text, Constants::TEXT_WIN_SIZE,
-                                          Constants::TEXT_SPACING);
-      DrawRectangle(0, 0, Constants::screenWidth, Constants::screenHeight,
-                    Constants::BACKGROUND_COLOR_HALF_ALFA);
-      DrawTextPro(win_font, text,
-                  Vector2{(float)Constants::screenWidth / 2,
-                          (float)Constants::screenHeight / 2},
-                  Vector2{text_length.x / 2, text_length.y / 2}, 0,
-                  Constants::TEXT_WIN_SIZE, Constants::TEXT_SPACING,
-                  Constants::PLAYER_COLORS[i]);
-      return;
-    }
+  if (gm.winner_player_id) {
+    const char *text = TextFormat(
+        "%s PLAYER WIN", Constants::PLAYER_NAMES[gm.winner_player_id].c_str());
+    Vector2 text_length = MeasureTextEx(font, text, Constants::TEXT_WIN_SIZE,
+                                        Constants::TEXT_SPACING);
+    // DrawRectangle(0, 0, Constants::screenWidth, Constants::screenHeight,
+    //               Constants::BACKGROUND_COLOR_HALF_ALFA);
+    DrawTextPro(
+        win_font, text,
+        Vector2{(float)Constants::screenWidth / 2, (float)text_length.y / 2},
+        Vector2{text_length.x / 2, text_length.y / 2}, 0,
+        Constants::TEXT_WIN_SIZE, Constants::TEXT_SPACING,
+        Constants::PLAYER_COLORS[gm.winner_player_id]);
+    return;
   }
-}
-
-void GraphicsManager::DrawNewRoundCountdown(const GameManager &gm) {
-  auto time =
-      Constants::NEW_ROUND_WAIT_TIME - (steady_clock::now() - gm.endRoundTime);
-  const char *text =
-      TextFormat("New round in %d", static_cast<int>(time.count()));
-  Vector2 origin =
-      MeasureTextEx(font, text, Constants::TEXT_SIZE, Constants::TEXT_SPACING);
-  DrawTextPro(
-      font, text,
-      Vector2{(float)Constants::screenWidth / 2, Constants::screenHeight},
-      Vector2{origin.x / 2, origin.y + Constants::TEXT_OFFSET}, 0,
-      Constants::TEXT_SIZE, Constants::TEXT_SPACING, RAYWHITE);
 }
 
 void GraphicsManager::DrawRoomTitle() {

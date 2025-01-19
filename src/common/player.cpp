@@ -55,8 +55,7 @@ void CheckMovementUpdatePlayer(Player &player, duration<double> frametime) {
 bool Shoot() { return IsKeyPressed(KEY_SPACE); }
 
 Vector2 GetPlayerSpawnPosition(int i) {
-  return Vector2{(float)Constants::screenWidth / 2,
-                 (float)i * Constants::screenHeight / 4};
+  return Constants::PLAYER_SPAWN_POSITIONS[i];
 }
 
 void to_json(json &j, const Player &p) {

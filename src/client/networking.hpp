@@ -45,6 +45,7 @@ struct ClientNetworkManager {
   }
   void flip_joined_room();
 
+  std::atomic_uint32_t &player_id;
   std::atomic_bool _stop = false;
   std::thread main_thread;
   LockingQueue<std::function<bool(void)>> todo;
@@ -57,7 +58,8 @@ struct ClientNetworkManager {
                        std::array<std::map<uint32_t, Room>, 2> &roomsMapPair,
                        std::atomic_uint8_t &rooms_map_draw_idx,
                        std::array<Room, 2> &joinedRoomPair,
-                       std::atomic_uint8_t &joined_room_draw_idx);
+                       std::atomic_uint8_t &joined_room_draw_idx,
+                       std::atomic_uint32_t &player_id);
   ~ClientNetworkManager();
 
   // NOTE: If a function returns:
@@ -83,14 +85,14 @@ struct ClientNetworkManager {
 
   // Player
   bool get_new_client_id(uint32_t &new_client_id);
-  bool vote_ready(std::vector<PlayerIdState> &players);
+  bool vote_ready();
   bool send_movement(Vector2 position, Vector2 velocity, float rotation);
   bool shoot_bullet();
   bool readGameState();
 
   // Room
-  bool get_rooms(std::map<uint32_t, Room> &rooms);
-  bool join_room(uint32_t join_room_id, uint32_t &player_id);
+  bool get_rooms();
+  bool join_room(uint32_t join_room_id);
   bool leave_room();
 
   // Fetching data from server
@@ -99,10 +101,16 @@ struct ClientNetworkManager {
   bool fetch_room_state(uint32_t fetch_room_id, Room &room);
   bool fetch_game_state(GameManager &gameManager);
   bool fetch_players(std::vector<Player> &players);
-  bool fetch_asteroids(std::vector<Asteroid> &asteroids);
+  bool fetch_asteroids(std::vector<uint32_t> &asteroid_ids,
+                       std::vector<Asteroid> &asteroids);
   bool fetch_bullets(std::vector<Bullet> &bullets);
 
-  bool handle_end_round(uint32_t &winner_player_id);
+  bool handle_end_round();
   bool handle_connection_check();
   void read_update_players();
+  bool handle_update_asteroids();
+  void handle_bullet_destroyed();
+  void handle_player_destroyed();
+  void handle_spawn_asteroid();
+  void handle_asteroid_destroyed();
 };

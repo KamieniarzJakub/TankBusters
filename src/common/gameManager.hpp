@@ -5,6 +5,7 @@
 #include "player.hpp"
 #include "room.hpp"
 #include <chrono>
+#include <cstdint>
 #include <raylib.h>
 #include <raymath.h>
 #include <sys/types.h>
@@ -17,16 +18,16 @@ struct GameManager {
   std::vector<Player> players;
   std::vector<Bullet> bullets;
 
-  uint32_t player_id;
+  uint32_t winner_player_id;
   uint32_t room_id;
   // int _alive_players;
   time_point<steady_clock> _spawnerTime;
   time_point<steady_clock> startRoundTime;
   time_point<steady_clock> endRoundTime;
+
+  time_point<system_clock> game_start_time;
+
   void UpdatePlayers(duration<double> frametime);
-
-  uint32_t game_start_time;
-
   GameManager();
   GameManager(uint32_t room_id, std::vector<PlayerIdState> playerInfos);
   ~GameManager();
@@ -38,15 +39,15 @@ struct GameManager {
   void UpdateGameServer();
 
   void UpdateAsteroids(duration<double> frametime);
-  bool AsteroidSpawner();
+  void AsteroidSpawner(std::vector<uint32_t> &spawned_asteroids);
 
-  // void ManageCollisions();
-  void ManageCollisions(std::vector<Asteroid> &asteroid_changes,
+  void ManageCollisions(std::vector<uint32_t> &destroyed_asteroids,
+                        std::vector<uint32_t> &spawned_asteroids,
                         std::vector<uint32_t> &destroyed_players,
-                        std::vector<uint32_t> destroyed_bullets);
-
-  void AddAsteroid();
-  void SplitAsteroid(Vector2 position, Vector2 velocity, int size);
+                        std::vector<uint32_t> &destroyed_bullets);
+  uint32_t AddAsteroid();
+  void SplitAsteroid(Vector2 position, Vector2 velocity, int size,
+                     std::vector<uint32_t> &changed);
   bool AddBullet(const Player &player);
   void UpdateBullets(duration<double> frametime);
 

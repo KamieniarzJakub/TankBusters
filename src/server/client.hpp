@@ -13,6 +13,7 @@ struct Client {
   std::time_t last_response;
   int epd = -1;
   int todo_fd = -1;
+  bool good_connection = true;
 
   const std::string signature();
 };
