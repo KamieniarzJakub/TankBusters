@@ -413,8 +413,8 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
       while (!this->player_id.compare_exchange_strong(expected_player_id,
                                                       _player_id)) {
       }
-      expectEvent(mainfd, NetworkEvents::UpdateGameState);
-      readGameState();
+      // expectEvent(mainfd, NetworkEvents::UpdateGameState);
+      // readGameState();
       joinedRoom().room_id = joined_room_id;
       flip_joined_room();
       joinedRoom().room_id = joined_room_id;

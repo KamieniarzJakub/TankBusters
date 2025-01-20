@@ -549,10 +549,10 @@ void Server::new_game(const Room r) {
       destroyed_players_ids.clear();
       destroyed_bullets_ids.clear();
 
-      //std::cout<<"r.room_id: "<<r.room_id<<std::endl;
-      //std::cout<<"GAMES AT: "<<games.at(r.room_id).room.room_id<<std::endl;
-      //game.ManageCollisions(destroyed_asteroids, spawned_asteroids,
-      //                      destroyed_players_ids, destroyed_bullets_ids);
+      // std::cout<<"r.room_id: "<<r.room_id<<std::endl;
+      // std::cout<<"GAMES AT: "<<games.at(r.room_id).room.room_id<<std::endl;
+      // game.ManageCollisions(destroyed_asteroids, spawned_asteroids,
+      //                       destroyed_players_ids, destroyed_bullets_ids);
 
       for (auto &player : game.players) {
 
@@ -689,7 +689,7 @@ void Server::handleJoinRoom(Client &client) {
     {
       auto &gr = games.at(read_room_id);
       std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
-      if (true) { //FIXME: gr.room.status == GameStatus::LOBBY
+      if (true) { // FIXME: gr.room.status == GameStatus::LOBBY
         auto player_id = get_next_available_player_id(gr);
         // std::cerr << player_id << std::endl;
         status = player_id != UINT32_MAX;
@@ -727,9 +727,9 @@ void Server::handleJoinRoom(Client &client) {
              client.client_id, client.fd_main);
     disconnect_client(client);
   }
-  TraceLog(LOG_INFO, "HandleUpdateGameState started");
-  handleUpdateGameState(client);
-  TraceLog(LOG_INFO, "HandleUpdateGameState ended");
+  // TraceLog(LOG_INFO, "HandleUpdateGameState started");
+  // handleUpdateGameState(client);
+  // TraceLog(LOG_INFO, "HandleUpdateGameState ended");
   try {
     auto &gr = games.at(client.room_id);
     std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
@@ -739,7 +739,7 @@ void Server::handleJoinRoom(Client &client) {
         sendUpdateRoomState(c1);
       });
     }
-  } catch(int e) { //FIXME: catch(const std::out_of_range &ex)
+  } catch (int e) { // FIXME: catch(const std::out_of_range &ex)
     TraceLog(LOG_WARNING, "Catched");
   }
 }
@@ -850,7 +850,7 @@ void Server::handleUpdateRoomState(Client &client) {
 bool Server::sendUpdateRoomState(Client &client) {
   try {
     json room_json = games.at(client.room_id).room;
-    std::cout<<"ASFDASDFASDF"<<std::endl;
+    std::cout << "ASFDASDFASDF" << std::endl;
     serverSetEvent(client, NetworkEvents::UpdateRoomState);
     TraceLog(LOG_INFO, "Room json: %s", room_json.dump().c_str());
     bool status = write_json(client.fd_main, room_json);
