@@ -98,7 +98,6 @@ void Server::listen_for_connections() {
       continue;
     }
 
-    // Client client{client_main_fd};
     std::thread(&Server::handle_connection, this, client_main_fd).detach();
   }
 }
@@ -119,6 +118,8 @@ bool Server::sendCheckConnection(Client &client) {
 
 void Server::handle_connection(int client_fd) {
 
+  // Each new client is expected to send "GetClientId" event on connection with
+  // value 0 Server then responds with client id
   uint32_t client_id = handleGetClientId(client_fd);
   if (client_id == 0) {
     return;
@@ -131,10 +132,9 @@ void Server::handle_connection(int client_fd) {
   } catch (const std::out_of_range &ex) {
     return;
   }
-  Client &client = *client_ptr;
+  Client &client = *client_ptr; // Get a clean reference to client
 
-  const size_t MAX_EVENTS = 2;
-  epoll_event ee, events[MAX_EVENTS];
+  epoll_event ee, events[2]; // Client socket and todo queue
   int epoll_fd = epoll_create1(0);
   if (epoll_fd == -1) {
     TraceLog(LOG_ERROR, "Couldn't epoll_create for fd=%d", client_fd);
@@ -170,15 +170,17 @@ void Server::handle_connection(int client_fd) {
            client.client_id, client.fd_main);
 
   while (client.fd_main > 2) {
-    int nfds = epoll_wait(epoll_fd, events, MAX_EVENTS,
+    int nfds = epoll_wait(epoll_fd, events, 2,
                           Constants::CONNECTION_TIMEOUT_MILISECONDS);
-    if (nfds == -1) { // EPOLL WAIT ERROR
+    if (nfds == -1) {
+      // EPOLL WAIT ERROR
       close(epoll_fd);
       TraceLog(LOG_ERROR, "Epoll wait error for client_id=%ld,fd=%d",
                client.client_id, client.fd_main);
       disconnect_client(client);
       return;
-    } else if (nfds == 0) { // EPOLL WAIT TIMEOUT
+    } else if (nfds == 0) {
+      // EPOLL WAIT TIMEOUT
       if (!client.good_connection) {
         TraceLog(LOG_WARNING, "%s not received from client_id=%ld,fd=%d",
                  network_event_to_string(CheckConnection).c_str(),
@@ -192,8 +194,8 @@ void Server::handle_connection(int client_fd) {
       if (events[n].events & (EPOLLRDHUP | EPOLLERR | EPOLLHUP)) {
         disconnect_client(client);
         break;
-      } else if (events[n].data.fd ==
-                 client.fd_main) { // EPOLLIN on client.main_fd
+      } else if (events[n].data.fd == client.fd_main) {
+        // EPOLLIN on client.main_fd
         if (!client.good_connection) {
           client.good_connection = true;
         }
@@ -212,7 +214,8 @@ void Server::handle_connection(int client_fd) {
           disconnect_client(client);
           break;
         }
-      } else if (events[n].data.fd == client.todo_fd) { // Something on queue
+      } else if (events[n].data.fd == client.todo_fd) {
+        // Something on queue
         auto f = todos.at(client.client_id).pop();
         f(client);
       }
@@ -596,8 +599,9 @@ void Server::new_game(uint32_t room_id) {
       p.state = PlayerInfo::NOT_READY;
   }
   for (auto c : gr.clients) {
+    // invalid time on purpose
     gr.gameManager.game_start_time =
-        system_clock::now() - Constants::NEW_ROUND_WAIT_TIME; // invalid time
+        system_clock::now() - Constants::NEW_ROUND_WAIT_TIME;
     auto when = system_clock::to_time_t(gr.gameManager.game_start_time);
     todos.at(c).push([=](Client c1) {
       serverSetEvent(c1, NetworkEvents::ReturnToLobby);
