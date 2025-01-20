@@ -1,5 +1,4 @@
 #include "networking.hpp"
-#include <iostream>
 
 #include <chrono>
 #include <sys/epoll.h>

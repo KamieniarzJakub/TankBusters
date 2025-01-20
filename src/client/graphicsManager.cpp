@@ -1,5 +1,4 @@
 #include "graphicsManager.hpp"
-#include "gameManager.hpp"
 #include "player.hpp"
 #include "resource_dir.hpp"
 #include "room.hpp"
@@ -17,17 +16,12 @@ GraphicsManager::GraphicsManager() {
 
   font = LoadFontEx(Constants::ROBOTO_REGULAR.c_str(), Constants::TEXT_SIZE,
                     nullptr, 0);
-  win_font = font;
-  player_font = font;
-  // Optionally, set texture filtering for smooth font scaling
   SetTextureFilter(font.texture, TEXTURE_FILTER_ANISOTROPIC_16X);
 }
 
 GraphicsManager::~GraphicsManager() {
   UnloadTexture(player_texture);
   UnloadFont(font);
-  // UnloadFont(win_font);
-  // UnloadFont(player_font);
 }
 
 void GraphicsManager::DrawAsteroid(const Asteroid &asteroid) {
@@ -36,19 +30,11 @@ void GraphicsManager::DrawAsteroid(const Asteroid &asteroid) {
 }
 
 void GraphicsManager::DrawPlayer(const Player &player) {
-  // DrawPoly(player.position, 3, 16, player.rotation, RED);
-  // https://tradam.itch.io/raylib-drawtexturepro-interactive-demo
-  // Rectangle source = {0, 0, float(player.texture.width),
-  // float(player.texture.height)}; Rectangle dest = {player.position.x,
-  // player.position.y, source.width, source.height}; Vector2 origin =
-  // {dest.width/2.0f, dest.height/2.0f}; DrawCircle(player.position.x,
-  // player.position.y, player.size/3, PINK); DrawTexturePro(player.texture,
-  // source, dest, origin, player.rotation, player.player_color);
   const auto draw_offset =
       Vector2Scale(MeasureTextEx(font, Constants::PLAYER_AVATAR.c_str(),
                                  Constants::PLAYER_SIZE, 0),
                    0.5);
-  DrawTextPro(player_font, Constants::PLAYER_AVATAR.c_str(), player.position,
+  DrawTextPro(font, Constants::PLAYER_AVATAR.c_str(), player.position,
               draw_offset, player.rotation + 90.0f, Constants::PLAYER_SIZE, 0,
               player.player_color);
 }
@@ -70,31 +56,6 @@ void GraphicsManager::DrawTimer(const char *message,
               Vector2{origin.x / 2, origin.y}, 0, Constants::TEXT_SIZE,
               Constants::TEXT_SPACING, RAYWHITE);
 }
-
-// void GraphicsManager::DrawTime(const GameManager &gm, const Room &r) {
-//   auto time = steady_clock::now();
-//   if (r.status == GameStatus::END_OF_ROUND)
-//     time = gm.endRoundTime;
-//
-//   const char *text = TextFormat("%00.2f", time - gm.startRoundTime);
-//   DrawTextPro(font, text,
-//               Vector2{Constants::TEXT_OFFSET, Constants::TEXT_OFFSET},
-//               Vector2{0, 0}, 0.0f, Constants::TEXT_SIZE,
-//               Constants::TEXT_SPACING, RAYWHITE);
-// }
-
-// void GraphicsManager::DrawNewRoundCountdown(time_point<system_clock> when) {
-//   auto time = duration_cast<seconds>(when - system_clock::now());
-//   const char *text = TextFormat("New round in %d", (time));
-//   Vector2 origin =
-//       MeasureTextEx(font, text, Constants::TEXT_SIZE,
-//       Constants::TEXT_SPACING);
-//   DrawTextPro(
-//       font, text,
-//       Vector2{(float)Constants::screenWidth / 2, Constants::screenHeight},
-//       Vector2{origin.x / 2, origin.y + Constants::TEXT_OFFSET}, 0,
-//       Constants::TEXT_SIZE, Constants::TEXT_SPACING, RAYWHITE);
-// }
 
 void GraphicsManager::DrawTitle(const Room &r) {
   const char *text =
@@ -151,35 +112,35 @@ void GraphicsManager::DrawExitLobbyMessage() {
               Constants::TEXT_SPACING, RAYWHITE);
 }
 
-void GraphicsManager::DrawAsteroids(const GameManager &gm) {
-  for (int i = 0; i < Constants::ASTEROIDS_MAX; i++) {
-    if (!gm.asteroids[i].active)
+void GraphicsManager::DrawAsteroids(const std::vector<Asteroid> &asteroids) {
+  for (auto &asteroid : asteroids) {
+    if (!asteroid.active)
       continue;
-    DrawAsteroid(gm.asteroids[i]);
+    DrawAsteroid(asteroid);
   }
 }
 
-void GraphicsManager::DrawPlayers(const GameManager &gm) {
-  for (int i = 0; i < Constants::PLAYERS_MAX; i++) {
-    DrawPlayer(gm.players[i]);
+void GraphicsManager::DrawPlayers(const std::vector<Player> &players) {
+  for (auto &player : players) {
+    DrawPlayer(player);
   }
 }
 
-void GraphicsManager::DrawBullets(const GameManager &gm) {
-  for (int i = 0; i < Constants::PLAYERS_MAX * Constants::BULLETS_PER_PLAYER;
-       i++) {
-    if (!gm.bullets[i].active)
+void GraphicsManager::DrawBullets(const std::vector<Bullet> &bullets) {
+  for (auto &bullet : bullets) {
+    if (!bullet.active)
       continue;
-    DrawBullet(gm.bullets[i]);
+    DrawBullet(bullet);
   }
 }
 
-void GraphicsManager::DrawBulletsGUI(const GameManager &gm,
+void GraphicsManager::DrawBulletsGUI(const std::vector<Bullet> &bullets,
                                      const uint32_t player_id) {
   int avaliable_bullets = 0;
   for (size_t i = player_id * Constants::BULLETS_PER_PLAYER;
        i < (player_id + 1) * Constants::BULLETS_PER_PLAYER; i++) {
-    if (!gm.bullets[i].active)
+
+    if (!bullets[i].active)
       avaliable_bullets++;
   }
   std::string bullets_text =
@@ -194,35 +155,33 @@ void GraphicsManager::DrawBulletsGUI(const GameManager &gm,
               Constants::TEXT_SPACING, RAYWHITE);
 }
 
-void GraphicsManager::DrawWinnerText(const GameManager &gm) {
-  if (gm.winner_player_id != UINT32_MAX) {
+void GraphicsManager::DrawWinnerText(const uint32_t winner_player_id) {
+  if (winner_player_id != UINT32_MAX) {
     const char *text = TextFormat(
-        "%s PLAYER WIN", Constants::PLAYER_NAMES[gm.winner_player_id].c_str());
+        "%s PLAYER WIN", Constants::PLAYER_NAMES[winner_player_id].c_str());
     Vector2 text_length = MeasureTextEx(font, text, Constants::TEXT_WIN_SIZE,
                                         Constants::TEXT_SPACING);
-    // DrawRectangle(0, 0, Constants::screenWidth, Constants::screenHeight,
-    //               Constants::BACKGROUND_COLOR_HALF_ALFA);
     DrawTextPro(
-        win_font, text,
+        font, text,
         Vector2{(float)Constants::screenWidth / 2, (float)text_length.y / 2},
         Vector2{text_length.x / 2, text_length.y / 2}, 0,
         Constants::TEXT_WIN_SIZE, Constants::TEXT_SPACING,
-        Constants::PLAYER_COLORS[gm.winner_player_id]);
+        Constants::PLAYER_COLORS[winner_player_id]);
   }
 }
 
 void GraphicsManager::DrawRoomTitle() {
   const char *text1 = TextFormat("T\t\tNK BUSTERS");
-  Vector2 origin = MeasureTextEx(player_font, text1, Constants::PLAYER_SIZE,
+  Vector2 origin = MeasureTextEx(font, text1, Constants::PLAYER_SIZE,
                                  Constants::TEXT_SPACING);
-  DrawTextPro(player_font, text1, Vector2{(float)Constants::screenWidth / 2, 0},
+  DrawTextPro(font, text1, Vector2{(float)Constants::screenWidth / 2, 0},
               Vector2{origin.x / 2, -origin.y / 2}, 0, Constants::PLAYER_SIZE,
               Constants::TEXT_SPACING, RAYWHITE);
   const auto draw_offset =
       Vector2Scale(MeasureTextEx(font, Constants::PLAYER_AVATAR.c_str(),
                                  Constants::PLAYER_SIZE, 0),
                    0.5);
-  DrawTextPro(player_font, Constants::PLAYER_AVATAR.c_str(),
+  DrawTextPro(font, Constants::PLAYER_AVATAR.c_str(),
               Vector2{origin.x / 2 - 3 * Constants::TEXT_OFFSET, origin.y},
               draw_offset, 10 * GetTime(), Constants::PLAYER_SIZE, 0,
               Constants::PLAYER_COLORS[0]);
@@ -233,7 +192,7 @@ void GraphicsManager::DrawRoomSubTitle() {
   Vector2 origin =
       MeasureTextEx(font, text, Constants::TEXT_SIZE, Constants::TEXT_SPACING);
   DrawTextPro(
-      player_font, text,
+      font, text,
       Vector2{(float)Constants::screenWidth / 2,
               (float)Constants::screenHeight / 2 - 2 * Constants::TEXT_OFFSET},
       Vector2{origin.x / 2, origin.y / 2}, 0, Constants::TEXT_SIZE,

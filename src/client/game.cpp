@@ -136,7 +136,7 @@ struct Game {
           graphicsManager.DrawReadyMessage();
           graphicsManager.DrawExitLobbyMessage();
         }
-        graphicsManager.DrawWinnerText(gameManager());
+        graphicsManager.DrawWinnerText(gameManager().winner_player_id);
         if (gameManager().game_start_time > system_clock::now()) {
           graphicsManager.DrawTimer("New game in ",
                                     gameManager().game_start_time + 1s);
@@ -144,10 +144,10 @@ struct Game {
 
       } break;
       case GameStatus::GAME:
-        graphicsManager.DrawAsteroids(gameManager());
-        graphicsManager.DrawPlayers(gameManager());
-        graphicsManager.DrawBullets(gameManager());
-        graphicsManager.DrawBulletsGUI(gameManager(), player_id.load());
+        graphicsManager.DrawAsteroids(gameManager().asteroids);
+        graphicsManager.DrawPlayers(gameManager().players);
+        graphicsManager.DrawBullets(gameManager().bullets);
+        graphicsManager.DrawBulletsGUI(gameManager().bullets, player_id.load());
         break;
       case GameStatus::NO_STATUS:
         break;
