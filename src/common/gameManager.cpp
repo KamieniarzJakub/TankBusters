@@ -22,10 +22,7 @@ void GameManager::NewGame(std::vector<PlayerIdState> playerInfos) {
   }
   bullets = std::vector<Bullet>(
       Constants::BULLETS_PER_PLAYER * Constants::PLAYERS_MAX, Bullet());
-  _spawnerTime = time_point<steady_clock>(0s);
-  // _alive_players = GetReadyPlayers(playerInfos);
-  startRoundTime = steady_clock::now();
-  endRoundTime = time_point<steady_clock>(0s);
+  asteroid_spawner_time = time_point<steady_clock>(0s);
 }
 
 void GameManager::UpdateBullets(duration<double> frametime) {
@@ -43,8 +40,8 @@ void GameManager::UpdateAsteroids(duration<double> frametime) {
 
 void GameManager::AsteroidSpawner(std::vector<uint32_t> &spawned_asteroids) {
   auto now = std::chrono::steady_clock::now();
-  if (now > _spawnerTime + Constants::ASTEROID_SPAWN_DELAY) {
-    _spawnerTime = now;
+  if (now > asteroid_spawner_time + Constants::ASTEROID_SPAWN_DELAY) {
+    asteroid_spawner_time = now;
     auto r = AddAsteroid();
     if (r != UINT32_MAX) {
       spawned_asteroids.push_back(r);

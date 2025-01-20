@@ -46,17 +46,12 @@ struct Server {
 
   void listen_for_connections();
   std::map<uint32_t, Room> get_available_rooms();
-  void new_client(Client client);
-  // bool delete_client(size_t client_id);
-  // Client *find_client(size_t client_id);
   uint32_t get_next_available_player_id(GameRoom &gr);
 
   void handle_connection(int client_fd);
   void handle_network_event(Client &client, uint32_t networkEvent);
-  void client_error(Client &client);
   void disconnect_client(Client &client);
-  void serverSetEvent(Client &client, NetworkEvents event);
-  void serverSetStreamEvent(Client &client, NetworkEvents event);
+  bool serverSetEvent(Client &client, NetworkEvents event);
 
   uint32_t handleGetClientId(int client_fd);
   void handleGetRoomList(Client &client);

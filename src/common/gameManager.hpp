@@ -7,7 +7,6 @@
 #include <chrono>
 #include <cstdint>
 #include <raylib.h>
-#include <raymath.h>
 #include <sys/types.h>
 #include <vector>
 
@@ -20,11 +19,8 @@ struct GameManager {
 
   uint32_t winner_player_id = UINT32_MAX;
   uint32_t room_id;
-  // int _alive_players;
-  time_point<steady_clock> _spawnerTime;
-  time_point<steady_clock> startRoundTime;
-  time_point<steady_clock> endRoundTime;
 
+  time_point<steady_clock> asteroid_spawner_time;
   time_point<system_clock> game_start_time;
 
   void UpdatePlayers(duration<double> frametime);

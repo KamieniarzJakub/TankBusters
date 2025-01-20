@@ -104,11 +104,6 @@ void Server::listen_for_connections() {
   }
 }
 
-void Server::client_error(Client &client) {
-  // TODO: Try to recover by flushing network buffers
-  disconnect_client(client);
-}
-
 bool Server::sendCheckConnection(Client &client) {
   client.good_connection = false;
   // Set socket timeouts
@@ -120,17 +115,7 @@ bool Server::sendCheckConnection(Client &client) {
   setsockopt(client.fd_main, SOL_SOCKET, SO_SNDTIMEO, (const char *)&tv, tvs);
 
   // Send ping
-  bool status = write_uint32(client.fd_main, NetworkEvents::CheckConnection);
-  if (!status) {
-    TraceLog(
-        LOG_WARNING,
-        "Couldn't write CheckConnection NetworkEvent to client_id=%ld,fd=%d",
-        client.client_id, client.fd_main);
-    disconnect_client(client);
-    return false;
-  }
-
-  return true;
+  return serverSetEvent(client, NetworkEvents::CheckConnection);
 }
 
 void Server::handle_connection(int client_fd) {
@@ -238,7 +223,7 @@ void Server::handle_connection(int client_fd) {
           TraceLog(LOG_WARNING,
                    "Couldn't read NetworkEvent from client_id=%ld,fd=%d",
                    client.client_id, client.fd_main);
-          client_error(client);
+          disconnect_client(client);
           break;
         }
       } else if (events[n].data.fd == client.todo_fd) { // Something on queue
@@ -330,19 +315,16 @@ uint32_t Server::handleGetClientId(int client_fd) {
 }
 
 void Server::handleGetRoomList(Client &client) {
-  bool status = write_uint32(client.fd_main, NetworkEvents::GetRoomList);
-  if (!status) {
-    TraceLog(LOG_WARNING,
-             "Couldn't write GetRoomList NetworkEvent to client_id=%ld,fd=%d",
-             client.client_id, client.fd_main);
-    client_error(client);
+  if (!serverSetEvent(client, NetworkEvents::GetRoomList)) {
+    return;
   }
+
   auto j_rooms = json(this->get_available_rooms());
-  status = write_json(client.fd_main, j_rooms);
+  bool status = write_json(client.fd_main, j_rooms);
   if (!status) {
     TraceLog(LOG_WARNING, "Couldn't send rooms list to client_id=%ld,fd=%d",
              client.client_id, client.fd_main);
-    client_error(client);
+    disconnect_client(client);
   }
 }
 
@@ -352,12 +334,7 @@ void Server::sendNewGameSoon(Client &client, uint32_t when) {
 }
 
 void Server::handleVoteReady(Client &client) {
-  bool status = write_uint32(client.fd_main, NetworkEvents::VoteReady);
-  if (!status) {
-    TraceLog(LOG_WARNING,
-             "Couldn't write GetRoomList NetworkEvent to client_id=%ld,fd=%d",
-             client.client_id, client.fd_main);
-    client_error(client);
+  if (!serverSetEvent(client, NetworkEvents::VoteReady)) {
     return;
   }
 
@@ -366,71 +343,35 @@ void Server::handleVoteReady(Client &client) {
     json player_short_infos_json;
     {
       std::lock_guard<std::mutex> lgm(gr.gameRoomMutex);
-      TraceLog(LOG_INFO, "VOTE READY %d", client.client_id);
-      // client.player_id = get_next_available_player_id(gr);
       gr.room.players.at(client.player_id).state = PlayerInfo::READY;
-      gr.gameManager.players[client.player_id].active = true;
+      gr.gameManager.players.at(client.player_id).active = true;
       player_short_infos_json = gr.room.players;
-      std::cout << json(gr.room).dump() << std::endl;
       if (get_X_players(gr.room.players, READY) >= 2 &&
           gr.room.status != GameStatus::GAME) {
         std::thread(&Server::new_game, this, gr.room).detach();
-        TraceLog(LOG_INFO, "game Thread started %d", client.client_id);
       }
     }
-    status = write_json(client.fd_main, player_short_infos_json);
+    bool status = write_json(client.fd_main, player_short_infos_json);
     if (!status) {
       TraceLog(LOG_WARNING,
                "Couldn't send json of players to client_id=%ld,fd=%d",
                client.client_id, client.fd_main);
-      client_error(client);
+      disconnect_client(client);
       return;
     }
   } catch (const std::out_of_range &ex) {
-    status = false;
+    TraceLog(LOG_WARNING, "VoteReady: room or player id doesn't exist");
   }
 
   try {
     auto &gr = games.at(client.room_id);
     std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
-    // std::cout << "Clients for room " << gr.room.room_id
-    //           << json(gr.clients).dump() << std::endl;
     for (auto c : gr.clients) {
-      // if (c == except_client_id) {
-      //   continue;
-      // }
-
-      TraceLog(LOG_DEBUG, "setting up updating rooms for %lu", c);
-      todos.at(c).push([&](Client c1) {
-        bool status = sendUpdateRoomState(c1);
-        TraceLog(LOG_DEBUG, "updating rooms for %lu status=%d", c1.client_id,
-                 status);
-      });
+      todos.at(c).push([&](Client c1) { sendUpdateRoomState(c1); });
     }
   } catch (const std::out_of_range &ex) {
+    TraceLog(LOG_WARNING, "VoteReady: room or player id doesn't exist");
   }
-  // try {
-  //   auto &gr = games.at(client.room_id);
-  //   std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
-  //   for (auto c : gr.clients) {
-  //     if (c == client.client_id) {
-  //       continue;
-  //     }
-  //
-  //     TraceLog(LOG_INFO, "queuing room update for client_id=%lu", c);
-  //     todos.at(c).push([&](Client c1) {
-  //       bool status = sendUpdateRoomState(c1);
-  //       if (status) {
-  //         TraceLog(LOG_INFO, "send room updated for client_id=%lu",
-  //                  c1.client_id);
-  //         TraceLog(LOG_INFO, "send room client_id= %lu, %s", c1.client_id,
-  //                  json(gr.room).dump().c_str());
-  //       }
-  //       return status;
-  //     });
-  //   }
-  // } catch (const std::out_of_range &ex) {
-  // }
 }
 
 void Server::handlePlayerMovement(Client &client) {
@@ -440,7 +381,7 @@ void Server::handlePlayerMovement(Client &client) {
   bool status = read_json(client.fd_main, movement, -1);
   if (!status) {
     TraceLog(LOG_ERROR, "NET: Couldn't receive json of movement");
-    client_error(client);
+    disconnect_client(client);
     return;
   }
 
@@ -450,7 +391,7 @@ void Server::handlePlayerMovement(Client &client) {
     movement.at("rotation").get_to(rotation);
   } catch (json::exception &ex) {
     TraceLog(LOG_ERROR, "JSON: Couldn't deserialize json into movement");
-    client_error(client);
+    disconnect_client(client);
     return;
   }
   try {
@@ -461,13 +402,11 @@ void Server::handlePlayerMovement(Client &client) {
     player.rotation = rotation;
     player.velocity = velocity;
 
-    TraceLog(LOG_DEBUG, "client id movement %lu", client.client_id);
     for (auto c : gr.clients) {
       if (c == client.client_id)
         continue;
 
       todos.at(c).push([&](Client c1) {
-        TraceLog(LOG_DEBUG, "updating players for %lu", c1.client_id);
         serverSetEvent(c1, NetworkEvents::PlayerMovement);
         write_uint32(c1.fd_main, client.player_id);
 
@@ -478,24 +417,23 @@ void Server::handlePlayerMovement(Client &client) {
                           {"rotation", player1.rotation},
                           {"active", player1.active}};
         write_json(c1.fd_main, movement1);
-        TraceLog(LOG_DEBUG, "updating movement for %lu, %s", c1.client_id,
-                 movement1.dump().c_str());
-        return true;
       });
     }
   } catch (const std::out_of_range &ex) {
+    TraceLog(LOG_WARNING, "PlayerMovement: room or player id doesn't exist");
   }
 }
 
-void Server::serverSetEvent(Client &client, NetworkEvents event) {
+bool Server::serverSetEvent(Client &client, NetworkEvents event) {
   bool status = write_uint32(client.fd_main, event);
   if (!status) {
     TraceLog(LOG_WARNING,
              "Couldn't write %s NetworkEvent to client_id=%ld,fd=%d",
              network_event_to_string(event).c_str(), client.client_id,
              client.fd_main);
-    client_error(client);
+    disconnect_client(client);
   }
+  return status;
 }
 
 void Server::handleShootBullet(Client &client) {
@@ -511,7 +449,8 @@ void Server::handleShootBullet(Client &client) {
   }
 
   if (!status) {
-    TraceLog(LOG_INFO, "Player id=%lu cannot shoot bullet", client.player_id);
+    TraceLog(LOG_WARNING, "Player id=%lu cannot shoot bullet",
+             client.player_id);
     return;
   }
 
@@ -523,23 +462,21 @@ void Server::handleShootBullet(Client &client) {
         serverSetEvent(c1, NetworkEvents::ShootBullets);
 
         bool status = write_uint32(c1.fd_main, client.player_id);
-        // std::cerr << c1.fd_main << " " << client.player_id << std::endl;
         if (!status) {
           TraceLog(LOG_WARNING,
                    "Couldn't send info about bullet shot by player_id=%lu to "
                    "client_id=%ld,fd=%d",
                    client.player_id, client.client_id, client.fd_main);
-          client_error(client);
+          disconnect_client(client);
         }
-        return status;
       });
     }
   } catch (const std::out_of_range &ex) {
+    TraceLog(LOG_WARNING, "ShootBullets: room doesn't exist");
   }
 }
 
 void Server::restart_timer(GameRoom &gr, std::vector<uint32_t> &last_clients) {
-  gr.gameManager._spawnerTime = steady_clock::now();
   gr.gameManager.game_start_time =
       system_clock::now() + Constants::LOBBY_READY_TIME;
   last_clients = gr.clients;
@@ -548,8 +485,6 @@ void Server::restart_timer(GameRoom &gr, std::vector<uint32_t> &last_clients) {
     todos.at(c).push([=](Client c1) {
       sendUpdateRoomState(c1);
       sendNewGameSoon(c1, time);
-      TraceLog(LOG_INFO, "Sent new game soon");
-      // handleUpdateGameState(c1);
     });
   }
 }
@@ -557,9 +492,9 @@ void Server::restart_timer(GameRoom &gr, std::vector<uint32_t> &last_clients) {
 void Server::new_game(const Room r) {
 
   std::vector<uint32_t> destroyed_asteroids;
-  destroyed_asteroids.resize(Constants::ASTEROIDS_MAX);
+  destroyed_asteroids.reserve(Constants::ASTEROIDS_MAX);
   std::vector<uint32_t> spawned_asteroids;
-  spawned_asteroids.resize(Constants::ASTEROIDS_MAX);
+  spawned_asteroids.reserve(Constants::ASTEROIDS_MAX);
   std::vector<uint32_t> destroyed_players_ids;
   destroyed_players_ids.reserve(Constants::PLAYERS_MAX);
   std::vector<uint32_t> destroyed_bullets_ids;
@@ -567,12 +502,9 @@ void Server::new_game(const Room r) {
                                 Constants::PLAYERS_MAX);
 
   auto &gr = games.at(r.room_id);
-  TraceLog(LOG_DEBUG, "New round for room %lu", r.room_id);
+  // FIXME: mutex
   auto last_clients = gr.clients;
   restart_timer(gr, last_clients);
-  // for (uint32_t round_counter = 0; round_counter <
-  // Constants::ROUNDS_PER_GAME;
-  //      round_counter++) {
   do {
     std::this_thread::sleep_until(gr.gameManager.game_start_time - 0.1s);
     if (gr.clients.size() != last_clients.size()) {
@@ -590,7 +522,6 @@ void Server::new_game(const Room r) {
   gr.gameManager.NewGame(gr.room.players);
   for (auto c : gr.clients) {
     todos.at(c).push([=](Client c1) {
-      TraceLog(LOG_INFO, "START ROUND SENT TO %d", c1.client_id);
       serverSetEvent(c1, NetworkEvents::StartRound);
       handleUpdatePlayers(c1);
     });
@@ -598,12 +529,12 @@ void Server::new_game(const Room r) {
   auto game_start_time = std::chrono::steady_clock::now();
   auto frame_start_time = std::chrono::steady_clock::now();
   duration<double> frametime = game_start_time - steady_clock::now();
+  gr.gameManager.asteroid_spawner_time = steady_clock::now();
 
   while (games.at(r.room_id).room.status == GameStatus::GAME) {
     {
       auto frame_start_time1 = std::chrono::steady_clock::now();
       frametime = frame_start_time1 - frame_start_time;
-      // std::cerr << "frametime: " << frametime.count() << std::endl;
       frame_start_time = frame_start_time1;
       auto &gr = games.at(r.room_id);
       std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
@@ -742,7 +673,7 @@ void Server::handleJoinRoom(Client &client) {
     TraceLog(LOG_WARNING,
              "Couldn't read room id to join from client_id=%ld,fd=%d",
              client.client_id, client.fd_main);
-    client_error(client);
+    disconnect_client(client);
   }
   TraceLog(LOG_DEBUG, "Received room id=%lu to join from client_id=%lu,fd=%d",
            read_room_id, client.client_id, client.fd_main);
@@ -778,7 +709,7 @@ void Server::handleJoinRoom(Client &client) {
   if (!status) {
     TraceLog(LOG_WARNING, "Couldn't send joined room id to client_id=%ld,fd=%d",
              client.client_id, client.fd_main);
-    client_error(client);
+    disconnect_client(client);
   }
 
   TraceLog(LOG_DEBUG, "Sending playerid to id=%lu", client.player_id);
@@ -786,7 +717,7 @@ void Server::handleJoinRoom(Client &client) {
   if (!status) {
     TraceLog(LOG_WARNING, "Couldn't send player id to client_id=%ld,fd=%d",
              client.client_id, client.fd_main);
-    client_error(client);
+    disconnect_client(client);
   }
 
   try {
@@ -833,7 +764,7 @@ void Server::handleLeaveRoom(Client &client, bool checks_stuff) {
              "Couldn't make client leave a nonexistent room %lu for "
              "client_id=%ld,fd=%d",
              client.room_id, client.client_id, client.fd_main);
-    client_error(client);
+    disconnect_client(client);
     return;
   }
   // TraceLog(LOG_INFO, "3. Leave room %lu", client.client_id);
@@ -849,7 +780,7 @@ void Server::handleLeaveRoom(Client &client, bool checks_stuff) {
                    "Couldn't send leaving room confirmation to "
                    "client_id=%ld,fd=%d",
                    client.room_id, client.client_id, client.fd_main);
-          client_error(c1);
+          disconnect_client(c1);
         }
         sendUpdateRoomState(c1);
       });
@@ -865,7 +796,7 @@ void Server::handleLeaveRoom(Client &client, bool checks_stuff) {
                "Couldn't send leaving room confirmation to "
                "client_id=%ld,fd=%d",
                client.room_id, client.client_id, client.fd_main);
-      client_error(client);
+      disconnect_client(client);
     }
   }
   client.player_id = -1;
@@ -881,14 +812,14 @@ void Server::handleUpdateGameState(Client &client) {
                "Couldn't send game state json to"
                "client_id=%ld,fd=%d",
                client.room_id, client.client_id, client.fd_main);
-      client_error(client);
+      disconnect_client(client);
     }
   } catch (const std::out_of_range &ex) {
     TraceLog(LOG_WARNING,
              "Couldn't send game state of nonexistent room "
              "client_id=%ld,fd=%d",
              client.room_id, client.client_id, client.fd_main);
-    client_error(client);
+    disconnect_client(client);
   }
 }
 
@@ -899,12 +830,12 @@ void Server::handleUpdateRoomState(Client &client) {
   if (!status) {
     TraceLog(LOG_WARNING, "Couldn't read room id fetch for client_id=%ld,fd=%d",
              client.client_id, client.fd_main);
-    client_error(client);
+    disconnect_client(client);
     return;
   }
   status = sendUpdateRoomState(client);
   if (!status) {
-    client_error(client);
+    disconnect_client(client);
     return;
   }
 }
@@ -918,7 +849,7 @@ bool Server::sendUpdateRoomState(Client &client) {
     if (!status) {
       TraceLog(LOG_WARNING, "Couldn't send json of room to client_id=%ld,fd=%d",
                client.client_id, client.fd_main);
-      client_error(client);
+      disconnect_client(client);
       return false;
     }
     return status;
@@ -926,7 +857,7 @@ bool Server::sendUpdateRoomState(Client &client) {
     // Invalid room id
     TraceLog(LOG_WARNING, "Invalid room id %lu from client_id=%ld,fd=%d",
              client.room_id, client.client_id, client.fd_main);
-    client_error(client);
+    disconnect_client(client);
     return false;
   }
 }
@@ -941,13 +872,13 @@ void Server::handleUpdatePlayers(Client &client) {
       TraceLog(LOG_WARNING,
                "Couldn't send json of players to client_id=%ld,fd=%d",
                client.client_id, client.fd_main);
-      client_error(client);
+      disconnect_client(client);
       return;
     }
   } catch (const std::out_of_range &ex) {
     TraceLog(LOG_WARNING, "Invalid room id %lu from client_id=%ld,fd=%d",
              client.room_id, client.client_id, client.fd_main);
-    client_error(client);
+    disconnect_client(client);
     return;
   }
 }
@@ -960,13 +891,13 @@ void Server::handleUpdateAsteroids(Client &client) {
     if (!status) {
       TraceLog(LOG_WARNING, "Couldn't send asteroids to client_id=%ld,fd=%d",
                client.room_id, client.client_id, client.fd_main);
-      client_error(client);
+      disconnect_client(client);
       return;
     }
   } catch (const std::out_of_range &ex) {
     TraceLog(LOG_WARNING, "Invalid room id %lu from client_id=%ld,fd=%d",
              client.room_id, client.client_id, client.fd_main);
-    client_error(client);
+    disconnect_client(client);
     return;
   }
 }
@@ -984,7 +915,7 @@ void Server::handleUpdateAsteroids(Client &client) {
 //       TraceLog(LOG_WARNING,
 //                "Couldn't send json of asteroid ids to client_id=%ld,fd=%d",
 //                client.client_id, client.fd_main);
-//       client_error(client);
+//       disconnect_client(client);
 //       return;
 //     }
 //     status = write_json(client.fd_main, asteroids_json);
@@ -992,13 +923,13 @@ void Server::handleUpdateAsteroids(Client &client) {
 //       TraceLog(LOG_WARNING,
 //                "Couldn't send json of asteroids to client_id=%ld,fd=%d",
 //                client.client_id, client.fd_main);
-//       client_error(client);
+//       disconnect_client(client);
 //       return;
 //     }
 //   } catch (const std::out_of_range &ex) {
 //     TraceLog(LOG_WARNING, "Invalid room id %lu from client_id=%ld,fd=%d",
 //              client.room_id, client.client_id, client.fd_main);
-//     client_error(client);
+//     disconnect_client(client);
 //     return;
 //   }
 // }
@@ -1013,13 +944,13 @@ void Server::handleUpdateBullets(Client &client) {
       TraceLog(LOG_WARNING,
                "Couldn't send json of bullets to client_id=%ld,fd=%d",
                client.client_id, client.fd_main);
-      client_error(client);
+      disconnect_client(client);
       return;
     }
   } catch (const std::out_of_range &ex) {
     TraceLog(LOG_WARNING, "Invalid room id %lu from client_id=%ld,fd=%d",
              client.room_id, client.client_id, client.fd_main);
-    client_error(client);
+    disconnect_client(client);
     return;
   }
 }
@@ -1119,7 +1050,6 @@ void Server::handle_network_event(Client &client, uint32_t event) {
 }
 
 void Server::disconnect_client(Client &client) {
-  TraceLog(LOG_INFO, "DISCONNECTING %d", client.client_id);
   if (client.epd > 0) {
     close(client.epd);
   }
@@ -1135,15 +1065,11 @@ void Server::disconnect_client(Client &client) {
           auto i =
               std::remove(g.clients.begin(), g.clients.end(), client.client_id);
           g.clients.erase(i, g.clients.end());
-          TraceLog(LOG_INFO, "1. Disconnected client_id=%ld,fd=%d",
-                   client.client_id, client.fd_main);
         }
         {
           std::lock_guard<std::mutex> lc(clients_mutex);
           todos.erase(client.client_id);
           clients.erase(client.client_id);
-          TraceLog(LOG_INFO, "2. Disconnected client_id=%ld,fd=%d",
-                   client.client_id, client.fd_main);
         }
       } catch (const std::out_of_range &ex) {
       }
@@ -1153,8 +1079,6 @@ void Server::disconnect_client(Client &client) {
     close(client.fd_main);
     client.fd_main = -1;
   }
-  TraceLog(LOG_INFO, "3. Disconnected client_id=%ld,fd=%d", client.client_id,
-           client.fd_main);
 }
 
 std::map<uint32_t, Room> Server::get_available_rooms() {
@@ -1163,37 +1087,8 @@ std::map<uint32_t, Room> Server::get_available_rooms() {
     const auto &r = game.second.room;
     rs[r.room_id] = r;
   }
-  // for (GameManager &g : this->games) {
-  //   auto room =
-  //       Room{g.room_id,
-  //            g.GetConnectedPlayers(PlayerConnection::Connected) +
-  //                g.GetConnectedPlayers(PlayerConnection::PoorConnection),
-  //            g.status};
-  //   rs.push_back(room);
-  // }
   return rs;
 }
-
-// bool Server::delete_client(size_t client_id) {
-//   std::lock_guard<std::mutex> lc(clients_mutex);
-//   if (auto c = clients.find(client_id); c != clients.end()) {
-//     handleLeaveRoom(c->second, false);
-//     int res = shutdown(c->second.fd_main, SHUT_RDWR);
-//     if (res) {
-//       TraceLog(LOG_WARNING, "Failed shutdown for client: %lu",
-//                c->second.client_id);
-//     }
-//     res = close(c->second.fd_main);
-//     if (res) {
-//       TraceLog(LOG_WARNING, "Failed socket close for client: %lu",
-//                c->second.client_id);
-//     }
-//     c->second.fd_main = -1;
-//     clients.erase(client_id);
-//     return true;
-//   }
-//   return false;
-// }
 
 uint32_t Server::get_next_available_player_id(GameRoom &gr) {
   uint32_t player_id = 0;
