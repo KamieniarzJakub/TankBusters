@@ -1,5 +1,4 @@
 #pragma once
-#include <chrono>
 #include <nlohmann/json.hpp>
 #include <raylib.h>
 #include <raymath.h>

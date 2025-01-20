@@ -15,8 +15,8 @@
 #include <map>
 #include <mutex>
 #include <nlohmann/json.hpp>
+#include <raylib.h>
 #include <thread>
-#include <vec2json.hpp>
 #include <vector>
 
 #include "asteroid.hpp"
@@ -28,8 +28,8 @@
 #include "lockingQueue.hpp"
 #include "networkUtils.hpp"
 #include "player.hpp"
-#include "raylib.h"
 #include "room.hpp"
+#include "vec2json.hpp"
 
 Server::Server(in_port_t main_port) {
   this->mainfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -331,7 +331,7 @@ void Server::handleVoteReady(Client &client) {
         while (!gr.thread_is_running.compare_exchange_strong(thread_is_running,
                                                              true)) {
         }
-        std::thread(&Server::new_game, this, gr.room).detach();
+        std::thread(&Server::new_game, this, gr.room.room_id).detach();
       }
     }
     bool status = write_json(client.fd_main, player_short_infos_json);
@@ -472,7 +472,7 @@ void Server::restart_timer(GameRoom &gr, std::vector<uint32_t> &last_clients) {
   }
 }
 
-void Server::new_game(const Room r) {
+void Server::new_game(uint32_t room_id) {
 
   std::vector<uint32_t> destroyed_asteroids;
   destroyed_asteroids.resize(Constants::ASTEROIDS_MAX);
@@ -484,7 +484,7 @@ void Server::new_game(const Room r) {
   destroyed_bullets_ids.reserve(Constants::BULLETS_PER_PLAYER *
                                 Constants::PLAYERS_MAX);
 
-  auto &gr = games.at(r.room_id);
+  auto &gr = games.at(room_id);
   auto last_clients = gr.clients;
   restart_timer(gr, last_clients);
   std::this_thread::sleep_until(gr.gameManager.game_start_time - 0.1s);
@@ -502,12 +502,12 @@ void Server::new_game(const Room r) {
   duration<double> frametime = game_start_time - steady_clock::now();
   gr.gameManager.asteroid_spawner_time = steady_clock::now();
 
-  while (games.at(r.room_id).room.status == GameStatus::GAME) {
+  while (games.at(room_id).room.status == GameStatus::GAME) {
     {
       auto frame_start_time1 = std::chrono::steady_clock::now();
       frametime = frame_start_time1 - frame_start_time;
       frame_start_time = frame_start_time1;
-      auto &gr = games.at(r.room_id);
+      auto &gr = games.at(room_id);
       std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
       auto &game = gr.gameManager;
 
@@ -630,15 +630,12 @@ void Server::handleJoinRoom(Client &client) {
       auto &gr = games.at(read_room_id);
       std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
       auto player_id = get_next_available_player_id(gr);
-      // std::cerr << player_id << std::endl;
       status = player_id != UINT32_MAX;
       client.player_id = player_id;
       if (status) {
         gr.room.players.at(player_id).state = PlayerInfo::NOT_READY;
         gr.clients.push_back(client.client_id);
-        // gr.gameManager = GameManager{gr.room.room_id, gr.room.players};
       }
-      // TraceLog(LOG_DEBUG, "Client player id=%lu", client.player_id);
     }
     client.room_id = read_room_id;
   } catch (const std::out_of_range &ex) {
@@ -670,25 +667,13 @@ void Server::handleJoinRoom(Client &client) {
     auto &gr = games.at(client.room_id);
     std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
     for (auto c : gr.clients) {
-      // if (c != client.client_id)
       todos.at(c).push([&](Client c1) { sendUpdateRoomState(c1); });
     }
-    // sendUpdateRoomState(client);
-    // if (gr.thread_is_running.load()) {
-    // auto asteroids = gr.gameManager.asteroids;
-    // for (size_t asteroid_id = 0; asteroid_id < asteroids.size();
-    //      asteroid_id++) {
-    //   if (asteroids.at(asteroid_id).active)
-    //     handleSpawnAsteroid(client, asteroids.at(asteroid_id),
-    //     asteroid_id);
-    // }
-    // handleUpdateBullets(client);
-    // }
   } catch (const std::out_of_range &ex) {
   }
 }
 
-void Server::handleLeaveRoom(Client &client, bool checks_stuff) {
+void Server::handleLeaveRoom(Client &client, bool send_confirmation) {
   std::vector<uint32_t> client_ids;
   try {
     auto &gr = games.at(client.room_id);
@@ -738,7 +723,7 @@ void Server::handleLeaveRoom(Client &client, bool checks_stuff) {
     }
   }
 
-  if (checks_stuff) {
+  if (send_confirmation) {
     serverSetEvent(client, NetworkEvents::LeaveRoom);
     bool status = write_uint32(client.fd_main, client.player_id);
     if (!status) {

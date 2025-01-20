@@ -20,7 +20,6 @@
 #include "gameStatus.hpp"
 #include "jsonutils.hpp"
 #include "player.hpp"
-#include "raylib.h"
 #include "room.hpp"
 #include "vec2json.hpp"
 
@@ -124,10 +123,8 @@ void ClientNetworkManager::perform_network_actions() {
       close(mainfd);
       return;
     } else if (nfds == 0) { // EPOLL WAIT TIMEOUT
-      // RECONNECT
       shutdown(mainfd, SHUT_RDWR);
       close(mainfd);
-      // reconnect(connected_to_host, connected_over_port, client_id);
     }
     for (int n = 0; n < nfds; n++) {
       if (events[n].data.fd == todo.get_event_fd()) {
@@ -339,8 +336,6 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
 
   break;
   case NetworkEvents::ShootBullets: {
-    // TraceLog(LOG_WARNING, "NET: %s received",
-    //          network_event_to_string(event).c_str());
     uint32_t value;
     bool status = read_uint32(mainfd, value);
     if (!status) {
@@ -542,6 +537,7 @@ bool ClientNetworkManager::get_new_client_id(uint32_t &client_id) {
   return true;
 }
 
+// Send request to get a list of rooms, response is handled separately
 bool ClientNetworkManager::get_rooms() {
   bool status;
   status = write_uint32(mainfd, NetworkEvents::GetRoomList);

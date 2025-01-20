@@ -1,5 +1,5 @@
 #include <nlohmann/json.hpp>
-#include <raylib.h>
+#include <raymath.h>
 using json = nlohmann::json;
 
 void to_json(json &j, const Vector2 &v);
