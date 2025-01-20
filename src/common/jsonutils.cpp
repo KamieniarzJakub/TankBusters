@@ -71,7 +71,7 @@ bool read_json(int fd, json &j, size_t maxsize) {
   ssize_t readb = read(fd, &bson[0], bson.size());
   if (readb != (ssize_t)bson.size()) {
     TraceLog(LOG_ERROR, "NET: Couldn't read full bson object, received %ld/%lu",
-             read, bson_size);
+             readb, bson_size);
     return false;
   }
 

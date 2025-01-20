@@ -689,30 +689,28 @@ void Server::handleJoinRoom(Client &client) {
     {
       auto &gr = games.at(read_room_id);
       std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
-      if (true) { // FIXME: gr.room.status == GameStatus::LOBBY
-        auto player_id = get_next_available_player_id(gr);
-        // std::cerr << player_id << std::endl;
-        status = player_id != UINT32_MAX;
-        client.player_id = player_id;
-        if (status) {
-          gr.room.players.at(player_id).state = PlayerInfo::NOT_READY;
-          gr.clients.push_back(client.client_id);
-          // gr.gameManager = GameManager{gr.room.room_id, gr.room.players};
-        }
-        TraceLog(LOG_INFO, "Client player id=%lu", client.player_id);
+      auto player_id = get_next_available_player_id(gr);
+      // std::cerr << player_id << std::endl;
+      status = player_id != UINT32_MAX;
+      client.player_id = player_id;
+      if (status) {
+        gr.room.players.at(player_id).state = PlayerInfo::NOT_READY;
+        gr.clients.push_back(client.client_id);
+        // gr.gameManager = GameManager{gr.room.room_id, gr.room.players};
       }
+      // TraceLog(LOG_DEBUG, "Client player id=%lu", client.player_id);
     }
     client.room_id = read_room_id;
   } catch (const std::out_of_range &ex) {
     status = false;
   }
 
-  TraceLog(LOG_INFO, "Sending JoinRoom to id=%lu", client.player_id);
+  // TraceLog(LOG_INFO, "Sending JoinRoom to id=%lu", client.player_id);
   if (!serverSetEvent(client, NetworkEvents::JoinRoom)) {
     return;
   }
 
-  TraceLog(LOG_INFO, "Sending read room join to id=%lu", client.player_id);
+  // TraceLog(LOG_INFO, "Sending read room join to id=%lu", client.player_id);
   status = write_uint32(client.fd_main, (uint32_t)status * read_room_id);
   if (!status) {
     TraceLog(LOG_WARNING, "Couldn't send joined room id to client_id=%ld,fd=%d",
@@ -720,27 +718,30 @@ void Server::handleJoinRoom(Client &client) {
     disconnect_client(client);
   }
 
-  TraceLog(LOG_INFO, "Sending playerid to id=%lu", client.player_id);
+  // TraceLog(LOG_INFO, "Sending playerid to id=%lu", client.player_id);
   status = write_uint32(client.fd_main, client.player_id);
   if (!status) {
     TraceLog(LOG_WARNING, "Couldn't send player id to client_id=%ld,fd=%d",
              client.client_id, client.fd_main);
     disconnect_client(client);
   }
-  // TraceLog(LOG_INFO, "HandleUpdateGameState started");
-  // handleUpdateGameState(client);
-  // TraceLog(LOG_INFO, "HandleUpdateGameState ended");
+
   try {
     auto &gr = games.at(client.room_id);
     std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
-    for (auto c : gr.clients) {
-      todos.at(c).push([&](Client c1) {
-        TraceLog(LOG_INFO, "updating rooms for %lu", c1.client_id);
-        sendUpdateRoomState(c1);
-      });
+    if (gr.thread_is_running.load()) {
+      auto asteroids = gr.gameManager.asteroids;
+      for (size_t asteroid_id = 0; asteroid_id < asteroids.size();
+           asteroid_id++) {
+        if (asteroids.at(asteroid_id).active)
+          handleSpawnAsteroid(client, asteroids.at(asteroid_id), asteroid_id);
+      }
+      handleUpdateBullets(client);
     }
-  } catch (int e) { // FIXME: catch(const std::out_of_range &ex)
-    TraceLog(LOG_WARNING, "Catched");
+    for (auto c : gr.clients) {
+      todos.at(c).push([&](Client c1) { sendUpdateRoomState(c1); });
+    }
+  } catch (const std::out_of_range &ex) {
   }
 }
 
@@ -850,7 +851,6 @@ void Server::handleUpdateRoomState(Client &client) {
 bool Server::sendUpdateRoomState(Client &client) {
   try {
     json room_json = games.at(client.room_id).room;
-    std::cout << "ASFDASDFASDF" << std::endl;
     serverSetEvent(client, NetworkEvents::UpdateRoomState);
     TraceLog(LOG_INFO, "Room json: %s", room_json.dump().c_str());
     bool status = write_json(client.fd_main, room_json);
@@ -909,38 +909,6 @@ void Server::handleUpdateAsteroids(Client &client) {
     return;
   }
 }
-// void Server::handleUpdateAsteroids(Client &client,
-//                                    const std::vector<uint32_t> &asteroid_ids,
-//                                    const std::vector<Asteroid> &asteroids) {
-//   try {
-//     bool status;
-//     json asteroids_json = asteroids;
-//     json asteroid_ids_json = asteroid_ids;
-//     serverSetEvent(client, NetworkEvents::UpdateAsteroids);
-//
-//     status = write_json(client.fd_main, asteroid_ids_json);
-//     if (!status) {
-//       TraceLog(LOG_WARNING,
-//                "Couldn't send json of asteroid ids to client_id=%ld,fd=%d",
-//                client.client_id, client.fd_main);
-//       disconnect_client(client);
-//       return;
-//     }
-//     status = write_json(client.fd_main, asteroids_json);
-//     if (!status) {
-//       TraceLog(LOG_WARNING,
-//                "Couldn't send json of asteroids to client_id=%ld,fd=%d",
-//                client.client_id, client.fd_main);
-//       disconnect_client(client);
-//       return;
-//     }
-//   } catch (const std::out_of_range &ex) {
-//     TraceLog(LOG_WARNING, "Invalid room id %lu from client_id=%ld,fd=%d",
-//              client.room_id, client.client_id, client.fd_main);
-//     disconnect_client(client);
-//     return;
-//   }
-// }
 
 void Server::handleUpdateBullets(Client &client) {
   try {
