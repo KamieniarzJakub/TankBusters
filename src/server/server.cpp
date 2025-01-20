@@ -134,7 +134,7 @@ void Server::handle_connection(int client_fd) {
   }
   Client &client = *client_ptr;
 
-  const size_t MAX_EVENTS = 3;
+  const size_t MAX_EVENTS = 10;
   epoll_event ee, events[MAX_EVENTS];
   int epoll_fd = epoll_create1(0);
   if (epoll_fd == -1) {
@@ -850,7 +850,7 @@ void Server::handleUpdateRoomState(Client &client) {
 bool Server::sendUpdateRoomState(Client &client) {
   try {
     json room_json = games.at(client.room_id).room;
-    std::cout<<"ROOM json: " << games.at(client.client_id).room.room_id<<std::endl;
+    std::cout<<"ASFDASDFASDF"<<std::endl;
     serverSetEvent(client, NetworkEvents::UpdateRoomState);
     TraceLog(LOG_INFO, "Room json: %s", room_json.dump().c_str());
     bool status = write_json(client.fd_main, room_json);
