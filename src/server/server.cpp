@@ -346,8 +346,12 @@ void Server::handleVoteReady(Client &client) {
       gr.room.players.at(client.player_id).state = PlayerInfo::READY;
       gr.gameManager.players.at(client.player_id).active = true;
       player_short_infos_json = gr.room.players;
+      bool thread_is_running = gr.thread_is_running.load();
       if (get_X_players(gr.room.players, READY) >= 2 &&
-          gr.room.status != GameStatus::GAME) {
+          gr.room.status != GameStatus::GAME && !thread_is_running) {
+        while (!gr.thread_is_running.compare_exchange_strong(thread_is_running,
+                                                             true)) {
+        }
         std::thread(&Server::new_game, this, gr.room).detach();
       }
     }
@@ -492,9 +496,9 @@ void Server::restart_timer(GameRoom &gr, std::vector<uint32_t> &last_clients) {
 void Server::new_game(const Room r) {
 
   std::vector<uint32_t> destroyed_asteroids;
-  destroyed_asteroids.reserve(Constants::ASTEROIDS_MAX);
+  destroyed_asteroids.resize(Constants::ASTEROIDS_MAX);
   std::vector<uint32_t> spawned_asteroids;
-  spawned_asteroids.reserve(Constants::ASTEROIDS_MAX);
+  spawned_asteroids.resize(Constants::ASTEROIDS_MAX);
   std::vector<uint32_t> destroyed_players_ids;
   destroyed_players_ids.reserve(Constants::PLAYERS_MAX);
   std::vector<uint32_t> destroyed_bullets_ids;
@@ -506,7 +510,7 @@ void Server::new_game(const Room r) {
   auto last_clients = gr.clients;
   restart_timer(gr, last_clients);
   do {
-    std::this_thread::sleep_until(gr.gameManager.game_start_time - 0.1s);
+    // std::this_thread::sleep_until(gr.gameManager.game_start_time - 0.1s);
     if (gr.clients.size() != last_clients.size()) {
       restart_timer(gr, last_clients);
       continue;
@@ -663,6 +667,10 @@ void Server::new_game(const Room r) {
   }
   TraceLog(LOG_INFO, "game Thread ended room");
   std::cout << json(gr.room).dump() << std::endl;
+  bool thread_is_running = gr.thread_is_running.load();
+  while (
+      !gr.thread_is_running.compare_exchange_strong(thread_is_running, false)) {
+  }
 }
 
 void Server::handleJoinRoom(Client &client) {

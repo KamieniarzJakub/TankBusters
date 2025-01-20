@@ -186,28 +186,8 @@ size_t GameManager::GetReadyPlayers(
   return i;
 }
 
-// bool GameManager::UpdateLobbyStatus(
-//     const std::vector<PlayerShortInfo> &player_infos) {
-//   size_t ready_players = GetReadyPlayers(player_infos);
-//   if (ready_players > 2) {
-//     new_round_timer = new_round_timer > 0 ? new_round_timer : GetTime();
-//     if (new_round_timer > 0 &&
-//         int(GetTime() - new_round_timer) >= Constants::LOBBY_READY_TIME)
-//       return true;
-//   } else
-//     new_round_timer = -1;
-//   return false;
-// }
-
 bool ReturnToRooms() {
   return ((IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_BACKSPACE)));
-}
-
-void GameManager::RestartLobby() {
-  for (auto &p : players) {
-    p.active = true;
-  }
-  // new_round_timer = -1;
 }
 
 GameManager::GameManager(uint32_t room_id,
@@ -223,12 +203,7 @@ void to_json(json &j, const GameManager &gm) {
       {"players", gm.players},
       {"bulelts", gm.bullets},
       {"winner_player_id", gm.winner_player_id},
-      // {"_spawnerTime", gm._spawnerTime},
-      // {"startRoundTime", gm.startRoundTime},
-      // {"endRoundTime", gm.endRoundTime} ,
-      // {"game_start_time", gm.game_start_time}
   };
-  // asteroids, players, bullets omitted
 }
 
 void from_json(const json &j, GameManager &gm) {

@@ -22,6 +22,7 @@ struct GameRoom {
   GameManager gameManager;
   std::vector<uint32_t> clients;
   std::mutex gameRoomMutex;
+  std::atomic_bool thread_is_running = false;
 };
 
 struct Server {
