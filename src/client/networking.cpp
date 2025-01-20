@@ -802,6 +802,12 @@ bool ClientNetworkManager::send_movement(Vector2 position, Vector2 velocity,
     return false;
   }
 
+  status = write_uint32(mainfd, system_clock::now().time_since_epoch().count());
+  if (!status) {
+    TraceLog(LOG_ERROR, "NET: Couldn't send timestamp");
+    return false;
+  }
+
   return true;
 }
 
