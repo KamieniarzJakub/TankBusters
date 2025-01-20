@@ -317,6 +317,7 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
     Vector2 position, velocity;
     float rotation;
     bool active;
+    uint32_t received_timestamp;
     try {
       if (!read_json(mainfd, movement, -1)) {
         TraceLog(LOG_ERROR,
@@ -334,6 +335,11 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
       //          network_event_to_string(event).c_str());
     } catch (json::exception &ex) {
       TraceLog(LOG_ERROR, "JSON: Couldn't serialize movement into json");
+      return;
+    }
+    if (!read_uint32(mainfd, received_timestamp)) {
+      TraceLog(LOG_ERROR, "NET: cannot read received timestamp player_id=%lu",
+               updated_player_id);
       return;
     }
 

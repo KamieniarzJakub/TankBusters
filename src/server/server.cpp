@@ -388,6 +388,12 @@ void Server::handlePlayerMovement(Client &client) {
     disconnect_client(client);
     return;
   }
+  uint32_t received_timestamp;
+  if (!read_uint32(client.fd_main, received_timestamp)) {
+    TraceLog(LOG_ERROR, "NET: Couldn't send timestamp");
+    disconnect_client(client);
+    return;
+  }
 
   try {
     movement.at("position").get_to(position);
@@ -421,6 +427,7 @@ void Server::handlePlayerMovement(Client &client) {
                           {"rotation", player1.rotation},
                           {"active", player1.active}};
         write_json(c1.fd_main, movement1);
+        write_uint32(c1.fd_main, received_timestamp);
       });
     }
   } catch (const std::out_of_range &ex) {
