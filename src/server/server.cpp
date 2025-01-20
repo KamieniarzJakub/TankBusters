@@ -3,7 +3,7 @@
 #include <errno.h>
 #include <error.h>
 #include <fcntl.h>
-#include <iostream>
+
 #include <netinet/in.h>
 #include <sys/epoll.h>
 #include <sys/socket.h>
@@ -32,7 +32,6 @@
 #include "room.hpp"
 
 Server::Server(in_port_t main_port) {
-  // setup main socket
   this->mainfd = socket(AF_INET, SOCK_STREAM, 0);
   if (this->mainfd == -1)
     error(1, errno, "main socket failed");
@@ -57,7 +56,7 @@ Server::Server(in_port_t main_port) {
     for (int i = 0; i < 4; i++) {
       uint32_t game_id = _next_game_id++;
 
-      this->games[game_id]; // Create a new game room
+      this->games[game_id];
       {
         GameRoom &gr = this->games.at(game_id);
         std::lock_guard<std::mutex> grl(gr.gameRoomMutex);
@@ -134,7 +133,7 @@ void Server::handle_connection(int client_fd) {
   }
   Client &client = *client_ptr;
 
-  const size_t MAX_EVENTS = 10;
+  const size_t MAX_EVENTS = 2;
   epoll_event ee, events[MAX_EVENTS];
   int epoll_fd = epoll_create1(0);
   if (epoll_fd == -1) {
@@ -144,8 +143,6 @@ void Server::handle_connection(int client_fd) {
     return;
   }
   client.epd = epoll_fd;
-  // TraceLog(LOG_INFO, "Epoll_create %d for client_id=%ld,fd=%d", epoll_fd,
-  //          client.client_id, client.fd_main);
 
   ee.events = EPOLLIN | EPOLLRDHUP | EPOLLERR;
   ee.data.fd = client.fd_main;
@@ -172,7 +169,6 @@ void Server::handle_connection(int client_fd) {
   TraceLog(LOG_DEBUG, "Added queue to epoll for client_id=%ld,fd=%d",
            client.client_id, client.fd_main);
 
-  std::time(&client.last_response); // Set last response to current time
   while (client.fd_main > 2) {
     int nfds = epoll_wait(epoll_fd, events, MAX_EVENTS,
                           Constants::CONNECTION_TIMEOUT_MILISECONDS);
@@ -200,16 +196,6 @@ void Server::handle_connection(int client_fd) {
                  client.fd_main) { // EPOLLIN on client.main_fd
         if (!client.good_connection) {
           client.good_connection = true;
-          // Reset to no timeout
-          // struct timeval tv{};
-          // size_t tvs = sizeof(tv);
-          // setsockopt(client.fd_main, SOL_SOCKET, SO_RCVTIMEO, (const char
-          // *)&tv,
-          //            tvs);
-          // setsockopt(client.fd_main, SOL_SOCKET, SO_SNDTIMEO, (const char
-          // *)&tv,
-          //            tvs);
-          std::time(&client.last_response); // Set last response to current time
         }
         uint32_t network_event;
         bool status = read_uint32(client.fd_main, network_event);
@@ -263,13 +249,6 @@ uint32_t Server::handleGetClientId(int client_fd) {
     Client &c = clients[client_id];
     c.client_id = client_id;
     c.fd_main = client_fd;
-
-    // std::vector<std::vector<uint32_t>> ccc;
-    // for (auto &m : clients) {
-    //   ccc.push_back(std::vector<uint32_t>{m.first, m.second.player_id});
-    // }
-    // TraceLog(LOG_INFO, "Current Clients: %s", json(ccc).dump().c_str());
-    // remove debug
 
     TraceLog(LOG_DEBUG, "Creating todo queue for client_id=%ld,fd=%d",
              client_id, client_fd);
@@ -481,7 +460,6 @@ void Server::handleShootBullet(Client &client) {
 }
 
 void Server::restart_timer(GameRoom &gr, std::vector<uint32_t> &last_clients) {
-  TraceLog(LOG_INFO, "restarting timer.");
   gr.gameManager.game_start_time =
       system_clock::now() + Constants::LOBBY_READY_TIME;
   last_clients = gr.clients;
@@ -510,18 +488,7 @@ void Server::new_game(const Room r) {
   auto last_clients = gr.clients;
   restart_timer(gr, last_clients);
   std::this_thread::sleep_until(gr.gameManager.game_start_time - 0.1s);
-  // do {
-  //   if (gr.clients.size() != last_clients.size()) {
-  //     restart_timer(gr, last_clients);
-  //     continue;
-  //   }
-  //   for (size_t i = 0; i < last_clients.size(); i++) {
-  //     if (last_clients.at(i) != gr.clients.at(i)) {
-  //       restart_timer(gr, last_clients);
-  //       break;
-  //     }
-  //   }
-  // } while ((gr.gameManager.game_start_time - system_clock::now()) > 100ms);
+
   gr.room.status = GameStatus::GAME;
   gr.gameManager.NewGame(gr.room.players);
   for (auto c : gr.clients) {
@@ -549,43 +516,20 @@ void Server::new_game(const Room r) {
       destroyed_players_ids.clear();
       destroyed_bullets_ids.clear();
 
-      // std::cout<<"r.room_id: "<<r.room_id<<std::endl;
-      // std::cout<<"GAMES AT: "<<games.at(r.room_id).room.room_id<<std::endl;
       game.ManageCollisions(destroyed_asteroids, spawned_asteroids,
                             destroyed_players_ids, destroyed_bullets_ids);
 
       for (auto &player : game.players) {
-
-        player.rotation += Constants::PLAYER_ROTATION_SPEED * frametime.count();
-
-        // Apply damping to velocity
-        player.velocity = Vector2Scale(player.velocity,
-                                       (1 - Constants::PLAYER_DRAG / 1000.0f));
-
-        // Update position
-        player.position = Vector2Add(
-            player.position, Vector2Scale(player.velocity, frametime.count()));
-
-        // Keep player on the screen (wrap around)
-        if (player.position.x < 0)
-          player.position.x += Constants::screenWidth;
-        if (player.position.x > Constants::screenWidth)
-          player.position.x -= Constants::screenWidth;
-        if (player.position.y < 0)
-          player.position.y += Constants::screenHeight;
-        if (player.position.y > Constants::screenHeight)
-          player.position.y -= Constants::screenHeight;
-
-        // Update player color depending on the active state
-        player.player_color.a = player.active ? 255 : 25;
+        CalculateUpdatePlayerMovement(player, frametime);
       }
+
       game.UpdateBullets(frametime);
       game.UpdateAsteroids(frametime);
       game.AsteroidSpawner(spawned_asteroids);
 
       for (auto b : destroyed_bullets_ids) {
         for (auto c : gr.clients) {
-          todos.at(c).push([=](Client c1) { // TODO: send timestamp
+          todos.at(c).push([=](Client c1) {
             TraceLog(LOG_DEBUG, "Updating bullets for client_id=%lu",
                      c1.client_id);
             handleBulletDestroyed(c1, b);
@@ -595,7 +539,7 @@ void Server::new_game(const Room r) {
 
       for (auto id : spawned_asteroids) {
         Asteroid &a = game.asteroids.at(id);
-        for (auto c : gr.clients) { // TODO: send timestamp
+        for (auto c : gr.clients) {
           todos.at(c).push([=](Client c1) {
             TraceLog(LOG_DEBUG, "Updating asteroids for client_id=%lu",
                      c1.client_id);
@@ -605,7 +549,7 @@ void Server::new_game(const Room r) {
       }
 
       for (auto id : destroyed_asteroids) {
-        for (auto c : gr.clients) { // TODO: send timestamp
+        for (auto c : gr.clients) {
           todos.at(c).push([=](Client c1) {
             TraceLog(LOG_DEBUG, "Updating asteroids for client_id=%lu",
                      c1.client_id);
@@ -616,15 +560,13 @@ void Server::new_game(const Room r) {
 
       for (auto p : destroyed_players_ids) {
         for (auto c : gr.clients) {
-          todos.at(c).push([=](Client c1) { // TODO: send timestamp
+          todos.at(c).push([=](Client c1) {
             TraceLog(LOG_DEBUG, "Updating players for client_id=%lu",
                      c1.client_id);
             handlePlayerDestroyed(c1, p);
           });
         }
       }
-      // TraceLog(LOG_INFO, json(game.players).dump().c_str());
-
       int active_players = 0;
       uint32_t winner = UINT32_MAX;
       for (auto &p : gr.gameManager.players) {
@@ -648,7 +590,6 @@ void Server::new_game(const Room r) {
       }
     }
   }
-  // }
   gr.room.status = GameStatus::LOBBY;
   for (auto &p : gr.room.players) {
     if (p.state == PlayerInfo::READY)
@@ -659,13 +600,12 @@ void Server::new_game(const Room r) {
         system_clock::now() - Constants::NEW_ROUND_WAIT_TIME; // invalid time
     auto when = system_clock::to_time_t(gr.gameManager.game_start_time);
     todos.at(c).push([=](Client c1) {
-      TraceLog(LOG_INFO, "LOBBY SENT TO %d", c1.client_id);
       serverSetEvent(c1, NetworkEvents::ReturnToLobby);
       write_uint32(c1.fd_main, when);
       sendUpdateRoomState(c1);
     });
   }
-  std::cout << json(gr.room).dump() << std::endl;
+
   bool thread_is_running = gr.thread_is_running.load();
   while (
       !gr.thread_is_running.compare_exchange_strong(thread_is_running, false)) {
@@ -682,7 +622,7 @@ void Server::handleJoinRoom(Client &client) {
              client.client_id, client.fd_main);
     disconnect_client(client);
   }
-  TraceLog(LOG_INFO, "Received room id=%lu to join from client_id=%lu,fd=%d",
+  TraceLog(LOG_DEBUG, "Received room id=%lu to join from client_id=%lu,fd=%d",
            read_room_id, client.client_id, client.fd_main);
 
   try {
@@ -705,12 +645,12 @@ void Server::handleJoinRoom(Client &client) {
     status = false;
   }
 
-  // TraceLog(LOG_INFO, "Sending JoinRoom to id=%lu", client.player_id);
+  TraceLog(LOG_DEBUG, "Sending JoinRoom to id=%lu", client.player_id);
   if (!serverSetEvent(client, NetworkEvents::JoinRoom)) {
     return;
   }
 
-  // TraceLog(LOG_INFO, "Sending read room join to id=%lu", client.player_id);
+  TraceLog(LOG_DEBUG, "Sending read room join to id=%lu", client.player_id);
   status = write_uint32(client.fd_main, (uint32_t)status * read_room_id);
   if (!status) {
     TraceLog(LOG_WARNING, "Couldn't send joined room id to client_id=%ld,fd=%d",
@@ -718,7 +658,7 @@ void Server::handleJoinRoom(Client &client) {
     disconnect_client(client);
   }
 
-  // TraceLog(LOG_INFO, "Sending playerid to id=%lu", client.player_id);
+  TraceLog(LOG_DEBUG, "Sending playerid to id=%lu", client.player_id);
   status = write_uint32(client.fd_main, client.player_id);
   if (!status) {
     TraceLog(LOG_WARNING, "Couldn't send player id to client_id=%ld,fd=%d",
@@ -778,7 +718,6 @@ void Server::handleLeaveRoom(Client &client, bool checks_stuff) {
     disconnect_client(client);
     return;
   }
-  // TraceLog(LOG_INFO, "3. Leave room %lu", client.client_id);
   for (auto c : client_ids) {
     if (c == client.client_id)
       continue;
@@ -855,7 +794,6 @@ bool Server::sendUpdateRoomState(Client &client) {
   try {
     json room_json = games.at(client.room_id).room;
     serverSetEvent(client, NetworkEvents::UpdateRoomState);
-    TraceLog(LOG_INFO, "Room json: %s", room_json.dump().c_str());
     bool status = write_json(client.fd_main, room_json);
     if (!status) {
       TraceLog(LOG_WARNING, "Couldn't send json of room to client_id=%ld,fd=%d",
@@ -951,7 +889,6 @@ void Server::handle_network_event(Client &client, uint32_t event) {
     disconnect_client(client);
     break;
   case NetworkEvents::CheckConnection: {
-    std::time(&client.last_response);
     break;
   }
   case NetworkEvents::EndRound:
@@ -967,47 +904,36 @@ void Server::handle_network_event(Client &client, uint32_t event) {
     invalid_network_event(client, event);
     break;
   case NetworkEvents::VoteReady:
-    std::time(&client.last_response);
     handleVoteReady(client);
     break;
   case NetworkEvents::PlayerMovement:
-    std::time(&client.last_response);
     handlePlayerMovement(client);
     break;
   case NetworkEvents::ShootBullets:
-    std::time(&client.last_response);
     handleShootBullet(client);
     break;
   case NetworkEvents::GetRoomList:
-    std::time(&client.last_response);
     handleGetRoomList(client);
     break;
   case NetworkEvents::JoinRoom:
-    std::time(&client.last_response);
     handleJoinRoom(client);
     break;
   case NetworkEvents::LeaveRoom:
-    std::time(&client.last_response);
     handleLeaveRoom(client, true);
     break;
   case NetworkEvents::UpdateGameState:
-    std::time(&client.last_response);
     handleUpdateGameState(client);
     break;
   case NetworkEvents::UpdateRoomState:
-    std::time(&client.last_response);
     handleUpdateRoomState(client);
     break;
   case NetworkEvents::UpdatePlayers:
-    std::time(&client.last_response);
     handleUpdatePlayers(client);
     break;
   case NetworkEvents::UpdateAsteroids:
-    std::time(&client.last_response);
     handleUpdateAsteroids(client);
     break;
   case NetworkEvents::UpdateBullets:
-    std::time(&client.last_response);
     handleUpdateBullets(client);
     break;
   case NetworkEvents::NewGameSoon:

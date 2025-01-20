@@ -67,30 +67,21 @@ ClientNetworkManager::~ClientNetworkManager() {
 }
 
 void ClientNetworkManager::flip_game_manager() {
-  // std::cout << " flip gm: ";
-  // std::cout << static_cast<int>(game_manager_draw_idx.load()) << " ";
   uint8_t expected = game_manager_draw_idx.load();
   while (!game_manager_draw_idx.compare_exchange_strong(expected, !expected)) {
   }
-  // std::cout << static_cast<int>(game_manager_draw_idx.load()) << std::endl;
 }
 
 void ClientNetworkManager::flip_rooms() {
-  // std::cout << " flip rooms: ";
-  // std::cout << static_cast<int>(rooms_draw_idx.load()) << " ";
   uint8_t expected = rooms_draw_idx.load();
   while (!rooms_draw_idx.compare_exchange_strong(expected, !expected)) {
   }
-  // std::cout << static_cast<int>(rooms_draw_idx.load()) << std::endl;
 }
 
 void ClientNetworkManager::flip_joined_room() {
-  // std::cout << " flip joined room: ";
-  // std::cout << static_cast<int>(joined_room_draw_idx.load()) << " ";
   uint8_t expected = joined_room_draw_idx.load();
   while (!joined_room_draw_idx.compare_exchange_strong(expected, !expected)) {
   }
-  // std::cout << static_cast<int>(joined_room_draw_idx.load()) << std::endl;
 }
 
 void ClientNetworkManager::perform_network_actions() {
@@ -198,7 +189,7 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
              network_event_to_string(event).c_str());
     break;
   case NetworkEvents::CheckConnection: {
-    TraceLog(LOG_INFO, "NET:sending  %s",
+    TraceLog(LOG_DEBUG, "NET:sending  %s",
              network_event_to_string(event).c_str());
     if (!write_uint32(mainfd, NetworkEvents::CheckConnection)) {
       TraceLog(LOG_WARNING, "NET: Cannot send %s",
@@ -230,8 +221,6 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
     joinedRoom().status = GameStatus::LOBBY;
     flip_joined_room();
     joinedRoom().status = GameStatus::LOBBY;
-    std::cout << json(joinedRoom()).dump() << std::endl;
-    std::cout << json(gameManager()).dump() << std::endl;
   } break;
   case NetworkEvents::StartRound:
     gameManager().NewGame(joinedRoom().players);
@@ -328,10 +317,6 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
       velocity = movement.at("velocity");
       rotation = movement.at("rotation");
       active = movement.at("active");
-      // std::cout << json(gameManager().players).dump() << std::endl;
-      // TraceLog(LOG_INFO, "NET: player_id=%lu, player_data=%s",
-      //          updated_player_id, movement.dump().c_str(),
-      //          network_event_to_string(event).c_str());
     } catch (json::exception &ex) {
       TraceLog(LOG_ERROR, "JSON: Couldn't serialize movement into json");
       return;
@@ -407,19 +392,16 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
         return;
       }
 
-      TraceLog(LOG_INFO, "GAME: Joined room_id=%lu, player_id=%lu",
+      TraceLog(LOG_DEBUG, "GAME: Joined room_id=%lu, player_id=%lu",
                joined_room_id, _player_id);
       uint32_t expected_player_id = -1;
       while (!this->player_id.compare_exchange_strong(expected_player_id,
                                                       _player_id)) {
       }
-      // expectEvent(mainfd, NetworkEvents::UpdateGameState);
-      // readGameState();
+
       joinedRoom().room_id = joined_room_id;
       flip_joined_room();
       joinedRoom().room_id = joined_room_id;
-      TraceLog(LOG_INFO, "1.GAME: Joined room_id=%lu, player_id=%lu",
-               joined_room_id, _player_id);
       return;
     } else {
       return;
@@ -483,8 +465,6 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
                "JSON: Couldn't deserialize json into vector<Player>");
     } catch (const std::out_of_range &ex) {
     }
-    std::cout << "update room state: " << json(joinedRoom()).dump()
-              << std::endl;
   } break;
   case NetworkEvents::UpdatePlayers: {
     read_update_players();

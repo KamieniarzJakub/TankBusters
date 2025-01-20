@@ -1,6 +1,7 @@
 #include "gameManager.hpp"
 #include "constants.hpp"
 #include "player.hpp"
+#include "raylib.h"
 #include <chrono>
 
 using namespace std::chrono;
@@ -162,7 +163,7 @@ bool GameManager::AddBullet(const Player &player) {
     return true;
   }
 
-  TraceLog(LOG_INFO, "Failed to shoot a bullet - player[%d]: no bullets left",
+  TraceLog(LOG_DEBUG, "Failed to shoot a bullet - player[%d]: no bullets left",
            player.player_id);
   return false;
 }
