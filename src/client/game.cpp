@@ -161,9 +161,10 @@ struct Game {
     auto &players = gameManager().players;
     auto &player = players.at(player_id.load());
     CheckMovementUpdatePlayer(player, frametime);
-    for (auto &p : gameManager().players) {
-      CalculateUpdatePlayerMovement(p, frametime);
-    }
+    CalculateUpdatePlayerMovement(player, frametime);
+    // for (auto &p : gameManager().players) {
+    //   CalculateUpdatePlayerMovement(p, frametime);
+    // }
 
     if (steady_clock::now() - last_position_time_sent > 0.1s) {
       last_position_time_sent = steady_clock::now();

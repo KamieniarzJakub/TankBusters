@@ -408,9 +408,12 @@ void Server::handlePlayerMovement(Client &client) {
     auto &gr = games.at(client.room_id);
     std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
     auto &player = gr.gameManager.players.at(client.player_id);
-    player.position = position;
-    player.rotation = rotation;
     player.velocity = velocity;
+    player.rotation = rotation;
+    player.position = (position + player.position) / 2;
+    CalculateUpdatePlayerMovement(
+        player, system_clock::now() -
+                    system_clock::time_point(seconds(received_timestamp)));
 
     for (auto c : gr.clients) {
       if (c == client.client_id)
