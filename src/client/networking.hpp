@@ -1,10 +1,7 @@
 #pragma once
-#include "asteroid.hpp"
-#include "bullet.hpp"
 #include "gameManager.hpp"
 #include "lockingQueue.hpp"
 #include "networkEvents.hpp"
-#include "player.hpp"
 #include "room.hpp"
 #include <atomic>
 #include <cstdint>
@@ -68,6 +65,7 @@ struct ClientNetworkManager {
   //  - false is some kind of error
   // - int:
   //  - value is propagated from C sockets API function
+  // Most of the functions modify object fields
   //
   // NOTE: If a function accepts non constant reference (&) to an object then it
   // is the return value and will be modified. In that case check the return
@@ -86,22 +84,12 @@ struct ClientNetworkManager {
   bool vote_ready();
   bool send_movement(Vector2 position, Vector2 velocity, float rotation);
   bool shoot_bullet();
-  bool readGameState();
+  bool read_game_state();
 
   // Room
   bool get_rooms();
   bool join_room(uint32_t join_room_id);
   bool leave_room();
-
-  // Fetching data from server
-  bool fetch_room_state();
-  bool fetch_room_state(Room &room);
-  bool fetch_room_state(uint32_t fetch_room_id, Room &room);
-  bool fetch_game_state(GameManager &gameManager);
-  bool fetch_players(std::vector<Player> &players);
-  bool fetch_asteroids(std::vector<uint32_t> &asteroid_ids,
-                       std::vector<Asteroid> &asteroids);
-  bool fetch_bullets(std::vector<Bullet> &bullets);
 
   bool handle_end_round();
   bool handle_connection_check();

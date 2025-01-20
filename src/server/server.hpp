@@ -55,6 +55,7 @@ struct Server {
   void handle_network_event(Client &client, uint32_t networkEvent);
   void disconnect_client(Client &client);
   bool serverSetEvent(Client &client, NetworkEvents event);
+  void invalid_network_event(Client &client, uint32_t event);
 
   // NetworkEvents handlers
   uint32_t handleGetClientId(int client_fd);
@@ -73,10 +74,7 @@ struct Server {
   void handlePlayerDestroyed(Client &c1, uint32_t player_id);
   void handleSpawnAsteroid(Client &client, Asteroid a, uint32_t id);
   void handleAsteroidDestroyed(Client &client, uint32_t asteroid_id);
-
   bool sendCheckConnection(Client &client);
   bool sendUpdateRoomState(Client &client);
-
   void sendNewGameSoon(Client &client, uint32_t when);
-  void invalid_network_event(Client &client, uint32_t event);
 };

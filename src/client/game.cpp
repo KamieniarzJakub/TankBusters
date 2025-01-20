@@ -75,7 +75,6 @@ struct Game {
         if (status) {
           networkManager.get_rooms();
         }
-        return status;
       });
     }
     try {
@@ -83,8 +82,7 @@ struct Game {
       if (my_player_state != PlayerInfo::READY && IsKeyPressed(KEY_SPACE)) {
         networkManager.todo.push([&]() {
           TraceLog(LOG_DEBUG, "NET: sending vote ready");
-          bool status = networkManager.vote_ready();
-          return status;
+          networkManager.vote_ready();
         });
       }
     } catch (const std::out_of_range &ex) {
@@ -97,8 +95,7 @@ struct Game {
       last_room_fetch = steady_clock::now();
       networkManager.todo.push([&]() {
         TraceLog(LOG_DEBUG, "NET: Fetch rooms");
-        bool status = networkManager.get_rooms();
-        return status;
+        networkManager.get_rooms();
       });
     }
     setSelectedRoom();
