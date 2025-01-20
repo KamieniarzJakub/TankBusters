@@ -200,6 +200,9 @@ struct Game {
           get_X_players(selected_room.players, PlayerInfo::NONE) > 0) {
         networkManager.todo.push([&]() {
           TraceLog(LOG_DEBUG, "NET: join room");
+          if (!networkManager.get_rooms()) {
+            return false;
+          }
           return networkManager.join_room(selected_room.room_id);
         });
       } else if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) {

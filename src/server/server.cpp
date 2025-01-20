@@ -481,6 +481,7 @@ void Server::handleShootBullet(Client &client) {
 }
 
 void Server::restart_timer(GameRoom &gr, std::vector<uint32_t> &last_clients) {
+  TraceLog(LOG_INFO, "restarting timer.");
   gr.gameManager.game_start_time =
       system_clock::now() + Constants::LOBBY_READY_TIME;
   last_clients = gr.clients;
@@ -506,11 +507,10 @@ void Server::new_game(const Room r) {
                                 Constants::PLAYERS_MAX);
 
   auto &gr = games.at(r.room_id);
-  // FIXME: mutex
   auto last_clients = gr.clients;
   restart_timer(gr, last_clients);
   do {
-    // std::this_thread::sleep_until(gr.gameManager.game_start_time - 0.1s);
+    std::this_thread::sleep_until(gr.gameManager.game_start_time - 0.1s);
     if (gr.clients.size() != last_clients.size()) {
       restart_timer(gr, last_clients);
       continue;
@@ -638,8 +638,6 @@ void Server::new_game(const Room r) {
         auto time = system_clock::to_time_t(gr.gameManager.game_start_time);
         for (auto c : gr.clients) {
           todos.at(c).push([=](Client c1) {
-            TraceLog(LOG_INFO, "END OF ROUND SENT TO %d", c1.client_id);
-            // handleUpdateGameState(c1);
             serverSetEvent(c1, NetworkEvents::EndRound);
             write_uint32(c1.fd_main, winner);
             write_uint32(c1.fd_main, time);
@@ -665,7 +663,6 @@ void Server::new_game(const Room r) {
       sendUpdateRoomState(c1);
     });
   }
-  TraceLog(LOG_INFO, "game Thread ended room");
   std::cout << json(gr.room).dump() << std::endl;
   bool thread_is_running = gr.thread_is_running.load();
   while (
@@ -674,7 +671,7 @@ void Server::new_game(const Room r) {
 }
 
 void Server::handleJoinRoom(Client &client) {
-  bool status;
+  bool status = false;
   uint32_t read_room_id;
   status = read_uint32(client.fd_main, read_room_id);
   if (!status) {
@@ -690,8 +687,7 @@ void Server::handleJoinRoom(Client &client) {
     {
       auto &gr = games.at(read_room_id);
       std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
-      status = gr.room.status == GameStatus::LOBBY;
-      if (status) {
+      if (gr.room.status == GameStatus::LOBBY) {
         auto player_id = get_next_available_player_id(gr);
         // std::cerr << player_id << std::endl;
         status = player_id != UINT32_MAX;
@@ -699,7 +695,7 @@ void Server::handleJoinRoom(Client &client) {
         if (status) {
           gr.room.players.at(player_id).state = PlayerInfo::NOT_READY;
           gr.clients.push_back(client.client_id);
-          gr.gameManager = GameManager{gr.room.room_id, gr.room.players};
+          // gr.gameManager = GameManager{gr.room.room_id, gr.room.players};
         }
         TraceLog(LOG_DEBUG, "Client player id=%lu", client.player_id);
       }
@@ -710,7 +706,9 @@ void Server::handleJoinRoom(Client &client) {
   }
 
   TraceLog(LOG_DEBUG, "Sending JoinRoom to id=%lu", client.player_id);
-  serverSetEvent(client, NetworkEvents::JoinRoom);
+  if (!serverSetEvent(client, NetworkEvents::JoinRoom)) {
+    return;
+  }
 
   TraceLog(LOG_DEBUG, "Sending read room join to id=%lu", client.player_id);
   status = write_uint32(client.fd_main, (uint32_t)status * read_room_id);
@@ -728,6 +726,8 @@ void Server::handleJoinRoom(Client &client) {
     disconnect_client(client);
   }
 
+  handleUpdateGameState(client);
+
   try {
     auto &gr = games.at(client.room_id);
     std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
@@ -742,18 +742,15 @@ void Server::handleJoinRoom(Client &client) {
 }
 
 void Server::handleLeaveRoom(Client &client, bool checks_stuff) {
-  bool _ = false;
   std::vector<uint32_t> client_ids;
   try {
     auto &gr = games.at(client.room_id);
     std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
-    auto i = gr.clients.begin();
-    for (; i != gr.clients.end(); i++) {
+    for (auto i = gr.clients.begin(); i != gr.clients.end(); i++) {
       if (*i == client.client_id) {
         client_ids = gr.clients;
         // Found, remove client from GameRoom
         gr.clients.erase(i);
-        _ = true;
         try {
           gr.room.players.at(client.player_id).state = PlayerInfo::NONE;
           gr.gameManager.players.at(client.player_id).active = false;
@@ -767,7 +764,6 @@ void Server::handleLeaveRoom(Client &client, bool checks_stuff) {
     }
   } catch (const std::out_of_range &ex) {
     // Room ID doesn't exist
-    _ = false;
     TraceLog(LOG_WARNING,
              "Couldn't make client leave a nonexistent room %lu for "
              "client_id=%ld,fd=%d",

@@ -401,21 +401,25 @@ void ClientNetworkManager::handle_network_event(uint32_t event) {
     uint32_t _player_id;
 
     if (joined_room_id > 0) {
-      joinedRoom().room_id = joined_room_id;
       status = read_uint32(mainfd, _player_id);
       if (!status) {
         TraceLog(LOG_ERROR, "NET: Couldn't read player id");
         return;
       }
 
-      TraceLog(LOG_DEBUG, "GAME: Joined room_id=%lu, player_id=%lu",
+      TraceLog(LOG_INFO, "GAME: Joined room_id=%lu, player_id=%lu",
                joined_room_id, _player_id);
       uint32_t expected_player_id = -1;
       while (!this->player_id.compare_exchange_strong(expected_player_id,
                                                       _player_id)) {
       }
+      expectEvent(mainfd, NetworkEvents::UpdateGameState);
+      readGameState();
+      joinedRoom().room_id = joined_room_id;
       flip_joined_room();
       joinedRoom().room_id = joined_room_id;
+      TraceLog(LOG_INFO, "1.GAME: Joined room_id=%lu, player_id=%lu",
+               joined_room_id, _player_id);
       return;
     } else {
       return;
