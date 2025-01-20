@@ -410,10 +410,12 @@ void Server::handlePlayerMovement(Client &client) {
     auto &player = gr.gameManager.players.at(client.player_id);
     player.velocity = velocity;
     player.rotation = rotation;
-    player.position = (position + player.position) / 2;
+    player.position = position;
+    // player.position = (position + player.position) / 2;
+    TraceLog(LOG_INFO, "%d", milliseconds(received_timestamp));
     CalculateUpdatePlayerMovement(
         player, system_clock::now() -
-                    system_clock::time_point(seconds(received_timestamp)));
+                    system_clock::time_point(milliseconds(received_timestamp)));
 
     for (auto c : gr.clients) {
       if (c == client.client_id)
