@@ -14,7 +14,7 @@ struct Bullet {
 
 Bullet CreateBullet(Vector2 position, float rotation);
 
-void UpdateBullet(Bullet *bullet, duration<double> frametime);
+void UpdateBullet(Bullet &bullet, duration<double> frametime);
 
 void to_json(json &j, const Bullet &b);
 void from_json(const json &j, Bullet &b);

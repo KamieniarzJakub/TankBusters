@@ -47,10 +47,7 @@ struct GameManager {
   bool AddBullet(const Player &player);
   void UpdateBullets(duration<double> frametime);
 
-  void UpdatePlayersLobby();
-
   size_t GetReadyPlayers(const std::vector<PlayerIdState> &player_infos) const;
-  // bool UpdateLobbyStatus(const std::vector<PlayerShortInfo> &player_infos);
 };
 
 bool ReturnToRooms();

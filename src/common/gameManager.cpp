@@ -29,13 +29,13 @@ void GameManager::NewGame(std::vector<PlayerIdState> playerInfos) {
 void GameManager::UpdateBullets(duration<double> frametime) {
   for (int i = 0; i < Constants::PLAYERS_MAX * Constants::BULLETS_PER_PLAYER;
        i++) {
-    UpdateBullet(&bullets[i], frametime);
+    UpdateBullet(bullets[i], frametime);
   }
 }
 
 void GameManager::UpdateAsteroids(duration<double> frametime) {
   for (int i = 0; i < Constants::ASTEROIDS_MAX; i++) {
-    UpdateAsteroid(&asteroids[i], frametime);
+    UpdateAsteroid(asteroids[i], frametime);
   }
 }
 
@@ -54,7 +54,6 @@ void GameManager::ManageCollisions(std::vector<uint32_t> &destroyed_asteroids,
                                    std::vector<uint32_t> &spawned_asteroids,
                                    std::vector<uint32_t> &destroyed_players,
                                    std::vector<uint32_t> &destroyed_bullets) {
-  // void GameManager::ManageCollisions() {
   for (int i = 0; i < Constants::ASTEROIDS_MAX; i++) {
     if (!asteroids[i].active)
       continue;
@@ -110,7 +109,6 @@ void GameManager::ManageCollisions(std::vector<uint32_t> &destroyed_asteroids,
       }
     }
   }
-  // TraceLog(LOG_DEBUG, "Alive players: %d", _alive_players);
 }
 
 uint32_t GameManager::AddAsteroid() {
@@ -166,15 +164,6 @@ bool GameManager::AddBullet(const Player &player) {
   TraceLog(LOG_DEBUG, "Failed to shoot a bullet - player[%d]: no bullets left",
            player.player_id);
   return false;
-}
-
-void GameManager::UpdatePlayersLobby() {
-  for (int i = 0; i < Constants::PLAYERS_MAX; i++) {
-    if (IsKeyPressed(KEY_SPACE)) {
-      players[i].active = true;
-    }
-  }
-  // TraceLog(LOG_DEBUG, "PLAYERS READY FOR NEW ROUND: %d", ready_players);
 }
 
 size_t GameManager::GetReadyPlayers(

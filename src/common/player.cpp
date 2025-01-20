@@ -4,6 +4,7 @@
 #include "vec2json.hpp"
 
 Player AddPlayer(int i) {
+  assert(i >= 0 && i <= Constants::PLAYERS_MAX);
   Player player;
   player.active = false;
   player.position = GetPlayerSpawnPosition(i);
@@ -55,6 +56,7 @@ void CheckMovementUpdatePlayer(Player &player, duration<double> frametime) {
 bool Shoot() { return IsKeyPressed(KEY_SPACE); }
 
 Vector2 GetPlayerSpawnPosition(int i) {
+  assert(i >= 0 && i <= Constants::PLAYERS_MAX);
   return Constants::PLAYER_SPAWN_POSITIONS[i];
 }
 

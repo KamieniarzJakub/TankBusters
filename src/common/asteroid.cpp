@@ -20,18 +20,18 @@ Asteroid CreateAsteroid(Vector2 position, Vector2 velocity, int size) {
   return asteroid;
 }
 
-void UpdateAsteroid(Asteroid *asteroid, duration<double> frametime) {
-  if (!asteroid->active)
+void UpdateAsteroid(Asteroid &asteroid, duration<double> frametime) {
+  if (!asteroid.active)
     return;
 
-  if (SpaceJunkCollector(asteroid->position)) {
-    asteroid->active = false;
+  if (SpaceJunkCollector(asteroid.position)) {
+    asteroid.active = false;
     return;
   }
 
-  asteroid->position = Vector2Add(
-      asteroid->position, Vector2Scale(asteroid->velocity, frametime.count()));
-  asteroid->rotation += asteroid->rotation_speed * frametime.count();
+  asteroid.position = Vector2Add(
+      asteroid.position, Vector2Scale(asteroid.velocity, frametime.count()));
+  asteroid.rotation += asteroid.rotation_speed * frametime.count();
 }
 
 Vector2 GetRandomPosition() {
