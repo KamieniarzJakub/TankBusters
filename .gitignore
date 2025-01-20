@@ -43,3 +43,7 @@ cmake-build-debug/
 bin/
 out/
 CMakeSettings.json
+
+# Other
+resources/other_servers/
+server.json

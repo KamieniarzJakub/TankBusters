@@ -63,7 +63,7 @@ Server::Server(in_port_t main_port) {
         std::lock_guard<std::mutex> grl(gr.gameRoomMutex);
         gr.room =
             Room{game_id, std::vector<PlayerIdState>(Constants::PLAYERS_MAX),
-                 GameStatus::LOBBY};
+                 GameStatus::LOBBY, Constants::COOL_ROOM_NAMES[i]};
         for (uint32_t j = 0; j < Constants::PLAYERS_MAX; j++) {
           gr.room.players.at(j).player_id = j;
         }
@@ -509,19 +509,19 @@ void Server::new_game(const Room r) {
   auto &gr = games.at(r.room_id);
   auto last_clients = gr.clients;
   restart_timer(gr, last_clients);
-  do {
-    std::this_thread::sleep_until(gr.gameManager.game_start_time - 0.1s);
-    if (gr.clients.size() != last_clients.size()) {
-      restart_timer(gr, last_clients);
-      continue;
-    }
-    for (size_t i = 0; i < last_clients.size(); i++) {
-      if (last_clients.at(i) != gr.clients.at(i)) {
-        restart_timer(gr, last_clients);
-        break;
-      }
-    }
-  } while ((gr.gameManager.game_start_time - system_clock::now()) > 100ms);
+  std::this_thread::sleep_until(gr.gameManager.game_start_time - 0.1s);
+  // do {
+  //   if (gr.clients.size() != last_clients.size()) {
+  //     restart_timer(gr, last_clients);
+  //     continue;
+  //   }
+  //   for (size_t i = 0; i < last_clients.size(); i++) {
+  //     if (last_clients.at(i) != gr.clients.at(i)) {
+  //       restart_timer(gr, last_clients);
+  //       break;
+  //     }
+  //   }
+  // } while ((gr.gameManager.game_start_time - system_clock::now()) > 100ms);
   gr.room.status = GameStatus::GAME;
   gr.gameManager.NewGame(gr.room.players);
   for (auto c : gr.clients) {
@@ -551,8 +551,8 @@ void Server::new_game(const Room r) {
 
       // std::cout<<"r.room_id: "<<r.room_id<<std::endl;
       // std::cout<<"GAMES AT: "<<games.at(r.room_id).room.room_id<<std::endl;
-      // game.ManageCollisions(destroyed_asteroids, spawned_asteroids,
-      //                       destroyed_players_ids, destroyed_bullets_ids);
+      game.ManageCollisions(destroyed_asteroids, spawned_asteroids,
+                            destroyed_players_ids, destroyed_bullets_ids);
 
       for (auto &player : game.players) {
 
@@ -729,18 +729,21 @@ void Server::handleJoinRoom(Client &client) {
   try {
     auto &gr = games.at(client.room_id);
     std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
-    if (gr.thread_is_running.load()) {
-      auto asteroids = gr.gameManager.asteroids;
-      for (size_t asteroid_id = 0; asteroid_id < asteroids.size();
-           asteroid_id++) {
-        if (asteroids.at(asteroid_id).active)
-          handleSpawnAsteroid(client, asteroids.at(asteroid_id), asteroid_id);
-      }
-      handleUpdateBullets(client);
-    }
     for (auto c : gr.clients) {
+      // if (c != client.client_id)
       todos.at(c).push([&](Client c1) { sendUpdateRoomState(c1); });
     }
+    // sendUpdateRoomState(client);
+    // if (gr.thread_is_running.load()) {
+    // auto asteroids = gr.gameManager.asteroids;
+    // for (size_t asteroid_id = 0; asteroid_id < asteroids.size();
+    //      asteroid_id++) {
+    //   if (asteroids.at(asteroid_id).active)
+    //     handleSpawnAsteroid(client, asteroids.at(asteroid_id),
+    //     asteroid_id);
+    // }
+    // handleUpdateBullets(client);
+    // }
   } catch (const std::out_of_range &ex) {
   }
 }

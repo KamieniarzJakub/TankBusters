@@ -66,7 +66,7 @@ void GraphicsManager::DrawTimer(const char *message,
       MeasureTextEx(font, text, Constants::TEXT_SIZE, Constants::TEXT_SPACING);
   DrawTextPro(font, text,
               Vector2{(float)Constants::screenWidth / 2,
-                      Constants::screenHeight - 3 * Constants::TEXT_OFFSET},
+                      Constants::screenHeight - 5 * Constants::TEXT_OFFSET},
               Vector2{origin.x / 2, origin.y}, 0, Constants::TEXT_SIZE,
               Constants::TEXT_SPACING, RAYWHITE);
 }
@@ -97,11 +97,10 @@ void GraphicsManager::DrawTimer(const char *message,
 // }
 
 void GraphicsManager::DrawTitle(const Room &r) {
-  const char *text = TextFormat(
-      "%s[%d/%d]",
-      Constants::COOL_ROOM_NAMES[r.room_id - 1].c_str(), // FIXME: selected id
-      r.players.size() - get_X_players(r.players, PlayerInfo::NONE),
-      Constants::PLAYERS_MAX);
+  const char *text =
+      TextFormat("%s[%d/%d]", r.name.c_str(),
+                 r.players.size() - get_X_players(r.players, PlayerInfo::NONE),
+                 Constants::PLAYERS_MAX);
   Vector2 origin = MeasureTextEx(font, text, Constants::TEXT_WIN_SIZE,
                                  Constants::TEXT_SPACING);
   DrawTextPro(font, text,
@@ -274,7 +273,7 @@ void GraphicsManager::DrawRooms(const std::vector<Room> &rooms,
     }
     float margin = i * 2 * Constants::TEXT_OFFSET;
     const char *text = TextFormat(
-        "%c %s[%d/%d] - %s", active, Constants::COOL_ROOM_NAMES[i].c_str(),
+        "%c %s[%d/%d] - %s", active, rooms.at(i).name.c_str(),
         room.players.size() - get_X_players(room.players, PlayerInfo::NONE),
         Constants::PLAYERS_MAX, room_status.c_str());
     Vector2 origin =

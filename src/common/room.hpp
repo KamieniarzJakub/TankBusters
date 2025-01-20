@@ -15,6 +15,7 @@ struct Room {
   uint32_t room_id = 0;
   std::vector<PlayerIdState> players;
   GameStatus status = GameStatus::LOBBY;
+  std::string name;
 };
 
 // Room &at_room_id(std::vector<Room> &rooms, uint32_t room_id);
