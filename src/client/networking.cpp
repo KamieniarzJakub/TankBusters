@@ -49,7 +49,6 @@ ClientNetworkManager::ClientNetworkManager(
   if (!get_new_client_id(client_id)) {
     TraceLog(LOG_ERROR, "GAME: Could not get a new client id");
   }
-  // set_socket_timeout(5);
   main_thread =
       std::thread(&ClientNetworkManager::perform_network_actions, this);
 }
@@ -572,22 +571,6 @@ int ClientNetworkManager::disconnect() {
   }
 
   return status;
-}
-
-// Sets a response timeout in seconds
-// WARN: any read or write from socket may now return before sending full data
-int ClientNetworkManager::set_socket_timeout(time_t seconds) {
-  struct timeval tv;
-  tv.tv_sec = seconds;
-  tv.tv_usec = 0;
-  int status;
-  status =
-      setsockopt(mainfd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv);
-  if (status != 0) {
-    return status;
-  }
-  return setsockopt(mainfd, SOL_SOCKET, SO_SNDTIMEO, (const char *)&tv,
-                    sizeof tv);
 }
 
 // Connect to a TankBusters server by specified host and port

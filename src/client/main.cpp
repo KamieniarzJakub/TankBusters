@@ -5,12 +5,9 @@
 #include <raylib.h>
 #include <thread>
 
-int main() {
-  SetConfigFlags(FLAG_VSYNC_HINT | FLAG_WINDOW_HIGHDPI);
-  InitWindow(Constants::screenWidth, Constants::screenHeight,
-             Constants::windowTitle.c_str());
-
-  std::ifstream config("resources/server.json");
+void read_config_file(const std::string path_relative, std::string &host,
+                      std::string &port) {
+  std::ifstream config(path_relative);
   if (!config.is_open()) {
     TraceLog(LOG_ERROR, "CONFIG: Couldn't open server.json file");
     exit(1);
@@ -19,7 +16,6 @@ int main() {
   json config_json = json::parse(config);
   config.close();
 
-  std::string host, port;
   try {
     host = config_json.at("host");
     port = config_json.at("port");
@@ -29,7 +25,15 @@ int main() {
              ex.what());
     exit(1);
   }
+}
 
+int main() {
+  SetConfigFlags(FLAG_VSYNC_HINT | FLAG_WINDOW_HIGHDPI);
+  InitWindow(Constants::screenWidth, Constants::screenHeight,
+             Constants::windowTitle.c_str());
+
+  std::string host, port;
+  read_config_file("resources/server.json", host, port);
   Game game = Game(host.c_str(), port.c_str());
 
   // Main game loop

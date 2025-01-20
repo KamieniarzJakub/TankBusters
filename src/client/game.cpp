@@ -117,6 +117,10 @@ struct Game {
       UpdateGame();
     }
 
+    DrawFrame();
+  }
+
+  void DrawFrame() {
     BeginDrawing();
 
     ClearBackground(Constants::BACKGROUND_COLOR);
@@ -168,18 +172,13 @@ struct Game {
     if (steady_clock::now() - last_position_time_sent > 0.1s) {
       last_position_time_sent = steady_clock::now();
       networkManager.todo.push([&]() {
-        TraceLog(LOG_DEBUG, "NET: sending movement");
-        bool status = networkManager.send_movement(
-            player.position, player.velocity, player.rotation);
-        return status;
+        networkManager.send_movement(player.position, player.velocity,
+                                     player.rotation);
       });
     }
 
     if (Shoot() && gameManager().players.at(player_id.load()).active) {
-      networkManager.todo.push([&]() {
-        TraceLog(LOG_DEBUG, "NET: sending shooting");
-        return networkManager.shoot_bullet();
-      });
+      networkManager.todo.push([&]() { networkManager.shoot_bullet(); });
     }
 
     gameManager().UpdateBullets(frametime);
@@ -201,9 +200,9 @@ struct Game {
         networkManager.todo.push([&]() {
           TraceLog(LOG_DEBUG, "NET: join room");
           if (!networkManager.get_rooms()) {
-            return false;
+            return;
           }
-          return networkManager.join_room(selected_room.room_id);
+          networkManager.join_room(selected_room.room_id);
         });
       } else if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_W)) {
         selected_room_index--;

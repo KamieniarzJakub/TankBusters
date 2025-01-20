@@ -48,7 +48,7 @@ struct ClientNetworkManager {
   std::atomic_uint32_t &player_id;
   std::atomic_bool _stop = false;
   std::thread main_thread;
-  LockingQueue<std::function<bool(void)>> todo;
+  LockingQueue<std::function<void(void)>> todo;
   const char *connected_to_host;
   const char *connected_over_port;
 
@@ -80,8 +80,6 @@ struct ClientNetworkManager {
   // Connection
   int connect_to(const char *host, const char *port);
   int disconnect();
-  int set_socket_timeout(time_t seconds);
-  bool reconnect(const char *host, const char *port, uint32_t client_id);
 
   // Player
   bool get_new_client_id(uint32_t &new_client_id);
