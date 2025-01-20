@@ -32,11 +32,11 @@ struct Server {
 
   std::atomic_bool _stop = false;
 
-  std::mutex games_mutex; // FIXME: use me
+  std::mutex games_mutex;
   std::map<uint32_t, GameRoom> games;
   std::atomic_uint32_t _next_game_id = 1;
 
-  std::mutex clients_mutex; // FIXME: use me
+  std::mutex clients_mutex;
   std::map<uint32_t, Client> clients;
   std::atomic_uint32_t _next_client_id = 1;
 

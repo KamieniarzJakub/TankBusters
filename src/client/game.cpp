@@ -82,7 +82,7 @@ struct Game {
       if (my_player_state != PlayerInfo::READY && IsKeyPressed(KEY_SPACE)) {
         networkManager.todo.push([&]() {
           TraceLog(LOG_DEBUG, "NET: sending vote ready");
-          networkManager.vote_ready();
+          networkManager.send_vote_ready();
         });
       }
     } catch (const std::out_of_range &ex) {
@@ -175,7 +175,7 @@ struct Game {
     }
 
     if (Shoot() && gameManager().players.at(player_id.load()).active) {
-      networkManager.todo.push([&]() { networkManager.shoot_bullet(); });
+      networkManager.todo.push([&]() { networkManager.send_shoot_bullet(); });
     }
 
     gameManager().UpdateBullets(frametime);
