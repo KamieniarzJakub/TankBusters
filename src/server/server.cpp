@@ -549,8 +549,10 @@ void Server::new_game(const Room r) {
       destroyed_players_ids.clear();
       destroyed_bullets_ids.clear();
 
-      game.ManageCollisions(destroyed_asteroids, spawned_asteroids,
-                            destroyed_players_ids, destroyed_bullets_ids);
+      //std::cout<<"r.room_id: "<<r.room_id<<std::endl;
+      //std::cout<<"GAMES AT: "<<games.at(r.room_id).room.room_id<<std::endl;
+      //game.ManageCollisions(destroyed_asteroids, spawned_asteroids,
+      //                      destroyed_players_ids, destroyed_bullets_ids);
 
       for (auto &player : game.players) {
 
@@ -680,14 +682,14 @@ void Server::handleJoinRoom(Client &client) {
              client.client_id, client.fd_main);
     disconnect_client(client);
   }
-  TraceLog(LOG_DEBUG, "Received room id=%lu to join from client_id=%lu,fd=%d",
+  TraceLog(LOG_INFO, "Received room id=%lu to join from client_id=%lu,fd=%d",
            read_room_id, client.client_id, client.fd_main);
 
   try {
     {
       auto &gr = games.at(read_room_id);
       std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
-      if (gr.room.status == GameStatus::LOBBY) {
+      if (true) { //FIXME: gr.room.status == GameStatus::LOBBY
         auto player_id = get_next_available_player_id(gr);
         // std::cerr << player_id << std::endl;
         status = player_id != UINT32_MAX;
@@ -697,7 +699,7 @@ void Server::handleJoinRoom(Client &client) {
           gr.clients.push_back(client.client_id);
           // gr.gameManager = GameManager{gr.room.room_id, gr.room.players};
         }
-        TraceLog(LOG_DEBUG, "Client player id=%lu", client.player_id);
+        TraceLog(LOG_INFO, "Client player id=%lu", client.player_id);
       }
     }
     client.room_id = read_room_id;
@@ -705,12 +707,12 @@ void Server::handleJoinRoom(Client &client) {
     status = false;
   }
 
-  TraceLog(LOG_DEBUG, "Sending JoinRoom to id=%lu", client.player_id);
+  TraceLog(LOG_INFO, "Sending JoinRoom to id=%lu", client.player_id);
   if (!serverSetEvent(client, NetworkEvents::JoinRoom)) {
     return;
   }
 
-  TraceLog(LOG_DEBUG, "Sending read room join to id=%lu", client.player_id);
+  TraceLog(LOG_INFO, "Sending read room join to id=%lu", client.player_id);
   status = write_uint32(client.fd_main, (uint32_t)status * read_room_id);
   if (!status) {
     TraceLog(LOG_WARNING, "Couldn't send joined room id to client_id=%ld,fd=%d",
@@ -718,26 +720,27 @@ void Server::handleJoinRoom(Client &client) {
     disconnect_client(client);
   }
 
-  TraceLog(LOG_DEBUG, "Sending playerid to id=%lu", client.player_id);
+  TraceLog(LOG_INFO, "Sending playerid to id=%lu", client.player_id);
   status = write_uint32(client.fd_main, client.player_id);
   if (!status) {
     TraceLog(LOG_WARNING, "Couldn't send player id to client_id=%ld,fd=%d",
              client.client_id, client.fd_main);
     disconnect_client(client);
   }
-
+  TraceLog(LOG_INFO, "HandleUpdateGameState started");
   handleUpdateGameState(client);
-
+  TraceLog(LOG_INFO, "HandleUpdateGameState ended");
   try {
     auto &gr = games.at(client.room_id);
     std::lock_guard<std::mutex> lg(gr.gameRoomMutex);
     for (auto c : gr.clients) {
       todos.at(c).push([&](Client c1) {
-        TraceLog(LOG_DEBUG, "updating rooms for %lu", c1.client_id);
+        TraceLog(LOG_INFO, "updating rooms for %lu", c1.client_id);
         sendUpdateRoomState(c1);
       });
     }
-  } catch (const std::out_of_range &ex) {
+  } catch(int e) { //FIXME: catch(const std::out_of_range &ex)
+    TraceLog(LOG_WARNING, "Catched");
   }
 }
 
@@ -847,8 +850,9 @@ void Server::handleUpdateRoomState(Client &client) {
 bool Server::sendUpdateRoomState(Client &client) {
   try {
     json room_json = games.at(client.room_id).room;
+    std::cout<<"ROOM json: " << games.at(client.client_id).room.room_id<<std::endl;
     serverSetEvent(client, NetworkEvents::UpdateRoomState);
-    TraceLog(LOG_DEBUG, room_json.dump().c_str());
+    TraceLog(LOG_INFO, "Room json: %s", room_json.dump().c_str());
     bool status = write_json(client.fd_main, room_json);
     if (!status) {
       TraceLog(LOG_WARNING, "Couldn't send json of room to client_id=%ld,fd=%d",
