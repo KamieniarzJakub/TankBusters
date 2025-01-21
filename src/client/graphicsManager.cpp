@@ -11,16 +11,12 @@ GraphicsManager::GraphicsManager() {
   // it as the current working directory so we can load from it
   SearchAndSetResourceDir("resources");
 
-  // Load a texture from the resources directory
-  player_texture = LoadTexture("Player.png");
-
   font = LoadFontEx(Constants::ROBOTO_REGULAR.c_str(), Constants::TEXT_SIZE,
                     nullptr, 0);
   SetTextureFilter(font.texture, TEXTURE_FILTER_ANISOTROPIC_16X);
 }
 
 GraphicsManager::~GraphicsManager() {
-  UnloadTexture(player_texture);
   UnloadFont(font);
 }
 
