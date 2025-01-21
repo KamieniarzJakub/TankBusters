@@ -32,7 +32,7 @@ private:
   std::atomic_uint8_t &joined_room_draw_idx;
 
   std::atomic_uint32_t &player_id;
-  std::atomic_bool _stop = false;
+  std::atomic_bool _stop = {false};
   std::thread main_thread;
   const char *connected_to_host;
   const char *connected_over_port;
