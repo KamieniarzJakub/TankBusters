@@ -42,7 +42,7 @@ int main() {
     game.updateDrawFrame();
   }
 
-  std::this_thread::sleep_for(1s);
+  // std::this_thread::sleep_for(1s);
   // destroy the window and cleanup the OpenGL context
   CloseWindow();
   return 0;

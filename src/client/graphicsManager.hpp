@@ -9,7 +9,6 @@
 #include "room.hpp"
 
 struct GraphicsManager {
-  Texture player_texture;
   Font font;
 
   GraphicsManager();
