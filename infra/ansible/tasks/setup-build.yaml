@@ -1,0 +1,29 @@
+- name: Update apt and install build requirements
+  become: true
+  apt:
+    pkg:
+      - libx11-dev
+      - libxrandr-dev
+      - libxinerama-dev
+      - libxcursor-dev
+      - libxi-dev
+      - libgl-dev
+      - cmake
+      - g++
+      - make
+      - git
+      - curl
+    state: latest
+    update_cache: true
+- name: Clone a github repository
+  ansible.builtin.git:
+    repo: "https://github.com/KamieniarzJakub/TankBusters.git"
+    dest: "{{ app_path }}"
+    clone: true
+    update: true
+    version: master
+- name: Build with cmake # (uses cache, ignore lint)
+  ansible.builtin.shell: |
+    cd "{{ app_path }}"
+    cmake -B build
+    cmake --build build --target TankBustersServer -j

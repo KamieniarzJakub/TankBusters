@@ -1,0 +1,6 @@
+servers:
+  hosts:
+    my-favourite-host:
+      ansible_user: "CHANGE_ME_USER"
+      ansible_host: "CHANGE_ME_HOST"
+      ansible_ssh_private_key_file: "~/.ssh/CHANGE_ME_SSH_KEY_PATH.pem"

@@ -1,0 +1,11 @@
+[Unit]
+Description=Tank busters server
+OnFailure=failure-notification@{{ service_name }}.service
+
+[Service]
+ExecStart={{ app_path }}build/TankBustersServer 1234
+Restart=always
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,9 @@
+[Unit]
+Description=Send a notification about a failed systemd unit
+
+[Service]
+Type=oneshot
+ExecStart={{ app_path }}notify.sh
+# runs as a temporary user/group and enables several other security precautions
+# DynamicUser=true
+
