@@ -4,7 +4,7 @@ variable "machine_type" {
 }
 
 variable "machine_image" {
-  default = "debian-cloud/deiban-12"
+  default = "debian-cloud/debian-12"
   type    = string
 }
 
@@ -20,14 +20,14 @@ resource "google_compute_instance" "default" {
   }
 
   network_interface {
-    network = google_compute_network.vpc.id
+    network    = google_compute_network.vpc.id
+    subnetwork = google_compute_subnetwork.subnetwork.id
     access_config {
-      nat_ip = google_compute_address.addr.address
     }
   }
 }
 
 output "instance_public_ip" {
   description = "Public IP of compute instance"
-  value       = google_compute_address.addr.address
+  value       = google_compute_instance.default.network_interface[0].access_config[0].nat_ip
 }

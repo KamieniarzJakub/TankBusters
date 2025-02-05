@@ -6,6 +6,13 @@ resource "google_compute_network" "vpc" {
   depends_on                      = [google_project_service.api]
 }
 
+resource "google_compute_subnetwork" "subnetwork" {
+  name          = "${local.res_prefix}subnetwork"
+  ip_cidr_range = "192.168.24.0/24"
+  region        = local.region
+  network       = google_compute_network.vpc.id
+}
+
 resource "google_compute_route" "default_route" {
   name             = "${local.res_prefix}default-route"
   dest_range       = "0.0.0.0/0"
