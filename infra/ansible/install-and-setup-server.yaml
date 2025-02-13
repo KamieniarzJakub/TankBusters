@@ -1,23 +1,10 @@
 - name: Setup server from scratch
   hosts: servers
   vars:
-    app_path: /home/ubuntu/tankbusters/
+    app_path: /home/{{ ansible_user }}/tankbusters/
     service_name: tankbusters
   vars_files:
     - vars.yaml
   tasks:
     - import_tasks: ./tasks/setup-build.yaml
-    - name: Template TankBustersServer service
-      become: true
-      ansible.builtin.template:
-        src: ./templates/tankbusters.service.j2
-        dest: "/etc/systemd/system/{{ service_name }}.service"
-        owner: root
-        group: sudo
-        mode: "0644"
-    - import_tasks: ./tasks/setup-notify-failed.yaml
-    - name: Enable and start services
-      become: true
-      ansible.builtin.shell: |
-        systemctl enable {{ service_name }}
-        systemctl start {{ service_name }}
+    - import_tasks: ./tasks/configure-services.yaml

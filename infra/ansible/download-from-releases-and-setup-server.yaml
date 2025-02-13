@@ -1,0 +1,25 @@
+- name: Setup server from scratch
+  hosts: servers
+  vars:
+    app_path: /home/{{ ansible_user }}/tankbusters/
+    service_name: tankbusters
+    github_user: KamieniarzJakub
+    github_repo: TankBusters
+  vars_files:
+    - vars.yaml
+  tasks:
+    - name: Get latest release from the repository
+      community.general.github_release:
+        user: "{{ github_user }}"
+        repo: "{{ github_repo }}"
+        action: latest_release
+      register: tankbusters_latest
+    - name: Make app directories
+      ansible.builtin.file:
+        path: "{{ app_path }}/build"
+        state: directory
+    - name: Download binary from Github
+      get_url:
+        url: "https://github.com/{{ github_user }}/{{ github_repo }}/releases/download/"
+        dest: "{{ app_path }}/build"
+    - import_tasks: ./tasks/configure-services.yaml

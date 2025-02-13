@@ -1,6 +1,6 @@
 - name: Update apt and install build requirements
   become: true
-  apt:
+  ansible.builtin.apt:
     pkg:
       - libx11-dev
       - libxrandr-dev
@@ -24,6 +24,7 @@
     version: master
 - name: Build with cmake # (uses cache, ignore lint)
   ansible.builtin.shell: |
-    cd "{{ app_path }}"
     cmake -B build
     cmake --build build --target TankBustersServer -j
+  args:
+    chdir: "{{ app_path }}"
